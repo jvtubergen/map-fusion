@@ -13,6 +13,9 @@ from fileinput import input
 from operator import itemgetter
 import random
 
+# Library code
+from coverage import *
+
 
 # Construct graph from data in specified folder. 
 # Expect folder to have to files edges.txt and vertices.txt. 
@@ -170,4 +173,23 @@ def render_paths(pss):
 # Example (rendering multiple paths)
 # G = extract_graph("chicago")
 # render_paths([gen_random_shortest_path(G), gen_random_shortest_path(G)])
+
+
+# Example (pick random shortest paths until coverage, then render)
+# G = extract_graph("chicago")
+# found = False
+# attempt = 0
+# while True:
+#     while not found:
+#         ps = gen_random_shortest_path(G)
+#         qs = gen_random_shortest_path(G)
+#         # found = curve_by_curve_coverage(ps,qs, lam=0.01)
+#         found = curve_by_curve_coverage(ps,qs, lam=0.003)
+#         attempt += 1
+#         if random.random() < 0.01:
+#             print(attempt)
+
+#     # Render
+#     render_paths([ps, qs])
+#     found = False
 
