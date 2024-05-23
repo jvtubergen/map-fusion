@@ -1,1 +1,7 @@
 external
+data
+cache
+.ipynb_checkpoints
+dist
+graphs
+__pycache__
