@@ -28,14 +28,17 @@ def construct_graph(folder):
     # Construct NetworkX graph
     G = nx.Graph()
 
+    # Track node dictionary to simplify node extraction when computing edge lengths.
+    nodedict = {}
     for node in vertices_df.iterrows():
         i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
         G.add_node(int(i), x=x*.00001, y=y*.00001)
+        nodedict[i] = np.asarray([x, y], dtype=np.float64, order='c')
 
     for edge in edges_df.iterrows():
         u, v = itemgetter('u', 'v')(edge[1]) 
         # todo: Compute edge lengts (inter-node distance)
-        G.add_edge(int(u), int(v))
+        G.add_edge(int(u), int(v), length = np.linalg.norm(nodedict[u] - nodedict[v]))
 
     G = nx.MultiDiGraph(G)
     G = ox.simplify_graph(G)
