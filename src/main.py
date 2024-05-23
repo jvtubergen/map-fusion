@@ -156,6 +156,7 @@ def gen_random_shortest_path(G):
     # Extract shortest path.
     path = None
     while path == None:
+        nodes = random.sample(extract_nodes(G), 2)
         path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
     # Convert path node ids to coordinates.
     path = np.array([nodedict[nodeid] for nodeid in path])
