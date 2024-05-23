@@ -11,6 +11,7 @@ from fileinput import input
 
 # Utils
 from operator import itemgetter
+import random
 
 
 # Construct graph from data in specified folder. 
@@ -157,11 +158,56 @@ def nearest_point(G, p):
 #     ox.plot_graph(G)
 
 
-# for name in names:
-# for name in [ "athens_small" ]:
-# for name in [ "chicago" ]:
-# for name in [ "roadster_athens",]:
-    # G = extract_graph(name)
-    # ox.plot_graph(G)
+# Construct network out of paths (a list of a list of coordinates)
+def convert_paths_into_graph(pss):
+    nid = 1 # node id
+    gid = 1 # group id
+    G = nx.Graph()
+    for ps in pss:
+        i = nid
+        # Add nodes to graph.
+        for p in ps:
+            G.add_node(nid, x=p[0], y=p[1], gid=gid)
+            nid += 1
+        # Add edges between nodes to graph.
+        while i < nid - 1:
+            G.add_edge(i, i+1, gid=gid)
+            i += 1
+        gid += 1
+    return G
 
+# Add length
+# G = extract_graph("chicago", reconstruct=True)
+# nodedict = extract_nodes_dict(G)
+# # Pick two nodes from graph at random.
+# nodes = random.sample(extract_nodes(G), 2)
+# # Extract shortest path.
+# path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
+# # Convert path node ids to coordinates.
+# path = np.array([nodedict[nodeid] for nodeid in path])
+
+
+def gen_random_shortest_path(G):
+    nodedict = extract_nodes_dict(G)
+    # Pick two nodes from graph at random.
+    nodes = random.sample(extract_nodes(G), 2)
+    # Extract shortest path.
+    path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
+    # Convert path node ids to coordinates.
+    path = np.array([nodedict[nodeid] for nodeid in path])
+    return path
+
+
+def render_paths(pss):
+    G = paths_into_graph(pss)
+    G = nx.MultiDiGraph(G)
+    G.graph['crs'] = "EPSG:4326"
+    G.graph['crs'] = "EPSG:4326"
+    nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="tab20b")
+    ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="tab20b")
+    ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+
+# Example (rendering multiple paths)
+# G = extract_graph("chicago")
+# render_paths([gen_random_shortest_path(G), gen_random_shortest_path(G)])
 
