@@ -121,37 +121,6 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
-# The names of the graphs we currently support, thus graphs we can work with.
-names = [
- 'athens_large',
- 'athens_small',
- 'berlin',
- 'chicago',
- 'athens_large_kevin',
- 'chicago_kevin',
- 'roadster_athens'
-]
-
-# Seek nearest vertex in graph of a specific coordinate of interest.
-# Expect point to be a 2D numpy array.
-def nearest_point(G, p):
-    # Example (extracting nearest vertex):
-    # nearest_point(extract_graph("chicago"), np.asarray((4.422440 , 46.346080), dtype=np.float64, order='c'))
-    points = extract_nodes(G)
-
-    # Seek nearest point
-    dmin = 1000000
-    ires = None
-    qres = None
-    for (i, q) in points:
-        m = np.linalg.norm(p - q)
-        if m < dmin:
-            dmin = m
-            (ires, qres) = (i, q)
-
-    return (ires, qres)
-
-
 # Example (Render all graphs.):
 # for name in names:
 #     G = extract_graph(name)
@@ -176,32 +145,23 @@ def convert_paths_into_graph(pss):
         gid += 1
     return G
 
-# Add length
-# G = extract_graph("chicago", reconstruct=True)
-# nodedict = extract_nodes_dict(G)
-# # Pick two nodes from graph at random.
-# nodes = random.sample(extract_nodes(G), 2)
-# # Extract shortest path.
-# path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
-# # Convert path node ids to coordinates.
-# path = np.array([nodedict[nodeid] for nodeid in path])
-
 
 def gen_random_shortest_path(G):
     nodedict = extract_nodes_dict(G)
     # Pick two nodes from graph at random.
     nodes = random.sample(extract_nodes(G), 2)
     # Extract shortest path.
-    path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
+    path = None
+    while path == None:
+        path = ox.routing.shortest_path(G, nodes[0][0], nodes[1][0])
     # Convert path node ids to coordinates.
     path = np.array([nodedict[nodeid] for nodeid in path])
     return path
 
 
 def render_paths(pss):
-    G = paths_into_graph(pss)
+    G = convert_paths_into_graph(pss)
     G = nx.MultiDiGraph(G)
-    G.graph['crs'] = "EPSG:4326"
     G.graph['crs'] = "EPSG:4326"
     nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="tab20b")
     ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="tab20b")
