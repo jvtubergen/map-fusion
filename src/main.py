@@ -139,7 +139,8 @@ def convert_paths_into_graph(pss):
         i = nid
         # Add nodes to graph.
         for p in ps:
-            G.add_node(nid, x=p[0], y=p[1], gid=gid)
+            # Add random noise so its not overlapped in render
+            G.add_node(nid, x=p[0] + 0.0001 * random.random(), y=p[1] + 0.0001 * random.random(), gid=gid)
             nid += 1
         # Add edges between nodes to graph.
         while i < nid - 1:
@@ -193,4 +194,43 @@ def render_paths(pss):
 #     # Render
 #     render_paths([ps, qs])
 #     found = False
+
+
+# G = extract_graph("chicago")
+G = extract_graph("athens_small")
+found = False
+attempt = 0
+while True:
+    while not found:
+        ps = gen_random_shortest_path(G)
+        qs = gen_random_shortest_path(G)
+        found, histories, rev = curve_by_curve_coverage(ps,qs, lam=0.003)
+        attempt += 1
+
+        if random.random() < 0.01:
+            print(attempt)
+        
+        if rev:
+            qs = qs[::-1]
+
+    print(found, histories, rev)
+
+    # Render
+    for history in histories:
+        print("history:", history)
+        steps = history_to_sequence(history)
+        print("steps:", steps)
+
+        maxdist = -1
+
+        if not np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < 0.003):
+            print( np.array([np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps]) )
+            breakpoint()
+
+    ids = np.array(steps)[:,1]
+    subqs = qs[ids]
+
+    render_paths([ps, subqs])
+    found = False
+
 
