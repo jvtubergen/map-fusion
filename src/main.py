@@ -4,6 +4,7 @@ import networkx as nx
 import osmnx as ox
 import numpy as np
 from shapely.geometry import LineString, Point
+import utm
 
 # IO dependencies
 from pathlib import Path
@@ -16,6 +17,30 @@ import random
 # Library code
 from coverage import *
 
+# Log debug actions of OSMnx to stdout.
+ox.settings.log_console = True
+
+# graphnames to read and use
+graphnames = {
+    "mapconstruction": [
+        'athens_large',
+        'athens_small',
+        'berlin',
+        'chicago',
+    ],
+    "kevin": [
+        'athens_large_kevin',
+        'chicago_kevin',
+    ],
+    "roadster": [ # Inferred by Roadster
+        'roadster_athens',
+        'roadster_chicago'
+    ],
+    "osm": [ # Extracted with OSMnx/Overpass from OSM
+        'osm_chicago',
+        'utrecht' # why not
+    ]
+}
 
 # Construct graph from data in specified folder. 
 # Expect folder to have to files edges.txt and vertices.txt. 
@@ -36,12 +61,13 @@ def construct_graph(folder):
     nodedict = {}
     for node in vertices_df.iterrows():
         i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
-        G.add_node(int(i), x=x*.00001, y=y*.00001)
+        y, x = utm.conversion.to_latlon(x, y , 16, zone_letter="N")
+        G.add_node(int(i), x=x, y=y)
         nodedict[i] = np.asarray([x, y], dtype=np.float64, order='c')
 
     for edge in edges_df.iterrows():
         u, v = itemgetter('u', 'v')(edge[1]) 
-        # todo: Compute edge lengts (inter-node distance)
+        # Edge with edge length (inter-node distance) as attribute.
         G.add_edge(int(u), int(v), length = np.linalg.norm(nodedict[u] - nodedict[v]))
 
     G = nx.MultiDiGraph(G)
@@ -49,6 +75,11 @@ def construct_graph(folder):
     G.graph['crs'] = "EPSG:4326"
 
     return G
+
+
+# Example (re-construct all graphs from mapconstruction dataset):
+for name in graphnames["mapconstruction"]:
+    extract_graph(name, True)
 
 
 # Utility function for convenience to extract graph by name.
@@ -67,16 +98,6 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
-# The names of the graphs we currently support, thus graphs we can work with.
-names = [
- 'athens_large',
- 'athens_small',
- 'berlin',
- 'chicago',
- 'athens_large_kevin',
- 'chicago_kevin',
- 'roadster_athens'
-]
 
 # Extract nodes from a graph into the format `(id, nparray(x,y))`.
 def extract_nodes(G):
@@ -92,8 +113,6 @@ def extract_nodes_dict(G):
 # Seek nearest vertex in graph of a specific coordinate of interest.
 # Expect point to be a 2D numpy array.
 def nearest_point(G, p):
-    # Example (extracting nearest vertex):
-    # nearest_point(extract_graph("chicago"), np.asarray((4.422440 , 46.346080), dtype=np.float64, order='c'))
     points = extract_nodes(G)
 
     # Seek nearest point
@@ -107,6 +126,11 @@ def nearest_point(G, p):
             (ires, qres) = (i, q)
 
     return (ires, qres)
+
+
+# Example (extracting nearest vertex):
+# nearest_point(extract_graph("chicago"), np.asarray((4.422440 , 46.346080), dtype=np.float64, order='c'))
+
 
 # Utility function for convenience to extract graph by name.
 #   Either construction from raw data in folder or reading from graphml file.
@@ -124,8 +148,19 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
-# Example (Render all graphs.):
-# for name in names:
+# Example (Render chicago):
+# G = extract_graph("maps_chicago")
+# G = extract_graph("berlin")
+# ox.plot_graph(G)
+
+
+# Example (Extract specific position and render):
+# ox.settings.use_cache = True
+# G = ox.graph.graph_from_place("berlin", network_type='drive', simplify=False, retain_all=True)
+
+
+# Example (Render all mapconstruction graphs.):
+# for name in graphnames["mapconstruction"]:
 #     G = extract_graph(name)
 #     ox.plot_graph(G)
 
@@ -150,6 +185,7 @@ def convert_paths_into_graph(pss):
     return G
 
 
+# Pick two nodes at random (repeat if in disconnected graphs) and find shortest path.
 def gen_random_shortest_path(G):
     nodedict = extract_nodes_dict(G)
     # Pick two nodes from graph at random.
@@ -164,6 +200,7 @@ def gen_random_shortest_path(G):
     return path
 
 
+# Convert a collection of paths into gid-annotated nodes and edges to thereby render with different colors.
 def render_paths(pss):
     G = convert_paths_into_graph(pss)
     G = nx.MultiDiGraph(G)
@@ -172,65 +209,92 @@ def render_paths(pss):
     ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="tab20b")
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
 
+
 # Example (rendering multiple paths)
 # G = extract_graph("chicago")
 # render_paths([gen_random_shortest_path(G), gen_random_shortest_path(G)])
 
 
-# Example (pick random shortest paths until coverage, then render)
-# G = extract_graph("chicago")
-# found = False
-# attempt = 0
-# while True:
-#     while not found:
-#         ps = gen_random_shortest_path(G)
-#         qs = gen_random_shortest_path(G)
-#         # found = curve_by_curve_coverage(ps,qs, lam=0.01)
-#         found = curve_by_curve_coverage(ps,qs, lam=0.003)
-#         attempt += 1
-#         if random.random() < 0.01:
-#             print(attempt)
-
-#     # Render
-#     render_paths([ps, qs])
-#     found = False
-
-
-# G = extract_graph("chicago")
-G = extract_graph("athens_small")
-found = False
-attempt = 0
-while True:
-    while not found:
-        ps = gen_random_shortest_path(G)
-        qs = gen_random_shortest_path(G)
-        found, histories, rev = curve_by_curve_coverage(ps,qs, lam=0.003)
-        attempt += 1
-
-        if random.random() < 0.01:
-            print(attempt)
-        
-        if rev:
-            qs = qs[::-1]
-
-    print(found, histories, rev)
-
-    # Render
-    for history in histories:
-        print("history:", history)
-        steps = history_to_sequence(history)
-        print("steps:", steps)
-
-        maxdist = -1
-
-        if not np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < 0.003):
-            print( np.array([np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps]) )
-            breakpoint()
-
-    ids = np.array(steps)[:,1]
-    subqs = qs[ids]
-
-    render_paths([ps, subqs])
+# Pick random shortest paths until coverage, then render.
+def render_random_nearby_shortest_paths():
+    G = extract_graph("athens_small")
     found = False
+    attempt = 0
+    while True:
+        while not found:
+            ps = gen_random_shortest_path(G)
+            qs = gen_random_shortest_path(G)
+            found, histories, rev = curve_by_curve_coverage(ps,qs, lam=0.003)
+            attempt += 1
 
+            if random.random() < 0.01:
+                print(attempt)
+            
+            if rev:
+                qs = qs[::-1]
+
+        print(found, histories, rev)
+
+        # Render
+        for history in histories:
+            print("history:", history)
+            steps = history_to_sequence(history)
+            print("steps:", steps)
+
+            maxdist = -1
+
+            if not np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < 0.003):
+                print( np.array([np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps]) )
+                breakpoint()
+
+        ids = np.array(steps)[:,1]
+        subqs = qs[ids]
+
+        render_paths([ps, subqs])
+        found = False
+
+
+
+
+def plot_two_graphs(G,H):
+    # Add gid 1 to all nodes and edges of G, 2 for H.
+    nx.set_node_attributes(G, 1, name="gid")
+    nx.set_edge_attributes(G, 1, name="gid")
+    nx.set_node_attributes(H, 2, name="gid")
+    nx.set_edge_attributes(H, 2, name="gid")
+
+    # Add two graphs together
+    F = nx.compose(G,H)
+
+    # Coloring of edges and nodes per gid.
+    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
+    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+
+
+# Example (obtain distance to obtain full chicago, use all_public just like mapconstruction graphs):
+# coord_center = (41.87168, -87.65985)  # coordinate at approximately center 
+# coord_edge   = (41.88318, -87.64129)  # coordinate at approximately furthest edge
+# dist = ox.distance.great_circle(41.87168, -87.65985, 41.88318, -87.64129) # == 1999 
+# G = ox.graph_from_point(coord_from, network_type="all_public", dist=dist) # padding included automatically  
+
+
+# Example (difference all_public to drive_service network filter):
+# G = ox.graph_from_point(coord_from, network_type="all_public", dist=2000)
+# H = ox.graph_from_point(coord_from, network_type="drive_service", dist=2000)
+
+
+# Fails:
+# Extract historical OSM of Chicago dataset
+# Place: South Campus Parkway, Chicago, IL, USA
+# Date: 2011-09-05
+# Position: 41.8625,-87.6453
+def extract_historic_chicago():
+    coordinate = (41.8625,-87.6453)
+    # date = "2011-09-05T00:00:00Z"
+    dist = 500 # meters
+
+    ox.settings.overpass_settings = f'[out:json][timeout:90][date:"2011-09-05T00:00:00Z"]'
+    ox.graph_from_point(coordinate, dist=dist, retain_all=True, simplify=False)
+    # , network_type="drive"
 

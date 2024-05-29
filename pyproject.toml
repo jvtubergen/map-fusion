@@ -32,7 +32,8 @@ dependencies = [
   "scikit-learn", 
   "jupyterlab", # jupyterlab
   "ipykernel",  # jupter lab kernel creation
-  "frechetdist"
+  "frechetdist", # doesn't work?
+  "utm" # To convert UTM of mapconstruction.org to lat lon.
 ]
 
 [project.urls]
@@ -59,7 +60,7 @@ omit = [
 ]
 
 [tool.coverage.paths]
-geoalg = ["src/geoalg", "*/geoalg/src/geoalg"]
+geoalg = ["src/geoalg"]
 tests = ["tests", "*/geoalg/tests"]
 
 [tool.coverage.report]
