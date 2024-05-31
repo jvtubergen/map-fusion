@@ -9,20 +9,14 @@ from hausdorff import *
 # Note: Algorithms consider point curves only.
 
 # Discrete curve coverage of ps by qs.
+# either return false or provide subcurve with step sequence
 def curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
 
     rev = False
-    found, hist = _curve_by_curve_coverage(ps, qs, lam=lam, measure=frechet)
+    found, histories = _curve_by_curve_coverage(ps, qs, lam=lam, measure=frechet)
     if not found:
         rev = True
-        found, hist = _curve_by_curve_coverage(ps, qs[::-1], lam=lam, measure=frechet)
-    return found, hist, rev
-
-
-# either return false or provide subcurve with step sequence
-def curve_by_curve_coverage_next(ps, qs, lam=1, measure=frechet):
-
-    found, histories, rev = curve_by_curve_coverage(ps,qs, lam)
+        found, histories = _curve_by_curve_coverage(ps, qs[::-1], lam=lam, measure=frechet)
 
     if not found:
         return False, {}
@@ -299,7 +293,7 @@ def test_curve_curve_coverage_subcurve():
     ps = np.array([[x,0] for x in range(10,20)])
     qs = np.array([[x,0.02] for x in range(0, 30)])
 
-    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.05)
+    found, data = curve_by_curve_coverage(ps, qs, lam=0.05)
     assert found == True
 
 # Leave out one 
@@ -310,7 +304,7 @@ def test_curve_curve_coverage_leave_one_out():
         qslist = qslist[:i] + qslist[i+1:]
         qs = np.array([[x,0.02] for x in qslist])
 
-        found, data = curve_by_curve_coverage_next(ps, qs, lam=0.05)
+        found, data = curve_by_curve_coverage(ps, qs, lam=0.05)
         assert found == False
 
 # One to three points per point, thus subsequence
@@ -322,10 +316,10 @@ def test_curve_curve_coverage_three_per_point():
         for i in range(1,random.randrange(2,5)):
             qs.append([x, 0.5 - random.random()])
     qs = np.array(qs)
-    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.51)
+    found, data = curve_by_curve_coverage(ps, qs, lam=0.51)
     assert found == True and check_curve_curve_data_validity(ps, data)
 
-
+# Generating ps on unit circle, while qs scattered with one point at center point.
 def test_curve_all_points_within_range():
     # ps is all within unit distance circle
     ps = []
@@ -341,7 +335,7 @@ def test_curve_all_points_within_range():
     qs[random.randrange(0,30)] = [0,0]
     qs = np.array(qs)
 
-    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.51)
+    found, data = curve_by_curve_coverage(ps, qs, lam=0.51)
 
     check_curve_curve_data_validity(ps, data)
 
