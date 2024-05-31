@@ -54,7 +54,8 @@ def curve_by_curve_coverage_next(ps, qs, lam=1, measure=frechet):
             "qs": qs,
             "ps": ps,
             "lam": lam,
-            "history": history
+            "history": history,
+            "found": found
         }
     
         # points
@@ -241,7 +242,7 @@ def history_to_sequence(history):
         steps.append((cp,cq))
 
         steps_to_take = a1 - cq - 1
-        for i in range(1, steps_to_take):
+        for i in range(1, 1 + steps_to_take):
             steps.append((cp, cq + i))
     
     # Final value
@@ -254,13 +255,18 @@ def history_to_sequence(history):
 # Check data valid
 def check_curve_curve_data_validity(ps, data):
     try:
+        assert data["found"]
         qs = data["qs"]
         steps = data["steps"]
         lam = data["lam"]
-        # Steps are sequential
+
+        # Steps are increasing (both ps and qs)
+        stemp = np.array(data["steps"])[:,0]
+        for i, j in zip(stemp, stemp[1:]):
+            assert i == j or i == j - 1
         stemp = np.array(data["steps"])[:,1]
         for i, j in zip(stemp, stemp[1:]):
-            assert i == j - 1
+            assert i == j or i == j - 1
 
         # Within distance
         assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam)
@@ -336,15 +342,15 @@ def test_curve_all_points_within_range():
     qs = np.array(qs)
 
     found, data = curve_by_curve_coverage_next(ps, qs, lam=0.51)
-    breakpoint()
-    assert found == True and check_curve_curve_data_validity(ps, data)
+
+    check_curve_curve_data_validity(ps, data)
 
 
 testfuncts = [
     test_curve_curve_coverage_subcurve,
     test_curve_curve_coverage_leave_one_out,
     test_curve_curve_coverage_three_per_point,
-    test_curve_all_points_within_range
+    test_curve_all_points_within_range,
 ]
 
 
