@@ -294,7 +294,7 @@ def test_curve_curve_coverage_subcurve():
     qs = np.array([[x,0.02] for x in range(0, 30)])
 
     found, data = curve_by_curve_coverage(ps, qs, lam=0.05)
-    assert found == True
+    assert found == True and check_curve_curve_data_validity(ps, data)
 
 # Leave out one 
 def test_curve_curve_coverage_leave_one_out():
@@ -336,8 +336,7 @@ def test_curve_all_points_within_range():
     qs = np.array(qs)
 
     found, data = curve_by_curve_coverage(ps, qs, lam=0.51)
-
-    check_curve_curve_data_validity(ps, data)
+    assert found == True and check_curve_curve_data_validity(ps, data)
 
 
 testfuncts = [
