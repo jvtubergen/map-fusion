@@ -15,6 +15,46 @@ def curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
         found, hist = _curve_by_curve_coverage(ps, qs[::-1], lam=lam, measure=frechet)
     return found, hist, rev
 
+
+# either return false or provide subcurve with step sequence
+def curve_by_curve_coverage_next(ps, qs, lam=1, measure=frechet):
+
+    found, histories, rev = curve_by_curve_coverage(ps,qs, lam)
+
+    if not found:
+        return False, {}
+    
+    else:
+        if rev:
+            qs = qs[::-1]
+
+        # ~Check valid sequence.~
+        # found = False
+
+        # Just pick any history, all should be valid.
+        for history in histories:
+            steps = history_to_sequence(history)
+            assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam)
+        
+        # sequences
+        history = histories[0]
+        steps = history_to_sequence(history)
+        seqs = np.array([[ps[ip], qs[iq]] for (ip, iq) in steps])
+        seqps = seqs[:,0]    
+        seqqs = seqs[:,1]    
+        qs    = np.unique(seqqs)
+
+        return True, {
+            "steps": steps,
+            "seqs": seqs,
+            "seqps": seqps,
+            "seqqs": seqqs,
+            "qs": qs
+        }
+    
+        # points
+        # qs = se
+
 # Check curve ps is covered by curve qs.
 def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
 
@@ -70,25 +110,27 @@ def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
 
     # Frechet specific:
 
-    # Pad an interval by value.
+    # Pad interval i2 in such to start at greater or equal than highest of i1.
     def pad_larger_than(i1, i2):
         if i2[0] < i1[0]:
             i2 = (i1[0], i2[1])
         
         if i2[1] < i2[0]:
-            return [-1,-1] # empty interval
+            i2 = (-1,-1) # empty interval
         
         return i2
     
-    # Pad left by value
+
+    # Pad left by value.
     def pad_left(interval, value):
         return (interval[0] - value, interval[1])
+
 
     # Check overlap of two intervals, but second interval must be larger than.
     def overlap_larger_than(i1, i2):
         return (i1[0] <= i2[0] and i1[-1] >= i2[0]) or (i2[0] <= i1[0] and i2[-1] >= i1[0])
-
     
+
     # Per point in ps, see what nodes of qs are within range.
     in_range = []
     for p in ps:
@@ -98,6 +140,7 @@ def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
         if len(ids) == 0:
             return False, []
         in_range.append(ids)
+
 
     # Convert into bounding boxes.
     intervals = [convert_into_intervals(ids) for ids in in_range]
@@ -181,25 +224,25 @@ def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
 
 
 
+# Walk through intervals to reach end of curve while remaining within distance.
+# Assumes within distance, this function only walks the indices.
 def history_to_sequence(history):
 
     steps = []
     cq = -1
-    for cp, (h1,h2) in enumerate(zip(history,history[1:])):
+    for cp, ((a0, b0), (a1, b1)) in enumerate(zip(history,history[1:])):
 
-        cq = max(cq, h1[0])
+        cq  = max(cq, a0)
         steps.append((cp,cq))
 
-        # Walk all of h1 until lowest value of h2 is reached.
-        while cq < h2[0]:
-            cq += 1
-            steps.append((cp, cq))
+        steps_to_take = a1 - cq - 1
+        for i in range(1, steps_to_take):
+            steps.append((cp, cq + i))
     
     # Final value
+    steps.append((len(history) - 1, max(cq, history[-1][0])))
 
     return steps
-    # return np.array(steps)
-
 
 
 
@@ -213,4 +256,42 @@ def history_to_sequence(history):
 # Verify:
 # * Expect to find some subcurve
 # * Generated subcurve within distance lambda
+    
+
+
+
+
+# Coverage of curve by another curve
+def test_curve_curve_coverage_subcurve():
+    # Create a set of points all 
+    ps = np.array([[x,0] for x in range(10,20)])
+    qs = np.array([[x,0.02] for x in range(0, 30)])
+
+    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.05)
+    assert found == True
+
+# Leave out one 
+def test_curve_curve_coverage_leave_one_out():
+    ps = np.array([[x,0] for x in range(10,20)])
+    for i in range(10, 20): # Leave out index and test
+        qslist = list(range(0,30))
+        qslist = qslist[:i] + qslist[i+1:]
+        qs = np.array([[x,0.02] for x in qslist])
+
+        found, data = curve_by_curve_coverage_next(ps, qs, lam=0.05)
+        assert found == False
+
+
+testfuncts = [
+    test_curve_curve_coverage_subcurve,
+    test_curve_curve_coverage_leave_one_out
+]
+
+
+
+# Run tests
+def run_tests():
+    for func in testfuncts:
+        func()
+
     

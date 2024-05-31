@@ -77,10 +77,6 @@ def construct_graph(folder):
     return G
 
 
-# Example (re-construct all graphs from mapconstruction dataset):
-for name in graphnames["mapconstruction"]:
-    extract_graph(name, True)
-
 
 # Utility function for convenience to extract graph by name.
 # Either construction from raw data in folder or reading from graphml file.
@@ -97,6 +93,10 @@ def extract_graph(name, reconstruct=False):
     
     return G
 
+
+# Example (re-construct all graphs from mapconstruction dataset):
+# for name in graphnames["mapconstruction"]:
+#     extract_graph(name, True)
 
 
 # Extract nodes from a graph into the format `(id, nparray(x,y))`.
@@ -258,6 +258,8 @@ def render_random_nearby_shortest_paths():
 
 def plot_two_graphs(G,H):
     # Add gid 1 to all nodes and edges of G, 2 for H.
+    # G = Blue
+    # H = Green
     nx.set_node_attributes(G, 1, name="gid")
     nx.set_edge_attributes(G, 1, name="gid")
     nx.set_node_attributes(H, 2, name="gid")
@@ -280,8 +282,16 @@ def plot_two_graphs(G,H):
 
 
 # Example (difference all_public to drive_service network filter):
-# G = ox.graph_from_point(coord_from, network_type="all_public", dist=2000)
-# H = ox.graph_from_point(coord_from, network_type="drive_service", dist=2000)
+# coord_center = (41.87168, -87.65985)  # coordinate at approximately center 
+# G = ox.graph_from_point(coord_center, network_type="all_public", dist=2000)
+# H = ox.graph_from_point(coord_center, network_type="drive_service", dist=2000)
+# plot_two_graphs(G, H)
+
+# Example (mapconstruction.org chicago vs up-to-date OSM chicago):
+# coord_center = (41.87168, -87.65985)  # coordinate at approximately center 
+# G = ox.graph_from_point(coord_center, network_type="all_public", dist=2000)
+# H = extract_graph("chicago")
+# plot_two_graphs(G, H)
 
 
 # Fails:
