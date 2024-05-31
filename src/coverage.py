@@ -1,4 +1,7 @@
 import numpy as np
+import random
+import math
+import traceback
 from frechet import *
 from hausdorff import *
 
@@ -42,14 +45,16 @@ def curve_by_curve_coverage_next(ps, qs, lam=1, measure=frechet):
         seqs = np.array([[ps[ip], qs[iq]] for (ip, iq) in steps])
         seqps = seqs[:,0]    
         seqqs = seqs[:,1]    
-        qs    = np.unique(seqqs)
 
         return True, {
             "steps": steps,
             "seqs": seqs,
             "seqps": seqps,
             "seqqs": seqqs,
-            "qs": qs
+            "qs": qs,
+            "ps": ps,
+            "lam": lam,
+            "history": history
         }
     
         # points
@@ -246,6 +251,27 @@ def history_to_sequence(history):
 
 
 
+# Check data valid
+def check_curve_curve_data_validity(ps, data):
+    try:
+        qs = data["qs"]
+        steps = data["steps"]
+        lam = data["lam"]
+        # Steps are sequential
+        stemp = np.array(data["steps"])[:,1]
+        for i, j in zip(stemp, stemp[1:]):
+            assert i == j - 1
+
+        # Within distance
+        assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam)
+        return True
+    except BaseException:
+        for line in traceback.format_stack():
+            print(line)
+        breakpoint()
+        return False
+
+
 
 # Test:
 # * Generate a curve randomly
@@ -281,10 +307,44 @@ def test_curve_curve_coverage_leave_one_out():
         found, data = curve_by_curve_coverage_next(ps, qs, lam=0.05)
         assert found == False
 
+# One to three points per point, thus subsequence
+def test_curve_curve_coverage_three_per_point():
+    ps = np.array([[x,0] for x in range(10,20)])
+    qslist = list(range(0,30))
+    qs = []
+    for x in range(0,30):
+        for i in range(1,random.randrange(2,5)):
+            qs.append([x, 0.5 - random.random()])
+    qs = np.array(qs)
+    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.51)
+    assert found == True and check_curve_curve_data_validity(ps, data)
+
+
+def test_curve_all_points_within_range():
+    # ps is all within unit distance circle
+    ps = []
+    for i in range(20):
+        tau = 2 * math.pi * random.random()
+        ps.append([math.cos(tau), math.sin(tau)])
+    ps = 0.5 * np.array(ps)
+
+    # just generate 20 points at random in space and make some value at 0,0 (so must have coverage).
+    qs = []
+    for i in range(30):
+        qs.append([10*random.random(), 10*random.random()])
+    qs[random.randrange(0,30)] = [0,0]
+    qs = np.array(qs)
+
+    found, data = curve_by_curve_coverage_next(ps, qs, lam=0.51)
+    breakpoint()
+    assert found == True and check_curve_curve_data_validity(ps, data)
+
 
 testfuncts = [
     test_curve_curve_coverage_subcurve,
-    test_curve_curve_coverage_leave_one_out
+    test_curve_curve_coverage_leave_one_out,
+    test_curve_curve_coverage_three_per_point,
+    test_curve_all_points_within_range
 ]
 
 
