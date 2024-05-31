@@ -5,3 +5,5 @@ cache
 dist
 graphs
 __pycache__
+*
+!src
