@@ -52,8 +52,6 @@ def curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
             "found": found
         }
     
-        # points
-        # qs = se
 
 # Check curve ps is covered by curve qs.
 def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
@@ -186,44 +184,6 @@ def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
     return len(histories) > 0, histories
 
 
-# # Convert history object into a sequence.
-# def history_to_sequence(history):
-
-#     def intersection(i1, i2):
-#         return (max(i1[0], i2[0]), min(i1[1], i2[1]))
-
-#     # Construct sequence for ps and qs.
-#     # With coverage, we have to find _some_ subcurve of qs that covers _all_ of ps.
-#     # Simple method approach: Keep value of qs as low as possible.
-#     # sequence = []
-
-#     # Assume Frechet: Only incremental allowed.
-#     # Simply stay at lowest value as possible.
-
-#     # cp: Current p, simply start at 0.
-#     # cq: Current q, simply start at lowest possible curve value.
-#     steps = []
-
-#     for cp, (h1,h2) in enumerate(zip(history,history[1:])):
-
-#         cq = max(cq, h1[0])
-#         steps.append((cp,cq))
-
-#         # Walk all of h1 until lowest value of h2 is reached.
-#         while cq < h2[0] + 1:
-#             cq += 1
-#             steps.append((cp, cq))
-    
-#     # Final value
-#     steps.append((len(cp) - 1, max(history[-1][0],cq)))
-
-#     return steps
-#     # return np.array(steps)
-
-
-
-
-
 # Walk through intervals to reach end of curve while remaining within distance.
 # Assumes within distance, this function only walks the indices.
 def history_to_sequence(history):
@@ -245,6 +205,19 @@ def history_to_sequence(history):
     return steps
 
 
+
+
+
+# Test:
+# * Generate a curve randomly
+# * Per point generate three in range
+# * Pick one of those and represent as curve
+# * Pool unused nodes with some more randomly generated curves
+# * Add some arbitrary other nodes of these and add to curve
+# Verify:
+# * Expect to find some subcurve
+# * Generated subcurve within distance lambda
+    
 
 # Check data valid
 def check_curve_curve_data_validity(ps, data):
@@ -270,20 +243,6 @@ def check_curve_curve_data_validity(ps, data):
             print(line)
         breakpoint()
         return False
-
-
-
-# Test:
-# * Generate a curve randomly
-# * Per point generate three in range
-# * Pick one of those and represent as curve
-# * Pool unused nodes with some more randomly generated curves
-# * Add some arbitrary other nodes of these and add to curve
-# Verify:
-# * Expect to find some subcurve
-# * Generated subcurve within distance lambda
-    
-
 
 
 
