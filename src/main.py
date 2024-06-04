@@ -26,19 +26,9 @@ G2 = vectorize_graph(G)
 G3 = ox.simplify_graph(G2)
 # assert len(G.nodes()) == len(G3.nodes())
 
-
-
-
-
-
-
-
-
-
-
-
+# Example (Subgraph of nodes nearby curve):
+# G = extract_graph("chicago")
 # idx = graphnodes_to_rtree(G)
 # ps = gen_random_shortest_path(G)
 # bb = bounding_box(ps)
-# H = subgraph_by_bounding_box(bb)
-# # 
+# H = rtree_subgraph_by_bounding_box(G, idx, bb)

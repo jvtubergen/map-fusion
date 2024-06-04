@@ -2,8 +2,16 @@ import numpy as np
 import random
 import math
 import traceback
+import rtree
+
+
 from frechet import *
 from hausdorff import *
+from network import *
+
+###################################
+###  Curve by curve coverage
+###################################
 
 # Note: A point curve is a sequence of points, linearly interpolated.
 # Note: Algorithms consider point curves only.
@@ -205,8 +213,64 @@ def history_to_sequence(history):
     return steps
 
 
+###################################
+###  Curve by network coverage
+###################################
+
+# Generate a random curve.
+def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
+    return np.array([a + np.random.random_sample() * (b - a) for i in range(length)])
+        
+        
+# Length of curve.
+def curve_length(ps):
+    length = 0
+    for p1, p2 in zip(ps, ps[1:]):
+        length += np.linalg.norm(p1 - p2)
+    return length
 
 
+# Extract bounding box on a curve. Use padding to lambda pad.
+def bounding_box(ps, padding=0):
+    padding = np.array([padding, padding])
+    lower = [np.min(ps[:,0]), np.min(ps[:,1])]
+    higher = [np.max(ps[:,0]), np.max(ps[:,1])]
+    return np.array([lower - padding, higher + padding])
+
+def pad_bounding_box(bb, padding):
+    padding = np.array([padding, padding])
+    return np.array([bb[0] - padding, bb[1] + padding])
+
+
+# Construct R-Tree on graph nodes.
+def graphnodes_to_rtree(G):
+    idx = rtree.index.Index()
+    for node, data in G.nodes(data = True):
+        x, y = data['x'], data['y']
+        idx.insert(node, (x, y, x, y))
+    return idx
+
+
+# Extract node ids by bounding box.
+
+# Construct subgraph.
+
+
+# Extract subgraph by curve.
+# def subgraph_by_bounding_box(G, ps, lam=0):
+def rtree_subgraph_by_bounding_box(G, idx, bb):
+    # Extract node ids within bounding box.
+    # (left, bottom, right, top)
+    nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1])))
+    G.subgraph(nodes)
+
+
+
+
+
+###################################
+###  Tests: Curve by curve coverage
+###################################
 
 # Test:
 # * Generate a curve randomly
@@ -313,3 +377,7 @@ def run_tests():
         func()
 
     
+
+###################################
+###  Tests: Curve by network coverage
+###################################
