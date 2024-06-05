@@ -56,6 +56,7 @@ def construct_graph(folder):
     G = nx.Graph()
 
     # Track node dictionary to simplify node extraction when computing edge lengths.
+    # TODO: nodedict unnecessary, use `G.nodes[key]` directly.
     nodedict = {}
     for node in vertices_df.iterrows():
         i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
@@ -324,48 +325,74 @@ def extract_historic_chicago():
 # def minskowski_curve(ps, l = 0.05)
 
 
+# Extract a dictionary 
+# NOTE: Superfluous function. Can be achieved with `G.nodes[node_id]`.
+def graph_node_dict(G):
+    nodedict = {}
+    for node in list(G.nodes(data=True)):
+        nodeid = node[0]
+        # x = node[1]["x"]
+        # y = node[1]["y"]
+        nodedict[nodeid] = node[1]
+    return nodedict
+
+
+# TODO: Deduplicate self-loops.
+def undirectional_selfloops(G):
+    return 0
 
 
 # Vectorize a network
+# BUG: Somehow duplicated edge with G.edges(data=True)
+# SOLUTION: Reduce MultiDiGraph to MultiGraph.
+# BUG: Connecting first node with final node for no reason.
+# SOLUTION: node_id got overwritten after initializing on unique value.
+# BUG: Selfloops are incorrectly reduced when undirectionalized.
+# SOLUTION: Build some function yourself to detect and remove duplicates
 def vectorize_graph(G):
-    G = G.copy()
 
     if not G.graph.get("simplified"):
         msg = "Graph has to be simplified in order to vectorize it."
         raise BaseException(msg)
 
+    G = G.copy()
+    G = nx.MultiGraph(G) # We dont want about directionality in graph: Duplicates edges and nodes.
+
     # Extract nodes and edges.
     nodes = np.array(list(G.nodes(data=True)))
-    edges = np.array(list(G.edges(data=True)))
+    edges = np.array(list(G.edges(data=True,keys=True)))
 
     # Obtain unique (incremental) node ID to use.
-    nodeid = np.max(np.array(nodes)[:,0]) + 1
-
-    nodedict = {}
-    for node in nodes:
-        nodeid = node[0]
-        # x = node[1]["x"]
-        # y = node[1]["y"]
-        nodedict[nodeid] = node[1]
+    newnodeid = np.max(np.array(nodes)[:,0]) + 1
 
     # Edges contain curvature information, extract.
     for edge in edges:
 
         a = edge[0]
         b = edge[1]
-        attrs = edge[2]
+        k = edge[2]
+        attrs = edge[3]
 
+        # If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.
         if "geometry" in attrs.keys():
-            linestring = edge[2]["geometry"]
+            linestring = attrs["geometry"]
             ps = np.array(list(linestring.coords))
 
-            # Delete this edge from network.
-            G.remove_edge(a,b)
+            # Drop first and last point because these are start and end node..
+            ps = ps[1:-1]
+            assert len(ps) >= 1 # We expect at least one point in between start and end node.
 
-            # Add new node id to each coordinate.
+            # Delete this edge from network.
+            # BUG: We are removing an edge without key identifier from a multigraph.
+            #      It should 
+            G.remove_edge(a,b, key=k)
+            print("Removing edge ", a, b, k)
+
+            # Ensured we are adding new curvature. 
+            # Add new node ID to each coordinate.
             pathcoords = list(ps)
-            pathids = list(range(nodeid, nodeid + len(ps)))
-            nodeid += len(ps) # Increment id appropriately.
+            pathids = list(range(newnodeid, newnodeid + len(ps)))
+            newnodeid += len(ps) # Increment id appropriately.
 
             for node, coord in zip(pathids, pathcoords):
                 G.add_node(node, x=coord[0], y=coord[1])
@@ -375,24 +402,10 @@ def vectorize_graph(G):
             for a,b in zip(pathids, pathids[1:]):
                 G.add_edge(a, b)
 
-            # p = nodedict[a] # start coordinate
-            # q = nodedict[b] # end coordinate
+    # TODO: Reduce duplicated nodes
+    # TODO: Reduce duplicated edges
 
-            # p = [p["x"], p["y"]]
-            # q = [q["x"], q["y"]]
-
-            # pathcoords = np.array([p] + pathcoords + [q])
-
-            # combi = list(zip(pathids,pathcoords))
-            # # Add edge with straight line segment geometry to
-            # for a,b in zip(combi, combi[1:]):
-            #     # add 
-
-
-        # Only vectorize if more than 1 coord in geometry
-
-
-    # mark the graph as no longer being simplified
-    G.graph["simplified"] = False
+    G.graph["simplified"] = False # Mark the graph as no longer being simplified.
+    G = nx.MultiDiGraph(G) # Require multidigraph for rendering.
 
     return G
