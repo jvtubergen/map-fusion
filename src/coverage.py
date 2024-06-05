@@ -1,9 +1,4 @@
-import numpy as np
-import random
-import math
-import traceback
-import rtree
-
+from dependencies import *
 
 from frechet import *
 from hausdorff import *
@@ -217,6 +212,14 @@ def history_to_sequence(history):
 ###  Curve by network coverage
 ###################################
 
+# Extract path from a network.
+# 1. Construct minimal bounding box for area
+# 2. Obtain vectorized graph.
+# 3. Extract nodes within area.
+# 4. Construct subnetwork.
+# 5. Generate all _simple edge_ paths within subnetwork.
+# 6. Check for curve by curve set coverage.
+
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
     return np.array([a + np.random.random_sample() * (b - a) for i in range(length)])
@@ -257,6 +260,7 @@ def graphnodes_to_rtree(G):
 def coverage_curve_by_network(G, ps, lam=1):
     
     G = vectorize_graph(G) # Vectorize graph.
+    G = deduplicate_vectorized_graph(G)
     idx = graphnodes_to_rtree(G) # Place graph nodes coordinates in accelerated data structure (R-Tree).
     bb = bounding_box(ps, padding=lam) # Construct lambda-padded bounding box.
     nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]))) # Extract nodes within bounding box.
@@ -268,12 +272,6 @@ def coverage_curve_by_network(G, ps, lam=1):
     # On coverage, return True with path that covers the curve.
     # Otherwise return False without further data.
     breakpoint()
-
-
-
-
-
-
 
 
 ###################################
