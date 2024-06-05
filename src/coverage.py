@@ -237,6 +237,8 @@ def bounding_box(ps, padding=0):
     higher = [np.max(ps[:,0]), np.max(ps[:,1])]
     return np.array([lower - padding, higher + padding])
 
+
+# Pad a bounding box.
 def pad_bounding_box(bb, padding):
     padding = np.array([padding, padding])
     return np.array([bb[0] - padding, bb[1] + padding])
@@ -251,18 +253,24 @@ def graphnodes_to_rtree(G):
     return idx
 
 
-# Extract node ids by bounding box.
+# Compute coverage of curve by a network.
+def coverage_curve_by_network(G, ps, lam=1):
+    
+    G = vectorize_graph(G) # Vectorize graph.
+    idx = graphnodes_to_rtree(G) # Place graph nodes coordinates in accelerated data structure (R-Tree).
+    bb = bounding_box(ps, padding=lam) # Construct lambda-padded bounding box.
+    nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]))) # Extract nodes within bounding box.
+    H = G.subgraph(nodes) # Extract subgraph with nodes.
 
-# Construct subgraph.
+    # Compute relevant paths.
+    # Convert paths into curves.
+    # Check coverage of curve by curve set.
+    # On coverage, return True with path that covers the curve.
+    # Otherwise return False without further data.
+    breakpoint()
 
 
-# Extract subgraph by curve.
-# def subgraph_by_bounding_box(G, ps, lam=0):
-def rtree_subgraph_by_bounding_box(G, idx, bb):
-    # Extract node ids within bounding box.
-    # (left, bottom, right, top)
-    nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1])))
-    G.subgraph(nodes)
+
 
 
 
