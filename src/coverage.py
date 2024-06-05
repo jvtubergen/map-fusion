@@ -265,6 +265,27 @@ def graphnodes_to_rtree(G):
     return idx
 
 
+def graphedges_to_rtree(G):
+    idx = rtree.index.Index()
+    maxv = max(G.nodes())+1
+    if type(G) == nx.Graph:
+        for (a, b) in G.edges():
+            x1 = G.nodes[a]["x"]
+            y1 = G.nodes[a]["y"]
+            x2 = G.nodes[b]["x"]
+            y2 = G.nodes[b]["y"]
+            # Unique id 
+            idx.insert(maxv*a+b, (min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)), obj=(a,b))
+    else:
+        for (a, b, k) in G.edges(keys=True):
+            x1 = G.nodes[a]["x"]
+            y1 = G.nodes[a]["y"]
+            x2 = G.nodes[b]["x"]
+            y2 = G.nodes[b]["y"]
+            idx.insert((a,b), (min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)))
+    return idx
+
+
 # Compute coverage of curve by a network.
 def coverage_curve_by_network(G, ps, lam=1):
     

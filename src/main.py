@@ -25,14 +25,33 @@ def coverage_curve_by_network(G, ps, lam=1, measure=frechet):
 
     assert len(ps) >= 2
 
-    idx = graphnodes_to_rtree(G) # Place graph nodes coordinates in accelerated data structure (R-Tree).
-    bb = bounding_box(ps, padding=lam) # Construct lambda-padded bounding box.
-    nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]))) # Extract nodes within bounding box.
+
+    edge_idx = graphedges_to_rtree(G)
+    node_idx = graphnodes_to_rtree(G)
+
+
+    edge_set = set() # Collected edges to consider.
+
+    # Construct bounding boxes over path.
+    for (p, q) in nx.utils.pairwise(ps):
+        bb = bounding_box(np.array([p,q]), padding=lam)
+        edge_ids = edge_idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]), objects=True)
+        for i in edge_ids:
+            edge_set.add(i.object)
+
+    node_set = set()
+    for (a,b) in edge_set:
+        node_set.add(a)
+        node_set.add(b)
+
+    nodes = [v for v in node_set]
     G = G.subgraph(nodes) # Extract subgraph with nodes.
     idx = graphnodes_to_rtree(G) # Replay idx to lower bounding box.
 
     start_nodes = nodes_in_ROI(idx, ps[0], lam=lam)
     end_nodes = nodes_in_ROI(idx, ps[-1], lam=lam)
+
+    plot_graph_and_curve(nx.MultiDiGraph(G), ps)
 
     if len(start_nodes) == 0:
         return False, {}
@@ -40,6 +59,7 @@ def coverage_curve_by_network(G, ps, lam=1, measure=frechet):
         return False, {}
     # for all combinations
     for (a,b) in itertools.product(start_nodes, end_nodes):
+        breakpoint()
         paths = nx.all_simple_edge_paths(G, a, b)
         is_covered, data = curve_by_curveset_coverage(ps, paths, lam=lam, measure=measure)
         if is_covered:
