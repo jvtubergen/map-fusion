@@ -82,9 +82,9 @@ def extract_graph(name, reconstruct=False):
 
 
 # Construct network out of paths (a list of a list of coordinates)
-def convert_paths_into_graph(pss):
-    nid = 1 # node id
-    gid = 1 # group id
+def convert_paths_into_graph(pss, nid=1, gid=1):
+    # Provide node_id offset.
+    # Provide group_id offset.
     G = nx.Graph()
     for ps in pss:
         i = nid

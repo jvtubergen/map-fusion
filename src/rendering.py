@@ -90,3 +90,23 @@ def render_duplicates_highlighted(G):
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
 
 
+
+# Render curve and graph
+def plot_graph_and_curve(G, ps):
+
+    G = G.copy()
+    nx.set_node_attributes(G, 2, name="gid")
+    nx.set_edge_attributes(G, 2, name="gid")
+
+    # Construct subgraph from ps.
+    H = convert_paths_into_graph([ps], nid=max(G.nodes())+1)
+    nx.set_node_attributes(H, 1, name="gid")
+    nx.set_edge_attributes(H, 1, name="gid")
+    H.graph['crs'] = "EPSG:4326"
+    H = nx.MultiDiGraph(H)
+
+    F = nx.compose(G,H)
+    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
+    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
+
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)

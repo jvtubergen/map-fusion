@@ -81,3 +81,17 @@
 # G = ox.graph_from_point(coord_center, network_type="all_public", dist=2000)
 # H = extract_graph("chicago")
 # plot_two_graphs(G, H)
+
+
+# Example (subgraph around random shortest path and rendering both)
+# G = extract_graph("chicago")
+# G = vectorize_graph(G) # Vectorize graph.
+# G = deduplicate_vectorized_graph(G)
+# ps = gen_random_shortest_path(G)
+# lam = 0.0015
+# idx = graphnodes_to_rtree(G) # Place graph nodes coordinates in accelerated data structure (R-Tree).
+# bb = bounding_box(ps, padding=lam) # Construct lambda-padded bounding box.
+# nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]))) # Extract nodes within bounding box.
+# H = G.subgraph(nodes) # Extract subgraph with nodes.
+# # plot_graph_and_curve(G,ps) # Full graph with curve of interest
+# plot_graph_and_curve(H,ps) # Subgraph with curve of interest
