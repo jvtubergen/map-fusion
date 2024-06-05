@@ -208,6 +208,15 @@ def history_to_sequence(history):
     return steps
 
 
+# Check coverage of a curve by a curve-set.
+def curve_by_curveset_coverage(ps, qss, lam=1, measure=frechet):
+    for qs in qss:
+        is_covered, data = curve_by_curve_coverage(ps, qs, lam=lam, measure=measure)
+        if is_covered:
+            return True, data
+    return False, {}
+
+
 ###################################
 ###  Curve by network coverage
 ###################################
