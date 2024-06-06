@@ -3,6 +3,7 @@ import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 import numpy as np
+import matplotlib as plt
 
 # Standard library
 import math

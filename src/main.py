@@ -51,26 +51,31 @@ def coverage_curve_by_network(G, ps, lam=1, measure=frechet):
     start_nodes = nodes_in_ROI(idx, ps[0], lam=lam)
     end_nodes = nodes_in_ROI(idx, ps[-1], lam=lam)
 
-    plot_graph_and_curve(nx.MultiDiGraph(G), ps)
-
     if len(start_nodes) == 0:
         return False, {}
     if len(end_nodes) == 0:
         return False, {}
     # for all combinations
+    node_dict = extract_nodes_dict(G)
     for (a,b) in itertools.product(start_nodes, end_nodes):
-        breakpoint()
-        paths = nx.all_simple_edge_paths(G, a, b)
-        is_covered, data = curve_by_curveset_coverage(ps, paths, lam=lam, measure=measure)
-        if is_covered:
-            breakpoint()
+        # for path in nx.shortest_simple_paths(nx.Graph(G), a, b):
+        for path in nx.shortest_simple_paths(G, a, b):
+            # edge to nodes
+            # nodes = [a for (a,b) in path]
+            # nodes.append(path[-1][1])
+            # nodes to coordinates
+            qs = np.array([node_dict[n] for n in path])
+            plot_graph_and_curves(nx.MultiDiGraph(G), ps, qs)
+        # is_covered, data = curve_by_curveset_coverage(ps, paths, lam=lam, measure=measure)
+        # if is_covered:
+        #     breakpoint()
 
 
 # Example (Check arbitrary shortest path (with some noise) is covered by network):
 G = extract_graph("chicago")
 ps = gen_random_shortest_path(G)
 # Add some noise to path.
-lam = 0.0015
+lam = 0.0010
 noise = np.random.random((len(ps),2)) * lam - np.ones((len(ps),2)) * 0.5 * lam
 ps = ps + noise
 result = coverage_curve_by_network(G, ps, lam=lam)

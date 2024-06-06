@@ -114,7 +114,7 @@ def extract_nodes(G):
 def extract_nodes_dict(G):
     d = {}
     for node, data in G.nodes(data = True):
-        d[node] = np.asarray([data['x'], data['y']], dtype=np.float64, order='c')
+        d[node] = [data['x'], data['y']]
     return d
 
 

@@ -110,3 +110,33 @@ def plot_graph_and_curve(G, ps):
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
 
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+
+
+def plot_graph_and_curves(G, ps, qs):
+
+    G = G.copy()
+    nx.set_node_attributes(G, 2, name="gid")
+    nx.set_edge_attributes(G, 2, name="gid")
+
+    # Construct subgraph for ps.
+    H = convert_paths_into_graph([ps], nid=max(G.nodes())+1)
+    nx.set_node_attributes(H, 1, name="gid")
+    nx.set_edge_attributes(H, 1, name="gid")
+    H.graph['crs'] = "EPSG:4326"
+    H = nx.MultiDiGraph(H)
+
+    F = nx.compose(G,H)
+
+    # Construct subgraph for qs.
+    H = convert_paths_into_graph([qs], nid=max(F.nodes())+1)
+    nx.set_node_attributes(H, 3, name="gid")
+    nx.set_edge_attributes(H, 3, name="gid")
+    H.graph['crs'] = "EPSG:4326"
+    H = nx.MultiDiGraph(H)
+
+    F = nx.compose(F,H)
+
+    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="Paired")
+    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="Paired")
+
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
