@@ -8,8 +8,8 @@ def render_paths(pss):
     G = convert_paths_into_graph(pss)
     G = nx.MultiDiGraph(G)
     G.graph['crs'] = "EPSG:4326"
-    nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="tab20b")
-    ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="tab20b")
+    nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="Paired")
+    ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="Paired")
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
 
 

@@ -4,6 +4,52 @@ from frechet import *
 from hausdorff import *
 from network import *
 
+
+###################################
+###  Curve interpolation
+###################################
+
+# The deviation in lambda distance to guarantee finding a solution.
+def lambda_deviation(lam, epsilon):
+    return lam*math.sin(math.acos(0.5*epsilon))
+
+
+# Interpolate curve by interval 
+def interpolate_curve(ps, lam=1, eps=0.5):
+    # Epsilon of 0.5 introduces a deviation of <5% : Coverage of 0.95*lambda is found.
+    # Epsilon of 1.0 introduces a deviation of <15%: Coverage of 0.85*lambda is found.
+    # Epsilon of 2.0 introduces a deviation of 100%: Identical lines with different sample interval can still result in no coverage.
+    assert type(ps) == np.ndarray
+    qs = [] # result.
+    # Inject points where necessary.
+    stepsize = lam*eps
+    for pa,pb in zip(ps,ps[1:]):
+
+        qs.append(pa) # Always add current point.
+
+        length = np.linalg.norm(pb - pa)
+        steps = 1 + int(length / stepsize)
+        if steps == 1:
+            continue
+        interval = length / steps
+        for step in range(1, steps):
+            fraction = step / steps
+            q = pa * (1 - fraction) + pb * fraction
+            qs.append(q)
+
+    qs.append(ps[-1]) # Add last point.
+
+    return np.array(qs)
+
+
+# Check interval in curves.
+def curve_point_intervals(ps):
+    qs = ps[:-1] - ps[1:] # difference between points
+    return np.array([np.linalg.norm(q) for q in qs])
+
+        
+
+
 ###################################
 ###  Curve by curve coverage
 ###################################
@@ -13,7 +59,12 @@ from network import *
 
 # Discrete curve coverage of ps by qs.
 # either return false or provide subcurve with step sequence
-def curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
+# TODO: Optimization to check on bounding boxes before doing the interpolation.
+def curve_by_curve_coverage(ps, qs, lam=1, eps=0.5, measure=frechet):
+
+    # Re-interpolate curves to guarantee solution with a deviation.
+    ps = interpolate_curve(ps, lam=lam, eps=eps)
+    qs = interpolate_curve(qs, lam=lam, eps=eps)
 
     rev = False
     found, histories = _curve_by_curve_coverage(ps, qs, lam=lam, measure=frechet)
@@ -34,7 +85,7 @@ def curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
         # Just pick any history, all should be valid.
         for history in histories:
             steps = history_to_sequence(history)
-            assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam)
+            assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) <= lam)
         
         # sequences
         history = histories[0]
@@ -231,7 +282,8 @@ def curve_by_curveset_coverage(ps, qss, lam=1, measure=frechet):
 
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
-    return np.array([a + np.random.random_sample() * (b - a) for i in range(length)])
+    ps = np.random.random((length, 2))
+    return a + (b - a) * ps
         
         
 # Length of curve.
@@ -320,9 +372,10 @@ def coverage_curve_by_network(G, ps, lam=1):
     
 
 # Check data valid
-def check_curve_curve_data_validity(ps, data):
+def check_curve_curve_data_validity(data):
     try:
         assert data["found"]
+        ps = data["ps"]
         qs = data["qs"]
         steps = data["steps"]
         lam = data["lam"]
@@ -353,18 +406,19 @@ def test_curve_curve_coverage_subcurve():
     qs = np.array([[x,0.02] for x in range(0, 30)])
 
     found, data = curve_by_curve_coverage(ps, qs, lam=0.05)
-    assert found == True and check_curve_curve_data_validity(ps, data)
+    assert found == True and check_curve_curve_data_validity(data)
 
 # Leave out one 
+# BUG: This test should succeed: Discrete interpolation is converted into interval agnostic.
 def test_curve_curve_coverage_leave_one_out():
     ps = np.array([[x,0] for x in range(10,20)])
     for i in range(10, 20): # Leave out index and test
         qslist = list(range(0,30))
         qslist = qslist[:i] + qslist[i+1:]
-        qs = np.array([[x,0.02] for x in qslist])
+        qs = np.array([[x,0] for x in qslist])
 
         found, data = curve_by_curve_coverage(ps, qs, lam=0.05)
-        assert found == False
+        assert found == True and check_curve_curve_data_validity(data)
 
 # One to three points per point, thus subsequence
 def test_curve_curve_coverage_three_per_point():
@@ -376,7 +430,7 @@ def test_curve_curve_coverage_three_per_point():
             qs.append([x, 0.5 - random.random()])
     qs = np.array(qs)
     found, data = curve_by_curve_coverage(ps, qs, lam=0.51)
-    assert found == True and check_curve_curve_data_validity(ps, data)
+    assert found == True and check_curve_curve_data_validity(data)
 
 # Generating ps on unit circle, while qs scattered with one point at center point.
 def test_curve_all_points_within_range():
@@ -395,7 +449,33 @@ def test_curve_all_points_within_range():
     qs = np.array(qs)
 
     found, data = curve_by_curve_coverage(ps, qs, lam=0.51)
-    assert found == True and check_curve_curve_data_validity(ps, data)
+    assert found == True and check_curve_curve_data_validity(data)
+
+# Nodes occur at different intervals, causing mismatch even though practically identical.
+# Requires line interpolation.
+def test_curves_with_different_interpolation_frequencies():
+    ps = 10 * np.array([[v,0] for v in range(30)])
+    qs = np.array([[v,0] for v in range(300)])
+    found, data = curve_by_curve_coverage(ps, qs, lam=1, eps=0.5)
+    assert found and check_curve_curve_data_validity(data)
+
+# Proof deviation measure succeeds.
+def test_curve_deviation_by_epsilon():
+    lam = 5 + random.random() * 5
+    eps = 0.5
+    dev = lambda_deviation(lam, eps)
+    # Add one percentage, so should succeed.
+    ps = random_curve(40) # Pick points at random.
+    # qs = reinterpolate_curve(ps) # Reinterpolate curve at ar
+
+# Reinterpolating curve with lambda and epsilon value should have max distance per node pair.
+def test_curve_resampling_interval():
+    lam = 1
+    eps = 0.05
+    ps = random_curve()
+    qs = interpolate_curve(ps, lam=lam, eps=eps)
+    ds = curve_point_intervals(qs)
+    assert max(ds) <= lam*eps
 
 
 testfuncts = [
@@ -403,6 +483,7 @@ testfuncts = [
     test_curve_curve_coverage_leave_one_out,
     test_curve_curve_coverage_three_per_point,
     test_curve_all_points_within_range,
+    test_curves_with_different_interpolation_frequencies
 ]
 
 
@@ -410,6 +491,7 @@ testfuncts = [
 # Run tests
 def run_tests():
     for func in testfuncts:
+        print(func.__name__)
         func()
 
     
