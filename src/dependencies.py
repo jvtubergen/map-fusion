@@ -6,6 +6,9 @@ import numpy as np
 import matplotlib as plt
 import PIL as pil
 
+import os
+import subprocess
+
 # Standard library
 import math
 import itertools
