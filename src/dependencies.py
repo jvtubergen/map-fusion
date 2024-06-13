@@ -4,6 +4,7 @@ import networkx as nx
 import osmnx as ox
 import numpy as np
 import matplotlib as plt
+import PIL as pil
 
 # Standard library
 import math

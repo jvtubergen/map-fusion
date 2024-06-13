@@ -34,7 +34,8 @@ dependencies = [
   "ipykernel",  # jupter lab kernel creation
   "frechetdist", # doesn't work?
   "utm", # To convert UTM of mapconstruction.org to lat lon.
-  "rtree" # Indexing nodes subgraph extraction by bounding box.
+  "rtree", # Indexing nodes subgraph extraction by bounding box.
+  "pillow", # Image extraction 
 ]
 
 [project.urls]

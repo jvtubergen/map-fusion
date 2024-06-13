@@ -5,6 +5,18 @@ from network import *
 from rendering import *
 
 
+# Read image file as numpy array.
+def read_image(filename):
+    image = pil.Image.open(filename)
+    image = image.convert("RGB")
+    image = np.array(image)
+    return image
+
+
+# Write numpy array with size (width, height, RGB) as an image file.
+def write_image(image, filename):
+    Image.fromarray(image).save(filename) 
+
 # Find nodes in region of interest.
 def nodes_in_ROI(idx, coord, lam=1):
     bb = bounding_box(np.array([coord]), padding=lam)
