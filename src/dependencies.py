@@ -26,3 +26,16 @@ from fileinput import input
 # Utils
 from operator import itemgetter
 import traceback
+
+
+# Math functions
+cos  = math.cos
+sec  = lambda phi: 1/cos(phi) # Secant
+sin  = math.sin
+tan  = math.tan
+atan = math.atan
+sinh = math.sinh
+exp  = math.exp
+log  = math.log
+pow  = math.pow
+pi   = math.pi
