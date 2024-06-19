@@ -115,34 +115,26 @@ def construct_image(p1, p2, zoom, scale, api_key):
     max_resolution = 640 # Google Maps images up to 640x640.
     margin = 22 # Necessary to cut out logo.
 
-    # Pixels are considered without scale (Scale is doubling resolution so effectively acting on a higher zoom level, but in itself not influences pixel/latlon coordination.)
-    maxpixelsperimage = max_resolution - 2 * margin # max resolution minus google logo pixels border.
-    totalpixels  = int(max(x2-x1,y2-y1))
-    centerpixelx = int(0.5 * (x1 + x2))
-    centerpixely = int(0.5 * (y1 + y2))
+    # Construct tiles (to fetch).
+    step = max_resolution - 2*margin # Tile step size.
+    t1 = (y1 // step, x1 // step) # Tile in which upper-left  pixel lives.
+    t2 = (y2 // step, x2 // step) # Tile in which lower-right pixel lives.
+    tiles = [(j, i) for j in range(t1[0],t2[0] + 1) for i in range(t1[1],t2[1] + 1)]
+    width  = len(range(t1[1],t2[1] + 1)) # Tile width.
+    height = len(range(t1[0],t2[0] + 1)) # Tile height.
 
-    # Recompute resolution.
-    imagecount = ceil(totalpixels / maxpixelsperimage)
-    pixelsize  = totalpixels / imagecount
-    resolution = ceil(pixelsize)
+    # Convert tiles into pixel coordinates (at their center).
+    tile_to_pixel = lambda t: int((t + 0.5) * step)
+    pixelcoords  = [(tile_to_pixel(j), tile_to_pixel(i)) for (j,i) in tiles]
+    latloncoords = [pixelcoord_to_latlon(y, x, zoom) for y,x in pixelcoords]
 
-    # Recompute upperleft and lowerright pixel coordinates.
-    upperleftpixelx  = centerpixelx - (0.5 + 0.5 * (imagecount - 1)) * resolution
-    upperleftpixely  = centerpixely - (0.5 + 0.5 * (imagecount - 1)) * resolution
-    lowerrightpixelx = centerpixelx + (0.5 + 0.5 * (imagecount - 1)) * resolution
-    lowerrightpixely = centerpixely + (0.5 + 0.5 * (imagecount - 1)) * resolution
-
-    # Figure out pixel coordinates for fetching.
-    pixelcoords   = [(int(upperleftpixely + (j + 0.5) * resolution), int(upperleftpixelx + (i + 0.5) * resolution))for j in range(imagecount) for i in range(imagecount)]
-    latloncoords  = [pixelcoord_to_latlon(y, x, zoom) for y,x in pixelcoords]
-    uniformcoords = [latlon_to_webmercator_uniform(lat, lon) for lat,lon in latloncoords]
-
-    # # Distance between pixel
-    # print("resolution: ", resolution)
-    # print("pcoords: ", [(x2-x1, y2-y1) for ((x1,y1),(x2,y2)) in zip(pixelcoords, pixelcoords[1:])])
+    # Pixel offset in upper-right tile.
+    off1 = (y1 % step, x1 % step)
+    # Pixel offset in lower-left  tile.
+    off2 = (step - ((y2 + 1) % step) - 1, step - ((x2 + 1) % step) - 1)
 
     # Construct and fetch urls.
-    urls = [build_url(lat, lon, zoom, resolution + 2*margin, scale, api_key) for (lat, lon) in latloncoords]
+    urls = [build_url(lat, lon, zoom, max_resolution, scale, api_key) for (lat, lon) in latloncoords]
     for (fname, url) in urls:
         if not os.path.isfile(fname):
             assert fetch_url(fname, url)
@@ -151,14 +143,20 @@ def construct_image(p1, p2, zoom, scale, api_key):
     images = [read_image(fname) for (fname, _) in urls]
     images = [cut_logo(image, scale, margin) for image in images]
 
-    size = scale * resolution
-    superimage = np.ndarray((imagecount*size, imagecount*size, 3), dtype="uint8")
+    imagecount = int(math.sqrt(len(tiles)))
+    size = scale * (max_resolution - 2*margin)
+    superimage = np.ndarray((height*size, width*size, 3), dtype="uint8")
 
-    n = imagecount
     m = size
-    for i in range(n):
-        for j in range(n):
-            superimage[i*m:(i+1)*m,j*m:(j+1)*m,:] = images[i*n+j]
+    for i in range(height):
+        for j in range(width):
+            superimage[i*m:(i+1)*m,j*m:(j+1)*m,:] = images[i*width+j]
+    
+    # Cut out part of interest (of latlon).
+    off1 = (off1[0] * scale, off1[1] * scale) # Apply scale to (y,x) offset.
+    off2 = (off2[0] * scale, off2[1] * scale) # Apply scale to (y,x) offset.
+    superimage = superimage[off1[0]:-off2[0],off1[1]:-off2[1],:]
+    # Note how we cut off in y with first axis (namely rows) and x in second axis (columns).
     
     return superimage
 
@@ -168,3 +166,4 @@ def read_api_key():
     with open("api_key.txt") as f: 
         api_key = f.read()
     return api_key
+
