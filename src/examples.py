@@ -95,3 +95,14 @@
 # H = G.subgraph(nodes) # Extract subgraph with nodes.
 # # plot_graph_and_curve(G,ps) # Full graph with curve of interest
 # plot_graph_and_curve(H,ps) # Subgraph with curve of interest
+
+
+# Example (Retrieve/Construct image with GSD ~0.88 between two coordinates):
+# upperleft  = (41.799575, -87.606117)
+# lowerright = (41.787669, -87.585498)
+# scale = 1
+# zoom = 17 # For given latitude and scale results in gsd of ~ 0.88
+# api_key = read_api_key()
+# # superimage = construct_image(upperleft, lowerright, zoom, scale, api_key)   # Same result as below.
+# superimage = construct_image(upperleft, lowerright, zoom-1, scale+1, api_key) # Same result as above.
+# write_image(superimage, "superimage.png")

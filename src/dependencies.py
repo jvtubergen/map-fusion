@@ -39,3 +39,5 @@ exp  = math.exp
 log  = math.log
 pow  = math.pow
 pi   = math.pi
+
+ceil = math.ceil
