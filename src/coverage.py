@@ -374,7 +374,8 @@ def coverage_curve_by_network(G, ps, lam=1):
 # Check data valid
 def check_curve_curve_data_validity(data):
     try:
-        assert data["found"]
+        if not data["found"]:
+            return False 
         ps = data["ps"]
         qs = data["qs"]
         steps = data["steps"]
@@ -383,15 +384,18 @@ def check_curve_curve_data_validity(data):
         # Steps are increasing (both ps and qs)
         stemp = np.array(data["steps"])[:,0]
         for i, j in zip(stemp, stemp[1:]):
-            assert i == j or i == j - 1
+            if not (i == j or i == j - 1):
+                raise BaseException("Steps in ps are expected to be increasing.")
         stemp = np.array(data["steps"])[:,1]
         for i, j in zip(stemp, stemp[1:]):
-            assert i == j or i == j - 1
+            if not (i == j or i == j - 1):
+                raise BaseException("Steps in qs are expected to be increasing.")
 
         # Within distance
-        assert np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam)
+        if not np.all(np.array( [np.linalg.norm(ps[ip] - qs[iq]) for (ip, iq) in steps] ) < lam):
+            raise BaseException("Sequence of ps and qs are not within distance.")
         return True
-    except BaseException:
+    except Exception as e:
         for line in traceback.format_stack():
             print(line)
         breakpoint()
