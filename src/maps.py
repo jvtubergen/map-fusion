@@ -100,6 +100,8 @@ def compute_gsd(lat, zoom, scale):
 
 
 # Retrieve images, stitch them together.
+# * Adjust to have tile consistency, this should reduce the number of requests we are making.
+# * Prefer higher scale, lowers image retrieval count as well.
 def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False, square=True):
 
     # Deconstruct latlons.
