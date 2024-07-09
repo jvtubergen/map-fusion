@@ -106,3 +106,13 @@
 # # superimage = construct_image(upperleft, lowerright, zoom, scale, api_key)   # Same result as below.
 # superimage = construct_image(upperleft, lowerright, zoom-1, scale+1, api_key) # Same result as above.
 # write_image(superimage, "superimage.png")
+
+
+# Example (Extracting chicago ROI including pixel coordinates):
+# upperleft = (41.880126, -87.659200)
+# lowerright = (41.863563, -87.634062)
+# scale = 2
+# zoom = 17 # For given latitude and scale results in gsd of ~ 0.88
+# image, coordinates = construct_image(upperleft, lowerright, zoom, scale, read_api_key())
+# write_image(image, "chicago_zoomed.png")
+# pickle.dump(coordinates, open("chicago_zoomed.pkl", "wb"))
