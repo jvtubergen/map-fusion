@@ -100,7 +100,7 @@ def compute_gsd(lat, zoom, scale):
 
 
 # Retrieve images, stitch them together.
-def construct_image(p1, p2, zoom, scale, api_key):
+def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False):
 
     # Deconstruct latlons.
     lat1, lon1 = p1 # Upper-left  corner (thus higher latitude and lower longitude).
@@ -152,12 +152,13 @@ def construct_image(p1, p2, zoom, scale, api_key):
         for j in range(width):
             superimage[i*m:(i+1)*m,j*m:(j+1)*m,:] = images[i*width+j]
     
-    # Cut out part of interest (of latlon).
-    off1 = (off1[0] * scale, off1[1] * scale) # Apply scale to (y,x) offset.
-    off2 = (off2[0] * scale, off2[1] * scale) # Apply scale to (y,x) offset.
-    superimage = superimage[off1[0]:-off2[0],off1[1]:-off2[1],:]
-    # Note how we cut off in y with first axis (namely rows) and x in second axis (columns).
-    
+    if not full_tiles:
+        # Cut out part of interest (of latlon).
+        off1 = (off1[0] * scale, off1[1] * scale) # Apply scale to (y,x) offset.
+        off2 = (off2[0] * scale, off2[1] * scale) # Apply scale to (y,x) offset.
+        superimage = superimage[off1[0]:-off2[0],off1[1]:-off2[1],:]
+        # Note how we cut off in y with first axis (namely rows) and x in second axis (columns).
+
     return superimage
 
 
