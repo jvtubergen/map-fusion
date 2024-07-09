@@ -53,6 +53,21 @@ def render_random_nearby_shortest_paths():
 
 
 def plot_two_graphs(G,H):
+    G = G.copy()
+    H = H.copy()
+    G.graph['crs'] = "EPSG:4326"
+    G = nx.MultiDiGraph(G)
+    H.graph['crs'] = "EPSG:4326"
+    H = nx.MultiDiGraph(H)
+
+    # To prevent node interference, update node IDs of H to start at highest index of G.
+    nid=max(G.nodes())+1
+    relabel_mapping = {}
+    for nidH in H.nodes():
+        relabel_mapping[nidH] = nid
+        nid += 1
+    H = nx.relabel_nodes(H, relabel_mapping)
+
     # Add gid 1 to all nodes and edges of G, 2 for H.
     # G = Blue
     # H = Green
