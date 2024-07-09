@@ -22,6 +22,7 @@ import rtree
 # IO dependencies
 from pathlib import Path
 from fileinput import input
+import pickle
 
 # Utils
 from operator import itemgetter

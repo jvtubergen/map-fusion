@@ -174,8 +174,16 @@ def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False, square=True)
         off2 = (off2[0] * scale, off2[1] * scale) # Apply scale to (y,x) offset.
         superimage = superimage[off1[0]:-off2[0],off1[1]:-off2[1],:]
         # Note how we cut off in y with first axis (namely rows) and x in second axis (columns).
+    
+    # Store along coordinates of extracted image per pixel.
+    pixelcoordinates = []
+    for y in range(y1,y2):
+        tmp = []
+        for x in range(x1,x2):
+            tmp.append(pixelcoord_to_latlon(y, x, zoom))
+        pixelcoordinates.append(tmp)
 
-    return superimage
+    return superimage, pixelcoordinates
 
 
 # Read API key stored locally.
