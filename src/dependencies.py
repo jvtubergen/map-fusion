@@ -22,6 +22,7 @@ import rtree
 # IO dependencies
 from pathlib import Path
 from fileinput import input
+import json
 import pickle
 
 # Utils
@@ -42,3 +43,4 @@ pow  = math.pow
 pi   = math.pi
 
 ceil = math.ceil
+floor = math.floor
