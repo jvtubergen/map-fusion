@@ -81,6 +81,17 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
+# Save a graph to storage as a GraphML format.
+# * Optionally overwrite if the target file already exists.
+# * Writes the file into the graphs folder.
+def save_graph(G, name, overwrite=False):
+    graphml_path = "graphs/"+name+".graphml"
+    if Path(graphml_path).exists() and not overwrite:
+        print("Did not save graph: Not allowed to overwrite existing file.")
+    else:
+        ox.save_graphml(G, filepath=graphml_path)
+
+
 # Construct network out of paths (a list of a list of coordinates)
 def convert_paths_into_graph(pss, nid=1, gid=1):
     # Provide node_id offset.
