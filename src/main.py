@@ -46,5 +46,6 @@ def sat2graph_json_to_graph(json_file, pickle_file):
         b = padding_offset(tuple(e[1]))
         if a in D and b in D:
             G.add_edge(D[a], D[b])
+    
+    return G
 
-plot_graph_presentation(G)

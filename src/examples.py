@@ -118,6 +118,11 @@
 # pickle.dump(coordinates, open("chicago_zoomed.pkl", "wb"))
 
 
+# Example (Converting sat2graph inferred data into a graph):
+# G = sat2graph_json_to_graph("chicago_zoomed.json", "chicago_zoomed.pkl")
+# plot_graph_presentation(G)
+
+
 # Example (Load networks sat, gps, truth and render gps-truth and sat-truth):
 # ground_truth = extract_graph("maps_chicago")
 # ground_truth2 = extract_graph("chicago")
