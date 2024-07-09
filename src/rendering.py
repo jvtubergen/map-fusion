@@ -105,6 +105,27 @@ def render_duplicates_highlighted(G):
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
 
 
+# Render a graph that meets the styling for presentation.
+def plot_graph_presentation(G):
+    # Coloring of edges and nodes per gid.
+    G = G.copy()
+    G.graph['crs'] = "EPSG:4326"
+    G = nx.MultiDiGraph(G)
+    white = "#fafafa"
+    black = "#040404"
+    ox.plot_graph(
+        G, 
+        bgcolor=white, 
+        edge_color=black,
+        edge_linewidth=1,
+        node_color=white,
+        node_edgecolor=black,
+        node_size=10,
+        save=True,
+        # dpi=500,
+        # figsize=(1024,1024)
+    )
+
 
 # Render curve and graph
 def plot_graph_and_curve(G, ps):
