@@ -100,7 +100,7 @@ def compute_gsd(lat, zoom, scale):
 
 
 # Retrieve images, stitch them together.
-def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False):
+def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False, square=True):
 
     # Deconstruct latlons.
     lat1, lon1 = p1 # Upper-left  corner (thus higher latitude and lower longitude).
@@ -109,8 +109,24 @@ def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False):
     # Obtain pixel range in google maps at given zoom.
     y1, x1 = latlon_to_pixelcoord(lat1, lon1, zoom)
     y2, x2 = latlon_to_pixelcoord(lat2, lon2, zoom)
-    y2 += 1
-    x2 += 1
+
+    if square:
+        # Adapt offsets to obtain a square image.
+        w = x2 - x1
+        h = y2 - y1
+        if h > w:
+            diff = h - w
+            left = floor(0.5 * diff)
+            right= ceil(0.5 * diff)
+            x1 = x1 - left
+            x2 = x2 + right
+        if w > h:
+            diff = w - h
+            above= floor(0.5 * diff)
+            below= ceil(0.5 * diff)
+            y1 = y1 - above
+            y2 = y2 + below
+
 
     max_resolution = 640 # Google Maps images up to 640x640.
     margin = 22 # Necessary to cut out logo.
