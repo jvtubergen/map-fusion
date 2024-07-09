@@ -11,11 +11,23 @@ edges    = elements["graph"]["edges"]
 vertices = elements["graph"]["vertices"]
 coordinates = pickle.load(open("chicago_zoomed.pkl", "rb"))
 
+# Sat2Graph image has a padding of 176.
+def padding_offset(v):
+    return (v[0] + 176, v[1] + 176)
+
 # Add ID to nodes.
 nodeid = 1
 nodes = set()
 for v in vertices: 
-    nodes.add(tuple(v))
+    nodes.add(padding_offset(tuple(v)))
+
+# Add edge endpoints to nodes.
+for e in edges:
+    v1 = e[0]
+    v2 = e[1]
+    nodes.add(padding_offset(tuple(v1)))
+    nodes.add(padding_offset(tuple(v2)))
+
 
 # Add nodes to graph
 G = nx.Graph()
@@ -27,13 +39,9 @@ for i,v in enumerate(nodes):
 
 # Add edges to graph:
 for e in edges:
-    a = tuple(e[0])
-    b = tuple(e[1])
+    a = padding_offset(tuple(e[0]))
+    b = padding_offset(tuple(e[1]))
     if a in D and b in D:
         G.add_edge(D[a], D[b])
-    # (Don't expect for all edge endpoints to have a valid node: Some are outside of range?)
-    # assert a in nodes
-    # assert b in nodes
-
 
 plot_graph_presentation(G)
