@@ -116,3 +116,12 @@
 # image, coordinates = construct_image(upperleft, lowerright, zoom, scale, read_api_key())
 # write_image(image, "chicago_zoomed.png")
 # pickle.dump(coordinates, open("chicago_zoomed.pkl", "wb"))
+
+
+# Example (Load networks sat, gps, truth and render gps-truth and sat-truth):
+# ground_truth = extract_graph("maps_chicago")
+# ground_truth2 = extract_graph("chicago")
+# inferred_gps = extract_graph("inferredgps_chicago")
+# inferred_sat = sat2graph_json_to_graph("chicago_zoomed.json", "chicago_zoomed.pkl")
+# plot_two_graphs(ground_truth2, inferred_gps)
+# plot_two_graphs(ground_truth2, inferred_sat)
