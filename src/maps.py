@@ -163,22 +163,9 @@ def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False, square=True)
     y2, x2 = latlon_to_pixelcoord(lat2, lon2, zoom)
 
     if square:
-        # Adapt offsets to obtain a square image.
-        w = x2 - x1
-        h = y2 - y1
-        if h > w:
-            diff = h - w
-            left = floor(0.5 * diff)
-            right= ceil(0.5 * diff)
-            x1 = x1 - left
-            x2 = x2 + right
-        if w > h:
-            diff = w - h
-            above= floor(0.5 * diff)
-            below= ceil(0.5 * diff)
-            y1 = y1 - above
-            y2 = y2 + below
-
+        p1, p2 = [y1, x1], [y2, x2]
+        p1, p2 = squarify_coordinates(p1, p2)
+        [y1, x1], [y2, x2] = p1, p2
 
     max_resolution = 640 # Google Maps images up to 640x640.
     margin = 22 # Necessary to cut out logo.
@@ -196,9 +183,9 @@ def construct_image(p1, p2, zoom, scale, api_key, full_tiles=False, square=True)
     pixelcoords  = [(tile_to_pixel(j), tile_to_pixel(i)) for (j,i) in tiles]
     latloncoords = [pixelcoord_to_latlon(y, x, zoom) for y,x in pixelcoords]
 
-    # Pixel offset in upper-right tile.
+    # Pixel offset in upper-left  tile.
     off1 = (y1 % step, x1 % step)
-    # Pixel offset in lower-left  tile.
+    # Pixel offset in lower-right tile.
     off2 = (step - ((y2 + 1) % step) - 1, step - ((x2 + 1) % step) - 1)
 
     # Construct and fetch urls.
