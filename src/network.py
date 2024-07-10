@@ -86,6 +86,9 @@ def extract_graph(name, reconstruct=False):
 # * Writes the file into the graphs folder.
 def save_graph(G, name, overwrite=False):
     graphml_path = "graphs/"+name+".graphml"
+    G = G.copy()
+    G.graph['crs'] = "EPSG:4326"
+    G = nx.MultiDiGraph(G)
     if Path(graphml_path).exists() and not overwrite:
         print("Did not save graph: Not allowed to overwrite existing file.")
     else:
