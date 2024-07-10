@@ -85,6 +85,54 @@ def plot_two_graphs(G,H):
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
+# Relabel all nodes in graph starting at a given node ID.
+def relabel_graph_from_nid(G, nid):
+    relabel_mapping = {}
+    for nidG in G.nodes():
+        relabel_mapping[nidG] = nid
+        nid += 1
+    G = nx.relabel_nodes(G, relabel_mapping)
+    return G
+
+
+def plot_three_graphs(G,H,I):
+    G = G.copy()
+    G.graph['crs'] = "EPSG:4326"
+    G = nx.MultiDiGraph(G)
+
+    H = H.copy()
+    H = nx.MultiDiGraph(H)
+    H.graph['crs'] = "EPSG:4326"
+
+    I = I.copy()
+    I = nx.MultiDiGraph(I)
+    I.graph['crs'] = "EPSG:4326"
+
+    # To prevent node interference, update node IDs of H and I.
+    H = relabel_graph_from_nid(H, max(G.nodes())+1)
+    I = relabel_graph_from_nid(I, max(H.nodes())+1)
+
+    # Add gid 1 to all nodes and edges of G, 2 for H.
+    # G = Blue
+    # H = ?
+    # I = ?
+    nx.set_node_attributes(G, 1, name="gid")
+    nx.set_edge_attributes(G, 1, name="gid")
+    nx.set_node_attributes(H, 2, name="gid")
+    nx.set_edge_attributes(H, 2, name="gid")
+    nx.set_node_attributes(I, 3, name="gid")
+    nx.set_edge_attributes(I, 3, name="gid")
+
+    # Add two graphs together
+    F = nx.compose(G,H)
+    F = nx.compose(F,I)
+
+    # Coloring of edges and nodes per gid.
+    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
+    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
+
+
 # Rendering duplicated nodes and edges.
 def render_duplicates_highlighted(G):
     G = G.copy()
