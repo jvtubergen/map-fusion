@@ -128,8 +128,8 @@ def plot_three_graphs(G,H,I):
     F = nx.compose(F,I)
 
     # Coloring of edges and nodes per gid.
-    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
-    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
+    nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="tab20b")
+    ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="tab20b")
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
