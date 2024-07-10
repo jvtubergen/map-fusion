@@ -99,6 +99,28 @@ def compute_gsd(lat, zoom, scale):
     return w / (256 * pow(2, zoom) * k * scale)
 
 
+# Adapt coordinates into a square.
+# * Assumes uniform horizonal and vertical distance (thus don't apply to mercurator coordinates).
+# * Assume to be inclusive (thus increasing area size rather than lowering it).
+def squarify_coordinates(p1, p2):
+    y1, x1 = p1
+    y2, x2 = p2
+    w = x2 - x1
+    h = y2 - y1
+    if h > w:
+        diff = h - w
+        left = floor(0.5 * diff)
+        right= ceil(0.5 * diff)
+        x1 = x1 - left
+        x2 = x2 + right
+    if w > h:
+        diff = w - h
+        above= floor(0.5 * diff)
+        below= ceil(0.5 * diff)
+        y1 = y1 - above
+        y2 = y2 + below
+    return [y1, x1], [y2, x2]
+
 # Retrieve images, stitch them together.
 # * Adjust to have tile consistency, this should reduce the number of requests we are making.
 # * Prefer higher scale, lowers image retrieval count as well.
