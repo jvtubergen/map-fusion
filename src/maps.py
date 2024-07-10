@@ -121,6 +121,34 @@ def squarify_coordinates(p1, p2):
         y2 = y2 + below
     return [y1, x1], [y2, x2]
 
+
+# Squarify, but in terms of meb mercator coordinates.
+# Note the difference, scaling is inhomogeneous.
+def squarify_web_mercator_coordinates(p1, p2, zoom):
+    # Convert web mercator coordinates into pixel coordinates.
+    # Deconstruct latlons.
+    lat1, lon1 = p1 # Upper-left  corner (thus higher latitude and lower longitude).
+    lat2, lon2 = p2 # Lower-right corner (thus lower latitude and higher longitude).
+
+    # Obtain pixel range in google maps at given zoom.
+    y1, x1 = latlon_to_pixelcoord(lat1, lon1, zoom)
+    y2, x2 = latlon_to_pixelcoord(lat2, lon2, zoom)
+
+    # Squarify the result.
+    p1, p2 = [y1, x1], [y2, x2]
+    p1, p2 = squarify_coordinates(p1, p2)
+    [y1, x1], [y2, x2] = p1, p2
+
+    # Return to web mercator coordinates.
+    lat1, lon1 = pixelcoord_to_latlon(y1, x1, zoom)
+    lat2, lon2 = pixelcoord_to_latlon(y2, x2, zoom)
+
+    p1 = lat1, lon1
+    p2 = lat2, lon2
+
+    return p1, p2
+
+
 # Retrieve images, stitch them together.
 # * Adjust to have tile consistency, this should reduce the number of requests we are making.
 # * Prefer higher scale, lowers image retrieval count as well.
