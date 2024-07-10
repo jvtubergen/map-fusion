@@ -10,7 +10,7 @@ def render_paths(pss):
     G.graph['crs'] = "EPSG:4326"
     nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="Paired")
     ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="Paired")
-    ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+    ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
 # Pick random shortest paths until coverage, then render.
@@ -82,7 +82,7 @@ def plot_two_graphs(G,H):
     # Coloring of edges and nodes per gid.
     nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
-    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
 # Rendering duplicated nodes and edges.
@@ -102,7 +102,7 @@ def render_duplicates_highlighted(G):
     # Render
     nc = ox.plot.get_node_colors_by_attr(G, "gid", cmap="winter")
     ec = ox.plot.get_edge_colors_by_attr(G, "gid", cmap="winter")
-    ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+    ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
 # Render a graph that meets the styling for presentation.
@@ -145,7 +145,7 @@ def plot_graph_and_curve(G, ps):
     nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="winter")
 
-    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
 def plot_graph_and_curves(G, ps, qs):
@@ -175,4 +175,4 @@ def plot_graph_and_curves(G, ps, qs):
     nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="Paired")
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="Paired")
 
-    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec)
+    ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
