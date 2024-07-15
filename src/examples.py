@@ -130,3 +130,41 @@
 # inferred_sat = sat2graph_json_to_graph("chicago_zoomed.json", "chicago_zoomed.pkl")
 # plot_two_graphs(ground_truth2, inferred_gps)
 # plot_two_graphs(ground_truth2, inferred_sat)
+
+
+# Example (Load networks sat, gps, truth and render gps-truth and sat-truth):
+# web_coordinates = {
+#     "chicago_zoomed"      : ((41.880126, -87.659200), (41.863563, -87.634062)),
+#     "chicago_super_zoomed": ((41.878978, -87.651714), (41.871960, -87.640646)),
+#     "chicago_gps"         : ((41.87600 , -87.68800 ), (41.86100 , -87.63900 ))
+# }
+# scale = 2
+# zoom = 17
+# roi    = "chicago_zoomed"
+# roi    = "chicago_gps"
+# action = "extract_image"
+# action = "infer_graph"
+# action = "plot_graphs"
+# action = "plot_truth_gps"
+# p1, p2 = web_coordinates[roi]
+# p1, p2 = squarify_web_mercator_coordinates(p1, p2, zoom)
+# match action:
+#     case "extract_image":
+#         image, coordinates = construct_image(p1, p2, zoom, scale, read_api_key())
+#         write_image(image, roi+".png")
+#     case "infer_graph":
+#         json_file = roi + ".json"
+#         G = sat2graph_json_to_graph(json_file, p1, p2)
+#         plot_graph_presentation(G)
+#         save_graph(G, "chicago_inferred_sat", overwrite=True)
+#     case "plot_graphs":
+#         truth = extract_graph("chicago_truth")
+#         truth = cut_out_ROI(truth, p1, p2)
+#         sat   = extract_graph("chicago_inferred_sat")
+#         gps   = extract_graph("chicago_inferred_gps")
+#         plot_three_graphs(truth, sat, gps)
+#     case "plot_truth_gps":
+#         truth = extract_graph("chicago_truth")
+#         truth = cut_out_ROI(truth, p1, p2)
+#         gps   = extract_graph("chicago_inferred_gps")
+#         plot_two_graphs(truth, gps)
