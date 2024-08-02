@@ -8,10 +8,7 @@ def to_curve(ps):
     return result
 
 # Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
-def pcm(ps, qs, eps):
-    if type(ps[0]) != Vector:
-        ps = to_curve(ps)
-        qs = to_curve(qs)
-    return partial_curve(ps, qs, eps)
-    
-
+def is_partial_curve_undirected(ps, qs, eps):
+    assert type(ps[0]) == Vector
+    assert type(qs[0]) == Vector
+    return partial_curve(ps, qs, eps) != None or partial_curve(ps[::-1], qs, eps)

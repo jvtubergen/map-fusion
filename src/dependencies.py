@@ -35,12 +35,15 @@ cos  = math.cos
 sec  = lambda phi: 1/cos(phi) # Secant
 sin  = math.sin
 tan  = math.tan
+asin = math.asin
 atan = math.atan
+acos = math.acos
 sinh = math.sinh
 exp  = math.exp
 log  = math.log
 pow  = math.pow
 pi   = math.pi
+sqrt = math.sqrt
 
 ceil = math.ceil
 floor = math.floor

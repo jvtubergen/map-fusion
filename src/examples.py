@@ -168,3 +168,9 @@
 #         truth = cut_out_ROI(truth, p1, p2)
 #         gps   = extract_graph("chicago_inferred_gps")
 #         plot_two_graphs(truth, gps)
+
+
+# Example (partial curve matching):
+# ps = random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10]))
+# qs = random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10]))
+# assert is_partial_curve_undirecteto_curve(ps), to_curve(qs), sqrt(2*100))

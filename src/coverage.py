@@ -1,7 +1,6 @@
 from dependencies import *
 
-from frechet import *
-from hausdorff import *
+from pcm import *
 from network import *
 
 
@@ -60,17 +59,17 @@ def curve_point_intervals(ps):
 # Discrete curve coverage of ps by qs.
 # either return false or provide subcurve with step sequence
 # TODO: Optimization to check on bounding boxes before doing the interpolation.
-def curve_by_curve_coverage(ps, qs, lam=1, eps=0.5, measure=frechet):
+def curve_by_curve_coverage(ps, qs, lam=1, eps=0.5, measure=is_partial_curve_undirected):
 
     # Re-interpolate curves to guarantee solution with a deviation.
     ps = interpolate_curve(ps, lam=lam, eps=eps)
     qs = interpolate_curve(qs, lam=lam, eps=eps)
 
     rev = False
-    found, histories = _curve_by_curve_coverage(ps, qs, lam=lam, measure=frechet)
+    found, histories = _curve_by_curve_coverage(ps, qs, lam=lam, measure=is_partial_curve_undirected)
     if not found:
         rev = True
-        found, histories = _curve_by_curve_coverage(ps, qs[::-1], lam=lam, measure=frechet)
+        found, histories = _curve_by_curve_coverage(ps, qs[::-1], lam=lam, measure=is_partial_curve_undirected)
 
     if not found:
         return False, {}
@@ -108,7 +107,7 @@ def curve_by_curve_coverage(ps, qs, lam=1, eps=0.5, measure=frechet):
     
 
 # Check curve ps is covered by curve qs.
-def _curve_by_curve_coverage(ps, qs, lam=1, measure=frechet):
+def _curve_by_curve_coverage(ps, qs, lam=1, measure=is_partial_curve_undirected):
 
     # Method 1:
     # * Per point p find ids of qs that are within range.
@@ -260,7 +259,7 @@ def history_to_sequence(history):
 
 
 # Check coverage of a curve by a curve-set.
-def curve_by_curveset_coverage(ps, qss, lam=1, measure=frechet):
+def curve_by_curveset_coverage(ps, qss, lam=1, measure=is_partial_curve_undirected):
     for qs in qss:
         is_covered, data = curve_by_curve_coverage(ps, qs, lam=lam, measure=measure)
         if is_covered:
