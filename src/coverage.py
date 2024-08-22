@@ -9,23 +9,25 @@ from pcm import *
 # Curve coverage of ps by qs.
 # either return false or provide subcurve with step sequence
 # TODO: Optimization to check on bounding boxes before doing the interpolation.
-def curve_by_curve_coverage(ps, qs, lam=1):
+def curve_by_curve_coverage(ps, qs, lam):
     return is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam)
 
+
 # Check coverage of a curve by a curve-set.
-def curve_by_curveset_coverage(ps, qss, lam=1):
+def curve_by_curveset_coverage(ps, qss, lam):
     for qs in qss:
         if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
-            return True, data
-    return False, {}
+            return True
+    return False
 
 
 ###################################
 ###  Curve by network coverage
 ###################################
 
+
 # Extract path from a network.
-# 1. Construct minimal bounding box for area
+# 1. Construct minimal bounding box for area.
 # 2. Obtain vectorized graph.
 # 3. Extract nodes within area.
 # 4. Construct subnetwork.
@@ -47,7 +49,7 @@ def curve_length(ps):
 
 
 # Extract bounding box on a curve. Use padding to lambda pad.
-def bounding_box(ps, padding=0):
+def bounding_box(ps, padding):
     padding = np.array([padding, padding])
     lower = [np.min(ps[:,0]), np.min(ps[:,1])]
     higher = [np.max(ps[:,0]), np.max(ps[:,1])]
@@ -90,13 +92,15 @@ def graphedges_to_rtree(G):
     return idx
 
 
-# Compute coverage of curve by a network.
-def coverage_curve_by_network(G, ps, lam=1):
+# Optimization to check coverage of a curve by a network. 
+# We only have to consider the edges in the subnetwork which are nearby the curve.
+# The curves have no loops in it, so we only have to check for simple paths.
+def coverage_curve_by_network(G, ps, lam):
     
     G = vectorize_graph(G) # Vectorize graph.
     G = deduplicate_vectorized_graph(G)
     idx = graphnodes_to_rtree(G) # Place graph nodes coordinates in accelerated data structure (R-Tree).
-    bb = bounding_box(ps, padding=lam) # Construct lambda-padded bounding box.
+    bb = bounding_box(ps, lam) # Construct lambda-padded bounding box.
     nodes = list(idx.intersection((bb[0][0], bb[0][1], bb[1][0], bb[1][1]))) # Extract nodes within bounding box.
     H = G.subgraph(nodes) # Extract subgraph with nodes.
 
