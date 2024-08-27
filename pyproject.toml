@@ -36,6 +36,7 @@ dependencies = [
   "utm", # To convert UTM of mapconstruction.org to lat lon.
   "rtree", # Indexing nodes subgraph extraction by bounding box.
   "pillow", # Image extraction 
+  "requests", # gmaps-image dependency for API requests.
 ]
 
 [project.urls]

@@ -29,6 +29,8 @@ import pickle
 from operator import itemgetter
 import traceback
 
+import gmaps.lib as gmaps
+
 
 # Math functions
 cos  = math.cos
