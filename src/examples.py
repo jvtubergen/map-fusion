@@ -132,6 +132,14 @@
 # plot_two_graphs(ground_truth2, inferred_sat)
 
 
+# Example (rendering three graphs from graph set):
+# graphs = extract_graphset("chicago")
+# truth = graphs["truth"]
+# gps = graphs["gps"]
+# sat = graphs["sat"]
+# plot_three_graphs(truth, sat, gps)
+
+
 # Example (Load networks sat, gps, truth and render gps-truth and sat-truth):
 # web_coordinates = {
 #     "chicago_zoomed"      : ((41.880126, -87.659200), (41.863563, -87.634062)),
