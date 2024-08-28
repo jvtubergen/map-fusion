@@ -81,6 +81,14 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
+def extract_graphset(name):
+    graphs = {}
+    graphs["gps"] = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
+    graphs["sat"] = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
+    graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
+    return graphs
+
+
 # Save a graph to storage as a GraphML format.
 # * Optionally overwrite if the target file already exists.
 # * Writes the file into the graphs folder.
