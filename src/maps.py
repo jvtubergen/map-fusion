@@ -98,6 +98,36 @@ def compute_gsd(lat, zoom, scale):
     w = earth_circumference  # Total image distance on 256x256 world image
     return w / (256 * pow(2, zoom) * k * scale)
 
+# Compute distance between two geographic coordinates.
+def haversine(latlon1, latlon2):
+    
+    lat1, lon1 = map(math.radians, latlon1)
+    lat2, lon2 = map(math.radians, latlon2)
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    r = earth_radius
+    hav = lambda tau: sin(0.5 * tau) * sin(0.5 * tau)
+
+    return 2 * r * asin(sqrt(0.5 * (1 - cos(dlat) + cos(lat1) * cos(lat2) * (1 - cos(dlon)))))
+    # return 2 * r * asin(sqrt(hav(dlat) + cos(lat1) * cos(lat2) * hav(dlon)))
+
+
+# Equirectangular Approximation
+def equirectangular(latlon1, latlon2):
+
+    lat1, lon1 = map(math.radians, latlon1)
+    lat2, lon2 = map(math.radians, latlon2)
+
+    alat = 0.5 * (lat1 + lat2)
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    r = earth_radius
+
+    return r * sqrt(pow(dlon * cos(alat), 2) + pow(dlat, 2))
+
 
 # Adapt coordinates into a square.
 # * Assumes uniform horizonal and vertical distance (thus don't apply to mercurator coordinates).
