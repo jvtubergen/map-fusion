@@ -1,7 +1,7 @@
 # Google Maps retrieval functionality
 from dependencies import *
 
-earth_radius = 6378137 # meters
+earth_radius   = 6371007 # meters
 earth_circumference = 2*pi*earth_radius
 
 # Gudermann function. Real argument abs(rho) < 0.5*pi 
