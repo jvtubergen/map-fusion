@@ -182,3 +182,34 @@
 # ps = random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10]))
 # qs = random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10]))
 # assert is_partial_curve_undirecteto_curve(ps), to_curve(qs), sqrt(2*100))
+
+
+# Example (compute distance between graph nodes):
+# graphs = extract_graphset("chicago")
+# sat = graphs["sat"]
+# sat = ox.simplify_graph(sat)
+# for k, nbrs in S.adj.items():
+#     for nbr, data in nbrs.items():
+
+#         # print(nbr, data)
+#         p1 = S._node[k]
+#         p2 = S._node[nbr]
+
+#         # print(p1, p2)
+#         latlon1 = [p1["y"], p1["x"]]
+#         latlon2 = [p2["y"], p2["x"]]
+#         lat1, lon1 = latlon1
+#         lat2, lon2 = latlon2
+
+#         ## Haversine distance.
+#         print(haversine(latlon1, latlon2))
+
+#         ## Equirectangular distance.
+#         print(equirectangular(latlon1, latlon2))
+
+#         ## Webmercator-pixelcoordinate distance.
+#         q1 = np.array(latlon_to_pixelcoord(lat1, lon1, 18))
+#         q2 = np.array(latlon_to_pixelcoord(lat2, lon2, 18))
+
+#         gsd = compute_gsd(0.5 * (lat1 + lat2), 18, 1)
+#         print(gsd * np.linalg.norm(q2 - q1))
