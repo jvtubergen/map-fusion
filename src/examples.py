@@ -229,3 +229,57 @@
     #         max_deviation = max(max_deviation, abs(d_haver - d_merc))
 
     # print("max deviation haversine versus webmercator:", max_deviation)
+
+
+# Example (Rendering graph with distances rather than geographic coordinates):
+#   Note: Incomplete approach, it takes a graph with geographic coordinates. 
+#         Ideally we first transform all nodes (and edge curvature) and render that instead.
+# def example_render_graph_distances():
+
+#     truth = graphs["truth"]
+#     truth = nx.Graph(truth)
+#     G = annotate_edge_curvature_as_array(truth)
+
+#     ## Nodes (GeoPandas Dataframe).
+#     uvk, data = zip(*G.nodes(data=True))
+#     gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+#     alat = gdf_nodes["y"].mean()
+#     zoom = 20
+#     gsd = compute_gsd(alat, zoom, 1)
+
+#     # Reference point to compute relative distances from.
+#     refy, refx = gdf_nodes["y"].max(), gdf_nodes["x"].min()
+#     refy, refx = latlon_to_pixelcoord(refy, refx, zoom)
+#     refy, refx = gsd * refy, gsd * refx
+
+#     # Map lat,lon to y,x with latlon_to_pixelcoord.
+#     def latlon_to_relative_pixelcoord(row):
+#         lat, lon = row["y"], row["x"]
+#         y, x = latlon_to_pixelcoord(lat, lon, zoom)
+#         return pd.Series({'x': gsd * x - refx, 'y': gsd * y - refy})
+
+#     gdf_nodes[["y","x"]] = gdf_nodes.apply(latlon_to_relative_pixelcoord, axis=1)[["y","x"]]
+
+#     ## Edges (GeoPandas Dataframe).
+#     u, v, data = zip(*G.edges(data=True))
+
+#     # Construct geometry out of edge curvature.
+#     def edge_latlon_curvature_to_relative_pixelcoord(u, v, data):
+#         curvature = [gsd * np.array(latlon_to_pixelcoord(lat, lon, zoom)) for lat, lon in data["curvature"]]
+#         # Convert into a LineString and Points.
+#         return LineString([Point(x - refx, y - refy) for y,x in curvature])
+
+#     edge_geoms = map(edge_latlon_curvature_to_relative_pixelcoord, u, v, data)
+#     gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+#     gdf_edges["u"] = u
+#     gdf_edges["v"] = v
+#     gdf_edges = gdf_edges.set_index(["u", "v"])
+
+#     ## Plot construction.
+#     fig, ax = plt.subplots()
+#     ax = gdf_edges['geometry'].plot(ax=ax)
+#     ax.scatter( x=gdf_nodes["x"], y=gdf_nodes["y"],)
+#     fig.canvas.draw()
+#     fig.canvas.flush_events()
+#     plt.show()
+
