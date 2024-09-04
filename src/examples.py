@@ -185,31 +185,47 @@
 
 
 # Example (compute distance between graph nodes):
-# graphs = extract_graphset("chicago")
-# sat = graphs["sat"]
-# sat = ox.simplify_graph(sat)
-# for k, nbrs in S.adj.items():
-#     for nbr, data in nbrs.items():
+# def example_graphnodes_distances():
+    # graphs = extract_graphset("chicago")
+    # G = graphs["truth"]
+    # max_deviation = 0
 
-#         # print(nbr, data)
-#         p1 = S._node[k]
-#         p2 = S._node[nbr]
+    # uvk, data = zip(*G.nodes(data=True))
+    # df = gpd.GeoDataFrame(data, index=uvk)
+    # zoom = 20
+    # alat = df["y"].mean()
+    # gsd = compute_gsd(alat, zoom, 1)
 
-#         # print(p1, p2)
-#         latlon1 = [p1["y"], p1["x"]]
-#         latlon2 = [p2["y"], p2["x"]]
-#         lat1, lon1 = latlon1
-#         lat2, lon2 = latlon2
+    # for k, nbrs in S.adj.items():
+    #     for nbr, data in nbrs.items():
 
-#         ## Haversine distance.
-#         print(haversine(latlon1, latlon2))
+    #         # print(nbr, data)
+    #         p1 = S._node[k]
+    #         p2 = S._node[nbr]
 
-#         ## Equirectangular distance.
-#         print(equirectangular(latlon1, latlon2))
+    #         # print(p1, p2)
+    #         latlon1 = [p1["y"], p1["x"]]
+    #         latlon2 = [p2["y"], p2["x"]]
+    #         lat1, lon1 = latlon1
+    #         lat2, lon2 = latlon2
 
-#         ## Webmercator-pixelcoordinate distance.
-#         q1 = np.array(latlon_to_pixelcoord(lat1, lon1, 18))
-#         q2 = np.array(latlon_to_pixelcoord(lat2, lon2, 18))
+    #         ## Haversine distance.
+    #         d_haver = haversine(latlon1, latlon2)
 
-#         gsd = compute_gsd(0.5 * (lat1 + lat2), 18, 1)
-#         print(gsd * np.linalg.norm(q2 - q1))
+    #         ## Equirectangular distance.
+    #         d_rect = equirectangular(latlon1, latlon2)
+
+    #         ## Webmercator-pixelcoordinate distance.
+    #         q1 = gsd * np.array(latlon_to_pixelcoord(lat1, lon1, zoom))
+    #         q2 = gsd * np.array(latlon_to_pixelcoord(lat2, lon2, zoom))
+    #         d_merc = np.linalg.norm(q2 - q1)
+
+    #         ## Webmercator-pixelcoordinate distance, but each position is fixated with its own gsd. (result is off by 30%..)
+    #         # print(np.linalg.norm(compute_gsd(lat2, zoom, 1) * q2 - compute_gsd(lat1, zoom, 1) * q1))
+
+    #         print(d_haver)
+    #         print(d_rect)
+    #         print(d_merc)
+    #         max_deviation = max(max_deviation, abs(d_haver - d_merc))
+
+    # print("max deviation haversine versus webmercator:", max_deviation)
