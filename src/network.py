@@ -83,8 +83,8 @@ def extract_graph(name, reconstruct=False):
 
 def extract_graphset(name):
     graphs = {}
-    graphs["gps"] = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
-    graphs["sat"] = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
+    graphs["gps"]   = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
+    graphs["sat"]   = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
     graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
     return graphs
 
@@ -140,6 +140,11 @@ def extract_nodes_dict(G):
     return d
 
 
+# Extract node positions, ignoring node ids.
+def extract_node_positions(G):
+    return np.asarray([[data['x'], data['y']] for node, data in G.nodes(data = True)], dtype=np.float64, order='c')
+
+
 # Seek nearest vertex in graph of a specific coordinate of interest.
 # Expect point to be a 2D numpy array.
 def nearest_point(G, p):
@@ -191,13 +196,14 @@ def vectorize_graph(G):
     if not G.graph.get("simplified"):
         msg = "Graph has to be simplified in order to vectorize it."
         raise BaseException(msg)
-
-    G = G.copy()
-    G = nx.MultiGraph(G) # We dont want about directionality in graph: Duplicates edges and nodes.
+    
+    if not type(G) == nx.Graph:
+        msg = "Graph has to be undirected for it to work here."
+        return BaseException(msg)
 
     # Extract nodes and edges.
     nodes = np.array(list(G.nodes(data=True)))
-    edges = np.array(list(G.edges(data=True,keys=True)))
+    edges = np.array(list(G.edges(data=True)))
 
     # Obtain unique (incremental) node ID to use.
     newnodeid = np.max(np.array(nodes)[:,0]) + 1
@@ -207,8 +213,7 @@ def vectorize_graph(G):
 
         a = edge[0]
         b = edge[1]
-        k = edge[2]
-        attrs = edge[3]
+        attrs = edge[2]
 
         # If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.
         if "geometry" in attrs.keys():
@@ -222,8 +227,8 @@ def vectorize_graph(G):
             # Delete this edge from network.
             # BUG: We are removing an edge without key identifier from a multigraph.
             #      It should 
-            G.remove_edge(a,b, key=k)
-            print("Removing edge ", a, b, k)
+            G.remove_edge(a,b)
+            print("Removing edge ", a, b)
 
             # Ensured we are adding new curvature. 
             # Add new node ID to each coordinate.
@@ -240,7 +245,6 @@ def vectorize_graph(G):
                 G.add_edge(a, b)
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
-    G = nx.MultiDiGraph(G) # Require multidigraph for rendering.
 
     return G
 
@@ -360,17 +364,23 @@ def duplicated_edges_grouped(G):
 #       No need to 
 def deduplicate_vectorized_graph(G):
 
-    G = G.copy()
-    G = nx.Graph(G)
+    if not type(G) == nx.Graph:
+        msg = "Graph has to be undirected for it to work here."
+        return BaseException(msg)
+
+    # G = G.copy()
+    # G = nx.Graph(G)
     # Assert G is a Graph (unidirectional and single path)
 
     # Deduplicate nodes: Adjust edges of deleted nodes + Delete nodes.
+    removed_nodes = 0 
     for group in duplicated_nodes_grouped(G):
         base = group[0]
         # for n, nbrs in G.adj.items():
         #     # n: from node id
         #     # nbrs: {<neighboring node id>: {<edge-id-connecting n with nbr>: <edge attributes>}}]
         for remove in group[1:]:
+            removed_nodes += 1
             # Replace edges
             nbrs = G.adj[remove]
             to_delete = []
@@ -386,10 +396,12 @@ def deduplicate_vectorized_graph(G):
             # Expect remove node to be isolated now.
             assert len(G[remove]) == 0
             G.remove_node(remove)
+
+    print(f"Deduplicated, removed {removed_nodes} nodes.")
     
     # Deduplicate edges:
     # Since G is a graph, adding the edges already resolves into edge deduplication.
-    G = nx.MultiDiGraph(G) # Convert back into MultiDiGraph.
+    # G = nx.MultiDiGraph(G) # Convert back into MultiDiGraph.
     
     return G
 
