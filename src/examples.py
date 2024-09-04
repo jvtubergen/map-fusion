@@ -344,3 +344,17 @@
 #     fig.canvas.flush_events()
 #     plt.show()
 #     # crs = G.graph["crs"]
+
+
+# Example (Decomposed transform geographic coordinates to relative pixelpositions and )
+# graphs = extract_graphset("chicago")
+# truth = graphs["truth"]
+# truth = nx.Graph(truth)
+# G = truth
+# # Compute average latitude.
+# uvk, data = zip(*G.nodes(data=True))
+# df = gpd.GeoDataFrame(data, index=uvk)
+# alat, alon = df["y"].mean(), df["x"].mean()
+# # Apply
+# G = relative_positioning(G, alat, alon)
+# plot_without_projection(G)

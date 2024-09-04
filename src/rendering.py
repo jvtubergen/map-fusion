@@ -224,3 +224,31 @@ def plot_graph_and_curves(G, ps, qs):
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="Paired")
 
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
+
+
+# Plot graph without projecting nodes (used for e.g. our relative pixel position coordinates).
+def plot_without_projection(G):
+    # Nodes.
+    uvk, data = zip(*G.nodes(data=True))
+    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+    # Edges.
+    u, v, data = zip(*G.edges(data=True))
+    x_lookup = nx.get_node_attributes(G, "x")
+    y_lookup = nx.get_node_attributes(G, "y")
+    def edge_latlon_curvature_to_relative_pixelcoord(u, v, data):
+        if "geometry" in data:
+            return data["geometry"]
+        else:
+            return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
+    edge_geoms = map(edge_latlon_curvature_to_relative_pixelcoord, u, v, data)
+    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+    gdf_edges["u"] = u
+    gdf_edges["v"] = v
+    gdf_edges = gdf_edges.set_index(["u", "v"])
+    # Plot.
+    fig, ax = plt.subplots()
+    ax = gdf_edges['geometry'].plot(ax=ax)
+    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"],)
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    plt.show()

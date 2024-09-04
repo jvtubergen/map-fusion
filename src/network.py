@@ -428,3 +428,37 @@ def cut_out_ROI(G, p1, p2):
     
     # Filtering out nodes in ROI.
     return G.subgraph(to_keep)
+
+
+#######################################
+###  Graph coordinate transformations
+#######################################
+
+# Compute relative positioning.
+# Note: Takes a reference latitude for deciding on the GSD. Make sure to keep this value consistent when applied to different graphs.
+# Note: Flip y-axis by subtracting from minimal latitude value (-max_lat) to maintain directionality.
+def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
+    # 0. GSD on average latitude and reference pixel positions.
+    zoom = 24 # Sufficiently accurate.
+    gsd = compute_gsd(reflat, zoom, 1)
+    # 1. Vectorize.
+    G = vectorize_graph(G)
+    G = deduplicate_vectorized_graph(G)
+    # 2. Map all nodes to relative position.
+    uvk, data = zip(*G.nodes(data=True))
+    df = gpd.GeoDataFrame(data, index=uvk)
+    maxy, _ = latlon_to_pixelcoord(-max_lat, 0, zoom)
+    # Map lat,lon to y,x with latlon_to_pixelcoord.
+    def latlon_to_relative_pixelcoord(row): 
+        lat, lon = row["y"], row["x"]
+        y, x = latlon_to_pixelcoord(lat, lon, zoom)
+        return {'x': gsd * x, 'y': maxy - gsd * y }
+    # Construct relabel mapping and transform node coordinates to relative scaled pixel position.
+    relabel_mapping = {}
+    for nid, data in G.nodes(data=True):
+        relabel_mapping[nid] = latlon_to_relative_pixelcoord(data)
+    nx.set_node_attributes(G, relabel_mapping)
+    # 3. Convert back into simplified graph.
+    G = ox.simplify_graph(nx.MultiDiGraph(G)) # If it has curvature it crashes because of non-hashable numpy array in attributes.
+    return G
+    
