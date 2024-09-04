@@ -283,3 +283,64 @@
 #     fig.canvas.flush_events()
 #     plt.show()
 
+
+# # Example (Transforming points to relative distance and render graph):
+# def example_relative_distance_plotting():
+#     # 0. Obtain graph.
+#     graphs = extract_graphset("chicago")
+#     G = graphs["truth"]
+#     G = nx.Graph(G)
+#     # G = annotate_edge_curvature_as_array(truth)
+#     # 1. First vectorize.
+#     G = vectorize_graph(G)
+#     G = deduplicate_vectorized_graph(G)
+#     G = nx.Graph(G)
+#     # 2. Map all nodes to relative position.
+#     uvk, data = zip(*G.nodes(data=True))
+#     df = gpd.GeoDataFrame(data, index=uvk)
+#     # GSD on average latitude.
+#     zoom = 20
+#     alat = df["y"].mean()
+#     gsd = compute_gsd(alat, zoom, 1)
+#     # Reference point to compute relative distances from.
+#     refy, refx = df["y"].min(), df["x"].min()
+#     refy, refx = latlon_to_pixelcoord(refy, refx, zoom)
+#     refy, refx = gsd * refy, gsd * refx
+#     # Map lat,lon to y,x with latlon_to_pixelcoord.
+#     def latlon_to_relative_pixelcoord(row): 
+#         lat, lon = row["y"], row["x"]
+#         y, x = latlon_to_pixelcoord(lat, lon, zoom)
+#         return {'x': gsd * x - refx, 'y': refy - gsd * y}
+#     # Construct relabel mapping.
+#     relabel_mapping = {}
+#     for nid, data in G.nodes(data=True):
+#         relabel_mapping[nid] = latlon_to_relative_pixelcoord(data)
+#     nx.set_node_attributes(G, relabel_mapping)
+#     # 3. Convert back into simplified graph.
+#     G = ox.simplify_graph(nx.MultiDiGraph(G)) # If it has curvature it crashes because of non-hashable numpy array in attributes.
+#     # 4. Render graph.
+#     # Nodes.
+#     uvk, data = zip(*G.nodes(data=True))
+#     gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+#     # Edges.
+#     u, v, data = zip(*G.edges(data=True))
+#     x_lookup = nx.get_node_attributes(G, "x")
+#     y_lookup = nx.get_node_attributes(G, "y")
+#     def edge_latlon_curvature_to_relative_pixelcoord(u, v, data):
+#         if "geometry" in data:
+#             return data["geometry"]
+#         else:
+#             return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
+#     edge_geoms = map(edge_latlon_curvature_to_relative_pixelcoord, u, v, data)
+#     gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+#     gdf_edges["u"] = u
+#     gdf_edges["v"] = v
+#     gdf_edges = gdf_edges.set_index(["u", "v"])
+#     # Plot.
+#     fig, ax = plt.subplots()
+#     ax = gdf_edges['geometry'].plot(ax=ax)
+#     ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"],)
+#     fig.canvas.draw()
+#     fig.canvas.flush_events()
+#     plt.show()
+#     # crs = G.graph["crs"]
