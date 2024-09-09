@@ -218,47 +218,49 @@ def vectorize_graph(G):
         raise BaseException(msg)
 
     # Extract nodes and edges.
-    nodes = np.array(list(G.nodes(data=True)))
-    edges = np.array(list(G.edges(data=True)))
+    nodes = extract_nodes_dict(G)
+    edges = np.array(list(G.edges(data=True, keys=True)))
 
     # Obtain unique (incremental) node ID to use.
-    newnodeid = np.max(np.array(nodes)[:,0]) + 1
+    # newnodeid = np.max(np.array(nodes)[:,0]) + 1 # Move beyond highest node ID to ensure uniqueness.
+    newnodeid = max(G.nodes()) + 1 # Move beyond highest node ID to ensure uniqueness.
 
     # Edges contain curvature information, extract.
-    for edge in edges:
-
-        a = edge[0]
-        b = edge[1]
-        attrs = edge[2]
+    for (a, b, k, attrs) in edges:
 
         # If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.
         if "geometry" in attrs.keys():
-            linestring = attrs["geometry"]
-            ps = np.array(list(linestring.coords))
-
-            # Drop first and last point because these are start and end node..
-            ps = ps[1:-1]
-            assert len(ps) >= 1 # We expect at least one point in between start and end node.
 
             # Delete this edge from network.
-            # BUG: We are removing an edge without key identifier from a multigraph.
-            #      It should 
-            G.remove_edge(a,b)
-            print("Removing edge ", a, b)
+            G.remove_edge(a,b,k)
+            print("Removing edge ", a, b, k)
 
-            # Ensured we are adding new curvature. 
-            # Add new node ID to each coordinate.
+            # Add curvature as separate nodes/edges.
+            linestring = attrs["geometry"]
+            ps = list(linestring.coords)
+
+            # Drop first and last point because these are start and end node..
+            assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a]))
+            assert np.all(array(ps[0]) == array(nodes[b])) or np.all(array(ps[-1]) == array(nodes[b]))
+            assert len(ps) >= 1 # We expect at least one point in between start and end node.
+
+            ps = ps[1:-1]
+
+            # Ensured we are adding new curvature.  Add new node ID to each coordinate.
             pathcoords = list(ps)
+            sequential = np.all(array(ps[0]) == array(nodes[a]))
+            if not sequential:
+                pathcoords.reverse()
+                
             pathids = list(range(newnodeid, newnodeid + len(ps)))
             newnodeid += len(ps) # Increment id appropriately.
 
             for node, coord in zip(pathids, pathcoords):
                 G.add_node(node, x=coord[0], y=coord[1])
 
-            # Add vectorized edges to graph.
             pathids = [a] + pathids + [b]
             for a,b in zip(pathids, pathids[1:]):
-                G.add_edge(a, b)
+                G.add_edge(a, b, k) # Key can be zero because nodes in curvature implies a single path between nodes.
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
 
