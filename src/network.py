@@ -207,13 +207,15 @@ def gen_random_shortest_path(G):
 # SOLUTION: Build some function yourself to detect and remove duplicates
 def vectorize_graph(G):
 
+    G = G.copy()
+
     if not G.graph.get("simplified"):
         msg = "Graph has to be simplified in order to vectorize it."
         raise BaseException(msg)
     
-    if not type(G) == nx.Graph:
-        msg = "Graph has to be undirected for it to work here."
-        return BaseException(msg)
+    if not type(G) == nx.MultiGraph:
+        msg = "Graph has to be MultiGraph (undirected but potentially multiple connections) for it to work here."
+        raise BaseException(msg)
 
     # Extract nodes and edges.
     nodes = np.array(list(G.nodes(data=True)))
@@ -272,8 +274,8 @@ def annotate_edge_curvature_as_array(G):
         msg = "Graph has to be simplified in order to annotate curvature as an array."
         raise BaseException(msg)
     
-    if not type(G) == nx.Graph:
-        msg = "Graph has to be undirected for data extraction and annotation to work."
+    if not type(G) == nx.MultiGraph:
+        msg = "Graph has to be MultiGraph (undirected but potentially multiple connections) for data extraction and annotation to work."
         raise BaseException(msg)
 
     edges = np.array(list(G.edges(data=True)))
@@ -347,11 +349,12 @@ def duplicated_nodes_grouped(G):
 
 # Return edge IDs which are duplicated (exact same coordinates).
 # NOTE: Expects vectorized graph.
-# TODO: Group togeter edge-IDs that are duplicates of one another as tuples.
 def duplicated_edges(G):
 
-    if type(G) != nx.MultiDiGraph:
-        raise BaseException("Expect to call duplicated_edge_grouped on an nx.MultiDiGraph.")
+    G = G.copy()
+
+    if type(G) != nx.MultiGraph:
+        raise BaseException("Expect to call duplicated_edge_grouped on an MultiGraph.")
 
     if G.graph["simplified"]:
         raise BaseException("Duplicated edges function is supposed to be called on a vectorized graph.")
@@ -377,12 +380,14 @@ def duplicated_edges(G):
     return duplicated
 
 
-# Group duplicated edges.
-# NOTE: Expects MultiDiGraph
+# Group together edge-IDs that are duplicates of one another as tuples.
+# NOTE: Expects vectorized graph.
 def duplicated_edges_grouped(G):
 
-    if type(G) != nx.MultiDiGraph:
-        raise BaseException("Expect to call duplicated_edge_grouped on an nx.MultiDiGraph.")
+    G = G.copy()
+
+    if type(G) != nx.MultiGraph:
+        raise BaseException("Expect to call duplicated_edge_grouped on an nx.MultiGraph.")
 
     if G.graph["simplified"]:
         raise BaseException("Duplicated edges function is supposed to be called on a vectorized graph (thus not simplified).")
@@ -421,13 +426,11 @@ def duplicated_edges_grouped(G):
 #       No need to 
 def deduplicate_vectorized_graph(G):
 
-    if not type(G) == nx.Graph:
-        msg = "Graph has to be undirected for it to work here."
-        return BaseException(msg)
+    G = G.copy()
 
-    # G = G.copy()
-    # G = nx.Graph(G)
-    # Assert G is a Graph (unidirectional and single path)
+    if not type(G) == nx.MultiGraph:
+        msg = "Graph has to be a MultiGraph for it to work here."
+        raise BaseException(msg)
 
     # Deduplicate nodes: Adjust edges of deleted nodes + Delete nodes.
     removed_nodes = 0 
