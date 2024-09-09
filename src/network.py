@@ -81,11 +81,25 @@ def extract_graph(name, reconstruct=False):
     return G
 
 
-def extract_graphset(name):
+# Extract stored graphs from a graph set. 
+# * Optionally only retrieve graphs which exist, otherwise expect to retrieve gps, sat, and truth.
+# * Expect all graphs to be stored as simplified MultiGraphs (thus undirected but potentially parallel edges with unique curvature).
+def extract_graphset(name, optional=False):
     graphs = {}
-    graphs["gps"]   = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
-    graphs["sat"]   = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
-    graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
+    gps_path = f"graphsets/{name}/gps.graphml"
+    sat_path = f"graphsets/{name}/sat.graphml"
+    truth_path = f"graphsets/{name}/truth.graphml"
+    if optional:
+        if Path(gps_path).exists():
+            graphs["gps"]   = ox.load_graphml(filepath=gps_path)
+        if Path(sat_path).exists():
+            graphs["sat"]   = ox.load_graphml(filepath=sat_path)
+        if Path(truth_path).exists():
+            graphs["truth"]   = ox.load_graphml(filepath=truth_path)
+    else:
+        graphs["gps"]   = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
+        graphs["sat"]   = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
+        graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
     return graphs
 
 
