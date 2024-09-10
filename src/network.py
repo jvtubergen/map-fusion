@@ -286,6 +286,20 @@ def edge_curvature(G, u, v, k = None):
         return ps
 
 
+# Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists.
+def path_to_curve(G, path):
+    assert G.graph["simplified"]
+    assert len(path) >= 2
+    qs = array([(G.nodes()[path[0]]["x"], G.nodes()[path[0]]["y"])])
+    for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
+        edgepoints = edge_curvature2(G, a, b)
+        # if "geometry" in G.get_edge_data(a, b):
+            # breakpoint()
+        qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
+    return qs
+
+
+
 # For a simplified graph, annotate edges with its curvature as a numpy array rather than the encoded shapely string.
 def annotate_edge_curvature_as_array(G):
 
