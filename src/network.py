@@ -192,11 +192,13 @@ def gen_random_shortest_path(G):
     return path
 
 
+###############################################
+###  Graph vectorization and simplification ###
+###############################################
 
-###################################
-###  Graph vectorization
-###################################
-
+# Wrapping the OSMnx graph simplification logic, and being consistent in MultiGraph convention by converting between directed and undirected.
+def simplify_graph(G):
+    return ox.simplify_graph(G.to_directed()).to_undirected()
 
 # Vectorize a network
 # BUG: Somehow duplicated edge with G.edges(data=True)
