@@ -554,7 +554,6 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     gsd = compute_gsd(reflat, zoom, 1)
     # 1. Vectorize.
     G = vectorize_graph(G)
-    G = deduplicate_vectorized_graph(G)
     # 2. Map all nodes to relative position.
     uvk, data = zip(*G.nodes(data=True))
     df = gpd.GeoDataFrame(data, index=uvk)
@@ -570,6 +569,6 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
         relabel_mapping[nid] = latlon_to_relative_pixelcoord(data)
     nx.set_node_attributes(G, relabel_mapping)
     # 3. Convert back into simplified graph.
-    G = ox.simplify_graph(nx.MultiDiGraph(G)) # If it has curvature it crashes because of non-hashable numpy array in attributes.
+    return simplify_graph(G) # If it has curvature it crashes because of non-hashable numpy array in attributes.
     return G
     
