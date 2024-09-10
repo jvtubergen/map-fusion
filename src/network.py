@@ -269,6 +269,23 @@ def vectorize_graph(G):
     return G
 
 
+def edge_curvature(G, u, v, k = None):
+    if k == None:
+        data = G.get_edge_data(u, v)
+    else:
+        data = G.get_edge_data(u, v, k)
+    if not "geometry" in data:
+        p1 = G.nodes()[u]
+        p2 = G.nodes()[v]
+        ps = array([(p1["x"], p1["y"]), (p2["x"], p2["y"])])
+        return ps
+    else:
+        linestring = data["geometry"]
+        ps = array(list(linestring.coords))
+        assert len(ps) >= 3 # We expect at least one point in between start and end node.
+        return ps
+
+
 # For a simplified graph, annotate edges with its curvature as a numpy array rather than the encoded shapely string.
 def annotate_edge_curvature_as_array(G):
 

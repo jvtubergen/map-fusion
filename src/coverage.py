@@ -1,6 +1,9 @@
 from dependencies import *
 from network import *
 from pcm import *
+from maps import *
+from curve import *
+from rendering import *
 
 ###################################
 ###  Curve by curve coverage
@@ -76,7 +79,8 @@ def graphedges_to_rtree(G):
     assert type(G) == nx.MultiGraph
     edgetree = rtree.index.RtreeContainer()
     for uvk in G.edges(keys=True):
-        curvature = edge_curvature(G, uvk)
+        u, v, k = uvk
+        curvature = edge_curvature(G, u, v, k=k)
         minx = min(curvature[:,0])
         maxx = max(curvature[:,0])
         miny = min(curvature[:,1])
@@ -90,7 +94,8 @@ def graphedges_to_bboxs(G):
     assert type(G) == nx.MultiGraph
     bboxs = {}
     for uvk in G.edges(keys=True):
-        curvature = edge_curvature(G, uvk)
+        u, v, k = uvk
+        curvature = edge_curvature(G, u, v, k=k)
         minx = min(curvature[:,0])
         maxx = max(curvature[:,0])
         miny = min(curvature[:,1])
@@ -165,11 +170,11 @@ def edge_wise_coverage_threshold(S, T):
             # Find all valid simple paths from start-node to end node
             #   New step: check whether partial matches the source curve and add start/end edges afterwards.
             valid_edges = []
-            ps = edge_curvature2(S, u, v, k=k) # == array(list(S.get_edge_data(uvk[0],uvk[1],uvk[2])["geometry"].coords)
+            ps = edge_curvature(S, u, v, k=k) # == array(list(S.get_edge_data(uvk[0],uvk[1],uvk[2])["geometry"].coords)
             for (a, b, l) in subT.edges(keys=True):
                 # Check for partial curve matching.
                 edgeT = subT.get_edge_data(a, b, l)
-                qs = edge_curvature2(subT, a, b, k=l)
+                qs = edge_curvature(subT, a, b, k=l)
                 if is_partial_curve_undirected2(qs, ps, lam):
                     valid_edges.append((a, b, l))
             for abl in start_edges:
@@ -260,7 +265,7 @@ def edge_wise_coverage_threshold(S, T):
                 # assert 
                 qs = array([(subT.nodes()[path[0]]["x"], subT.nodes()[path[0]]["y"])])
                 for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-                    edgepoints = edge_curvature2(subT, a, b)
+                    edgepoints = edge_curvature(subT, a, b)
                     # if "geometry" in subT.get_edge_data(a, b):
                         # breakpoint()
                     qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
