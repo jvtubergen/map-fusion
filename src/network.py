@@ -313,16 +313,12 @@ def annotate_edge_curvature_as_array(G):
         msg = "Graph has to be MultiGraph (undirected but potentially multiple connections) for data extraction and annotation to work."
         raise BaseException(msg)
 
-    edges = np.array(list(G.edges(data=True)))
+    edges = np.array(list(G.edges(data=True, keys=True)))
 
     edge_attrs = {}
 
     # Edges contain curvature information, extract.
-    for edge in edges:
-
-        a = edge[0]
-        b = edge[1]
-        attrs = edge[2]
+    for (a, b, k, attrs) in edges:
         # print(a, b, attr)
 
         if not "geometry" in attrs.keys():
@@ -330,14 +326,14 @@ def annotate_edge_curvature_as_array(G):
             p2 = G.nodes()[b]
             latlon1 = p1["y"], p1["x"]
             latlon2 = p2["y"], p2["x"]
-            edge_attrs[(a,b)] = {"curvature": np.array([latlon1, latlon2])}
+            edge_attrs[(a, b, k)] = {"curvature": np.array([latlon1, latlon2])}
         else:
             linestring = attrs["geometry"]
             # print(list(linestring.coords))
             # Flip lonlat to latlon.
             ps = np.array([(lat,lon) for (lon, lat) in list(linestring.coords)])
             assert len(ps) >= 3 # We expect at least one point in between start and end node.
-            edge_attrs[(a,b)] = {"curvature": ps}
+            edge_attrs[(a, b, k)] = {"curvature": ps}
     
     nx.set_edge_attributes(G, edge_attrs)
     return G
