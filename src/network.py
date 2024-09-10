@@ -537,6 +537,14 @@ def cut_out_ROI(G, p1, p2):
 ###  Graph coordinate transformations
 #######################################
 
+# Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
+def middle_latitute(G):
+    uvk, data = zip(*G.nodes(data=True))
+    df = gpd.GeoDataFrame(data, index=uvk)
+    alat, alon = df["y"].mean(), df["x"].mean()
+    return alat
+
+
 # Compute relative positioning.
 # Note: Takes a reference latitude for deciding on the GSD. Make sure to keep this value consistent when applied to different graphs.
 # Note: Flip y-axis by subtracting from minimal latitude value (-max_lat) to maintain directionality.
