@@ -71,25 +71,19 @@ def graphnodes_to_rtree(G):
     return idx
 
 
+# Construct R-Tree on graph edges.
 def graphedges_to_rtree(G):
-    idx = rtree.index.Index()
-    maxv = max(G.nodes())+1
-    if type(G) == nx.Graph:
-        for (a, b) in G.edges():
-            x1 = G.nodes[a]["x"]
-            y1 = G.nodes[a]["y"]
-            x2 = G.nodes[b]["x"]
-            y2 = G.nodes[b]["y"]
-            # Unique id 
-            idx.insert(maxv*a+b, (min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)), obj=(a,b))
-    else:
-        for (a, b, k) in G.edges(keys=True):
-            x1 = G.nodes[a]["x"]
-            y1 = G.nodes[a]["y"]
-            x2 = G.nodes[b]["x"]
-            y2 = G.nodes[b]["y"]
-            idx.insert((a,b), (min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)))
-    return idx
+    assert type(G) == nx.MultiGraph
+    edgetree = rtree.index.RtreeContainer()
+    for uvk in G.edges(keys=True):
+        curvature = edge_curvature(G, uvk)
+        minx = min(curvature[:,0])
+        maxx = max(curvature[:,0])
+        miny = min(curvature[:,1])
+        maxy = max(curvature[:,1])
+        edgetree.insert(uvk, (minx, miny, maxx, maxy))
+    return edgetree
+
 
 
 # Optimization to check coverage of a curve by a network. 
