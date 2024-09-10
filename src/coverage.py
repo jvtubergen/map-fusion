@@ -85,6 +85,21 @@ def graphedges_to_rtree(G):
     return edgetree
 
 
+# Construct dictionary that links edge id to a bounding box.
+def graphedges_to_bboxs(G):
+    assert type(G) == nx.MultiGraph
+    bboxs = {}
+    for uvk in G.edges(keys=True):
+        curvature = edge_curvature(G, uvk)
+        minx = min(curvature[:,0])
+        maxx = max(curvature[:,0])
+        miny = min(curvature[:,1])
+        maxy = max(curvature[:,1])
+        bbox = array([(minx, miny), (maxx, maxy)])
+        bboxs[uvk] = bbox
+    return bboxs
+
+
 
 # Optimization to check coverage of a curve by a network. 
 # We only have to consider the edges in the subnetwork which are nearby the curve.
