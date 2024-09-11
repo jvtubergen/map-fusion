@@ -218,22 +218,29 @@ def edge_wise_coverage_threshold(S, T):
                 continue
 
             paths = [] # TODO: Optimize to filter out maximal paths.
-            # TODO: We can adjust logic flow to lazily evaluate paths: Often times the first one succeeds.
+            # Lazily evaluate paths: Often times the first path one succeeds, because of the aggressive pruning strategy applied.
+            found_curve = False
             for a in start_nodes:
+                if found_curve: # Pre-emptively cancel
+                    break
                 for b in end_nodes:
+                    if found_curve:
+                        break
                     # For each edge in the graph, check whether it partial matches the source curve.
                     #   If this is not the case, we can remove it from the graph and try again
-                    for path in nx.all_simple_paths(subT, a, b, cutoff=40): # Assume to have less than 10 subsequent nodes.
-                        if len(path) > 38:
+                    count = 0
+                    for path in nx.shortest_simple_paths(subT, a, b): 
+                        if count > 10: # Expect to find a result in less paths taken.
                             breakpoint()
                             # plot_graph_and_curve(subT, array([pu, pv]))
                             # plot_graph_and_curve(subT, path_to_curve(subT, path))
+                            # plot_graph_and_curves(subT, array([pu, pv]), path_to_curve(subT, path))
+                        count += 1
                         assert len(path) > 0
                         if len(path) == 1:
                             nid = path[0]
                             if subT.get_edge_data(nid, nid) != None:
                                 path = [nid, nid]
-                                # paths.append(nid, nid)
                         else:
                             found = True
                             for nida, nidb in zip(path, path[1:]):
@@ -241,39 +248,17 @@ def edge_wise_coverage_threshold(S, T):
                                     found = False
                             if not found:
                                 breakpoint()
-                            paths.append(path)
-            if len(paths) == 0: # No valid paths can be found so this curve is not covered.
-                print(f"Lambda: {lam}. Insufficient nearby paths for {uvk}.")
-                continue
-            # Construct curves out of paths.
-            found_curve = False
-            for path in paths:
-                if found_curve:
-                    print("Skipping because curve found.")
-                    continue
-                # for p in path:
-                #     print(p)
-                # Convert path to sequence edges.
-                # path = list(path)
-                # path_count = len(path)
-                # breakpoint()
-                # edges = zip(path, path[1:])
-                # Convert edges to a list of nodes.
-                if not len(path) >= 2:
-                    breakpoint()
-                assert len(path) >= 2
-                # assert 
-                qs = array([(subT.nodes()[path[0]]["x"], subT.nodes()[path[0]]["y"])])
-                for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-                    edgepoints = edge_curvature(subT, a, b)
-                    # if "geometry" in subT.get_edge_data(a, b):
-                        # breakpoint()
-                    qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
-                # Use points for partial curve matching.
-                if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
-                    print("Found partial curve within threshold.")
-                    found_curve = True
-                    continue
+
+                        # Act on path.
+                        qs = array([(subT.nodes()[path[0]]["x"], subT.nodes()[path[0]]["y"])])
+                        for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
+                            edgepoints = edge_curvature(subT, a, b)
+                            qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
+                        # Use points for partial curve matching.
+                        if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
+                            print("Found partial curve within threshold.")
+                            found_curve = True
+                            break
             if not found_curve:
                 print(f"Lambda: {lam}. Insufficient nearby curve for {uvk}.")
             else:
@@ -282,8 +267,6 @@ def edge_wise_coverage_threshold(S, T):
                 # Removing egde uvk from edges_todo.
                 edges_todo = edges_todo - set([uvk])
                 edge_results[uvk] = lam
-
-            # breakpoint()
 
         lam += 1 # Increment lambda
             
