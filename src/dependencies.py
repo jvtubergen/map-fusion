@@ -50,3 +50,7 @@ sqrt = math.sqrt
 
 ceil = math.ceil
 floor = math.floor
+
+norm = np.linalg.norm
+array = np.array
+GeoDataFrame = gpd.GeoDataFrame
