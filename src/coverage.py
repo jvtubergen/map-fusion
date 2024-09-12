@@ -123,6 +123,12 @@ def edge_wise_coverage_threshold(S, T):
     assert type(S) == nx.MultiGraph
     assert T.graph["simplified"]
     assert type(T) == nx.MultiGraph
+    
+    S = multi_edge_conserving(S)
+    T = multi_edge_conserving(T)
+
+    S = nx.Graph(S)
+    T = nx.Graph(T)
 
     # Assume S and T are a MultiGraph, simplified, and in appropriate coordinate system to measure distance differences in meter.
     lam = 1 # Start with a threshold of 1 meter.
