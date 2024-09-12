@@ -269,6 +269,7 @@ def vectorize_graph(G):
     return G
 
 
+# Extract curvature (stored potentially as a LineString under geometry) from an edge as an array.
 def edge_curvature(G, u, v, k = None):
     if k == None:
         data = G.get_edge_data(u, v)
@@ -292,11 +293,13 @@ def path_to_curve(G, path):
     assert len(path) >= 2
     qs = array([(G.nodes()[path[0]]["x"], G.nodes()[path[0]]["y"])])
     for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-        edgepoints = edge_curvature2(G, a, b)
+        edgepoints = edge_curvature(G, a, b)
         # if "geometry" in G.get_edge_data(a, b):
             # breakpoint()
         qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
     return qs
+
+path_curvature = path_to_curve
 
 
 
