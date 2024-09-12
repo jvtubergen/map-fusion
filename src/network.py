@@ -1,4 +1,5 @@
 from dependencies import *
+from pcm import *
 
 ###################################
 ###  Graph construction/extraction
@@ -342,6 +343,81 @@ def annotate_edge_curvature_as_array(G):
             edge_attrs[(a, b, k)] = {"curvature": ps}
     
     nx.set_edge_attributes(G, edge_attrs)
+    return G
+
+
+# Conserving multi-edge curvature when converting from a MultiGraph into a Graph.
+def multi_edge_conserving(G):
+
+    assert type(G) == nx.MultiGraph
+    G = G.copy()
+
+    # Extract multi-edges from graph.
+    multiedge_groups = set()
+    for u, v, k in G.edges(keys=True):
+        if k > 0:
+            multiedge_groups.add((u, v)) # u <= v by the G.edges() function.
+
+    # Per multi-edge set, check the curvature differs (PCM threshold is larger than zero).
+    edges = [(u, v, k) for u, v, k in G.edges(keys=True)]
+    for u,v in multiedge_groups:
+        multiedges = list(filter(lambda x: x[0] == u and x[1] == v, edges))
+        assert multiedges[0] == (u, v, 0)
+        unique_curves = [] # Store uvk alongside curvature (which is sufficiently unique).
+        unique_curves.append((u, v, 0, edge_curvature(G, u, v, k=0))) # Start with unique in first.
+        edges_to_delete = []
+
+        # Extract multi-edge ids with unique curvature.
+        for k in range(1, len(multiedges)): # Check every subsequent element.
+            is_unique = True # Consider true unless proven otherwise.
+            ps = edge_curvature(G, u, v, k=k) # Curvature of this element to check.
+            for qs in map(lambda x: x[3], unique_curves): # Curvature of currently unique multi-edges.
+                if is_partial_curve_undirected(ps, qs, 1, convert=True): # Check for being a partial curve.
+                    is_unique = False # Its to similar to existing curvature.
+            if is_unique: # Add to list.
+                unique_curves.append((u, v, k, ps))
+            else:
+                edges_to_delete.append((u, v, k))
+
+        # For all unique curves, filter out those with a curvature of at least three elements (otherwise we cannot introduce nodes).
+        # And then add those as new nodes to the graph and cut the initial edge into two pieces.
+        nidmax = max(G.nodes()) + 1 # Maximal node ID to prevent overwriting existing node IDs in the graph.
+        for (u, v, k, ps) in unique_curves:
+            if u == v: # In case of self-loop we have to add two edges in between
+                if len(ps) > 3:
+                    i = floor(len(ps)/3) # Index to cut curve at.
+                    j = floor(2*len(ps)/3) # Index to cut curve at.
+                    x0, y0 = ps[i]
+                    G.add_node(nidmax, x=x0, y=y0)
+                    x1, y1 = ps[j]
+                    G.add_node(nidmax+1, x=x1, y=y1)
+                    G.add_edge(u, nidmax, 0, geometry=to_linestring(ps[0:i+1]))
+                    G.add_edge(nidmax, nidmax+1, 0, geometry=to_linestring(ps[i:j+1]))
+                    G.add_edge(nidmax+1, v, 0, geometry=to_linestring(ps[j:]))
+                    edges_to_delete.append((u, v, k))
+                    nidmax += 2
+
+            else:
+                if len(ps) > 2: # Add node in between.
+                    # a. Add node with nidmax and x,y position ps[floor(len(ps)/2)]
+                    i = floor(len(ps)/2) # Index to cut curve at.
+                    x, y = ps[i]
+                    G.add_node(nidmax, x=x, y=y)
+                    # b. Add two edges to the graph with u-nidmax and nidmax-v.
+                    #    Make sure to extract geometry and ad 
+                    # print("total edge curvature:\n", ps)
+                    # print(f"Adding edge {u, nidmax} with geometry: \n", ps[0:i+1])
+                    G.add_edge(u, nidmax, 0, geometry=to_linestring(ps[0:i+1]))
+                    # print(f"Adding edge {nidmax, v} with geometry: \n", ps[i:])
+                    G.add_edge(nidmax, v, 0, geometry=to_linestring(ps[i:]))
+                    # c. Mark the edge for deletion.
+                    edges_to_delete.append((u, v, k))
+                    # d. Increment nidmax for subsequent element.
+                    nidmax += 1
+        
+        print("Deleting edges ", edges_to_delete)
+        G.remove_edges_from(edges_to_delete)
+    
     return G
 
 
