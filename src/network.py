@@ -302,6 +302,9 @@ def path_to_curve(G, path):
 path_curvature = path_to_curve
 
 
+# Convert an array into a LineString consisting of Points.
+to_linestring = lambda ps: LineString([Point(x, y) for x, y in ps])
+
 
 # For a simplified graph, annotate edges with its curvature as a numpy array rather than the encoded shapely string.
 def annotate_edge_curvature_as_array(G):
