@@ -272,10 +272,14 @@ def vectorize_graph(G):
 
 # Extract curvature (stored potentially as a LineString under geometry) from an edge as an array.
 def edge_curvature(G, u, v, k = None):
+    
+    # Obtain edge data.
     if k == None:
         data = G.get_edge_data(u, v)
     else:
         data = G.get_edge_data(u, v, k)
+
+    # Either extract 
     if not "geometry" in data:
         p1 = G.nodes()[u]
         p2 = G.nodes()[v]
@@ -284,23 +288,19 @@ def edge_curvature(G, u, v, k = None):
     else:
         linestring = data["geometry"]
         ps = array(list(linestring.coords))
-        assert len(ps) >= 3 # We expect at least one point in between start and end node.
+        assert len(ps) >= 2 # Expect start and end position.
         return ps
 
 
-# Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists.
-def path_to_curve(G, path):
+# Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
+def path_nodes_to_curve(G, path):
     assert G.graph["simplified"]
+    assert type(G) == nx.Graph # We reconstruct edges out of node pairs, if G would be a MultiGraph then information is lost.
     assert len(path) >= 2
     qs = array([(G.nodes()[path[0]]["x"], G.nodes()[path[0]]["y"])])
     for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-        edgepoints = edge_curvature(G, a, b)
-        # if "geometry" in G.get_edge_data(a, b):
-            # breakpoint()
-        qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
+        qs = np.append(qs, edge_curvature(G, a, b, k=0)[1:], axis=0) # Ignore first point when adding.
     return qs
-
-path_curvature = path_to_curve
 
 
 # Convert an array into a LineString consisting of Points.
