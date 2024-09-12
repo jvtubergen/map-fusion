@@ -76,53 +76,43 @@ def graphnodes_to_rtree(G):
 
 # Construct R-Tree on graph edges.
 def graphedges_to_rtree(G):
+
     edgetree = rtree.index.RtreeContainer()
+
     if type(G) == nx.MultiGraph:
-        for uvk in G.edges(keys=True):
-            u, v, k = uvk
-            curvature = edge_curvature(G, u, v, k=k)
-            minx = min(curvature[:,0])
-            maxx = max(curvature[:,0])
-            miny = min(curvature[:,1])
-            maxy = max(curvature[:,1])
-            edgetree.insert(uvk, (minx, miny, maxx, maxy))
+        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
     if type(G) == nx.Graph:
-        for uv in G.edges():
-            u, v = uv
-            curvature = edge_curvature(G, u, v)
+        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
+
+    for (eid, curvature) in elements:
             minx = min(curvature[:,0])
             maxx = max(curvature[:,0])
             miny = min(curvature[:,1])
             maxy = max(curvature[:,1])
-            edgetree.insert(uv, (minx, miny, maxx, maxy))
+            edgetree.insert(eid, (minx, miny, maxx, maxy))
+    
     return edgetree
 
 
 # Construct dictionary that links edge id to a bounding box.
 def graphedges_to_bboxs(G):
-    bboxs = {}
-    if type(G) == nx.MultiGraph:
-        for uvk in G.edges(keys=True):
-            u, v, k = uvk
-            curvature = edge_curvature(G, u, v, k=k)
-            minx = min(curvature[:,0])
-            maxx = max(curvature[:,0])
-            miny = min(curvature[:,1])
-            maxy = max(curvature[:,1])
-            bbox = array([(minx, miny), (maxx, maxy)])
-            bboxs[uvk] = bbox
-    if type(G) == nx.Graph:
-        for uv in G.edges():
-            u, v = uv
-            curvature = edge_curvature(G, u, v)
-            minx = min(curvature[:,0])
-            maxx = max(curvature[:,0])
-            miny = min(curvature[:,1])
-            maxy = max(curvature[:,1])
-            bbox = array([(minx, miny), (maxx, maxy)])
-            bboxs[uv] = bbox
-    return bboxs
 
+    bboxs = {}
+
+    if type(G) == nx.MultiGraph:
+        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
+    if type(G) == nx.Graph:
+        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
+    
+    for (eid, curvature) in elements:
+        minx = min(curvature[:,0])
+        maxx = max(curvature[:,0])
+        miny = min(curvature[:,1])
+        maxy = max(curvature[:,1])
+        bbox = array([(minx, miny), (maxx, maxy)])
+        bboxs[eid] = bbox
+
+    return bboxs
 
 
 # Compute per (simplified) edge of S (Source graph) the coverage threshold in order to be matched by T (Target graph).
