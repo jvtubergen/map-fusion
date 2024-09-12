@@ -135,102 +135,73 @@ def edge_wise_coverage_threshold(S, T):
 
     edgebboxs= graphedges_to_bboxs(S) # Have a bounding box per edge so we can quickly pad for intersection test against T.
     edgetree = graphedges_to_rtree(T) # Place graph edges by coordinates in accelerated data structure (R-Tree).
-    edges_todo = S.edges(keys=True)
+    edges_todo = S.edges()
 
     nodedict = extract_nodes_dict(S)
 
     edge_results = {}
 
+    # Increment threshold and seek nearby path till all edges have found a threshold.
     while len(edges_todo) > 0:
+
         print(f"Lambda: {lam}. Edges: {len(edges_todo)}")
-        for uvk in edges_todo:
-            # print(uvk)
-            u, v, k = uvk
-            bbox = pad_bounding_box(edgebboxs[uvk], lam) # Pad bounding box.
+
+        # Iterate every edge left to do.
+        for uv in edges_todo:
+
+            # Prune T by its edge bounding boxes versus the curve bounding box.
+            u, v = uv
+            ps = edge_curvature(S, u, v) # The curvature of the edge in the source graph S which has to be in lambda threshold to some path in T.
+            bbox = pad_bounding_box(edgebboxs[uv], lam) # Pad bounding box.
             edges = array(list(edgetree.intersection((bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1])))) # Extract edges within bounding box.
             # edges = array(list(edgetree.intersection(bbox))) # Extract edges within bounding box.
             if len(edges) == 0: # No nearby edges found so this curve is not covered.
-                print(f"Lambda: {lam}. Insufficient nearby edges for {uvk}.")
+                print(f"Lambda: {lam}. Insufficient nearby edges for {uv}.")
                 continue
             nodes = list(set(np.append(edges[:,0], edges[:,1])))
             if len(nodes) == 0: # No nearby nodes found so this curve is not covered.
-                print(f"Lambda: {lam}. Insufficient nearby nodes for {uvk}.")
+                print(f"Lambda: {lam}. Insufficient nearby nodes for {uv}.")
                 continue
             subT = T.subgraph(list(nodes))
             if len(subT.edges()) == 0: # Empty generated subgraph.
-                print(f"Lambda: {lam}. Generated empty subT for {uvk}.")
+                print(f"Lambda: {lam}. Generated empty subT for {uv}.")
                 continue
 
-            # Extract edges which are near start and end point.
+            # Extract edges of T which are near start and end point of source curve.
             pu, pv = nodedict[u], nodedict[v]
-            # Pad pu and pv.
             pu = pad_bounding_box(array([[pu[0], pu[1]], [pu[0], pu[1]]]), lam)
             pv = pad_bounding_box(array([[pv[0], pv[1]], [pv[0], pv[1]]]), lam)
             start_edges = list(edgetree.intersection((pu[0][0], pu[0][1], pu[1][0], pu[1][1])))
             end_edges   = list(edgetree.intersection((pv[0][0], pv[0][1], pv[1][0], pv[1][1])))
             if len(start_edges) == 0 or len(end_edges) == 0: # No nearby edge so this curve is not covered.
-                print(f"Lambda: {lam}. Insufficient nearby edges for {uvk}.")
+                print(f"Lambda: {lam}. Insufficient nearby edges for {uv}.")
                 continue
+
             # Obtain start nodes and end nodes, then figure out what the ~maximal~ paths are. (TODO: Reduce set to maximal paths only.)
             start_nodes = set()
-            for abl in start_edges:
-                a, b, _ = abl
+            for ab in start_edges:
+                a, b = ab
                 start_nodes.add(a)
                 start_nodes.add(b)
             end_nodes = set()
-            for abl in end_edges:
-                a, b, _ = abl
+            for ab in end_edges:
+                a, b = ab
                 end_nodes.add(a)
                 end_nodes.add(b)
-            # Find all valid simple paths from start-node to end node
-            #   New step: check whether partial matches the source curve and add start/end edges afterwards.
-            valid_edges = []
-            ps = edge_curvature(S, u, v, k=k) # == array(list(S.get_edge_data(uvk[0],uvk[1],uvk[2])["geometry"].coords)
-            for (a, b, l) in subT.edges(keys=True):
+
+            # Find all simple paths from start-node to end node.
+            valid_edges = set()
+            for (a, b) in subT.edges():
                 # Check for partial curve matching.
-                edgeT = subT.get_edge_data(a, b, l)
-                qs = edge_curvature(subT, a, b, k=l)
+                edgeT = subT.get_edge_data(a, b)
+                qs = edge_curvature(subT, a, b)
                 if is_partial_curve_undirected2(qs, ps, lam):
-                    valid_edges.append((a, b, l))
-            for abl in start_edges:
-                valid_edges.append(abl)
-            for abl in end_edges:
-                valid_edges.append(abl)
-            #   Remove all edges from set which are not part of 
+                    valid_edges.add((a, b))
 
-            # edges2 = subT.edges(keys=True)
-            # nodes  = set(nodes)
-            # nodes2 = set(list(set(np.append(edges[:,0], edges[:,1]))))
-            # breakpoint()
+            valid_edges |= set(start_edges)
+            valid_edges |= set(end_edges)
 
-            # edges = set([(u, v, k) for u, v, k in edges.tolist()])
-            # all_edges = set(subT.edges(keys=True))
-            # nodes = set(nodes)
-            # pruned_edges = set(pruned_edges)
-            # print(len(pruned_edges), len(edges & pruned_edges))
-            # print(len(pruned_edges), len(edges & pruned_edges))
-            # print(len(edges ^ all_edges)) # How can edges differ...?
-            # print(len(edges & all_edges)) # How can edges differ...?
-            
-            # # Ensure at least pu and pv are within bbox.
-            # print(bbox[1] - pu)
-            # print(bbox[1] - pv)
-            # print(pu - bbox[0])
-            # print(pv - bbox[0])
-            # breakpoint()
-
-            # Act on the edges of the subT graph.
-            # edges2 = set(subT.edges(keys=True))
-            #   Remove edges which are not valid (Cannot do so because subT is frozen, instead create new graph).
-            valid_edges = array(valid_edges)
-            nodes = list(set(np.append(valid_edges[:,0], valid_edges[:,1])))
-            if len(nodes) == 0: # No nearby nodes found so this curve is not covered.
-                print(f"Lambda: {lam}. Insufficient nearby nodes for pruned {uvk}.")
-                continue
-            subT = T.subgraph(list(nodes))
-            if len(subT.edges()) == 0: # Empty generated subgraph.
-                print(f"Lambda: {lam}. Generated empty subT for pruned {uvk}.")
-                continue
+            subT = T.edge_subgraph(list(valid_edges))
 
             paths = [] # TODO: Optimize to filter out maximal paths.
             # Lazily evaluate paths: Often times the first path one succeeds, because of the aggressive pruning strategy applied.
@@ -241,47 +212,48 @@ def edge_wise_coverage_threshold(S, T):
                 for b in end_nodes:
                     if found_curve:
                         break
+
                     # For each edge in the graph, check whether it partial matches the source curve.
                     #   If this is not the case, we can remove it from the graph and try again
                     count = 0
-                    for path in nx.shortest_simple_paths(subT, a, b): 
-                        if count > 10: # Expect to find a result in less paths taken.
-                            breakpoint()
-                            # plot_graph_and_curve(subT, array([pu, pv]))
-                            # plot_graph_and_curve(subT, path_to_curve(subT, path))
-                            # plot_graph_and_curves(subT, array([pu, pv]), path_to_curve(subT, path))
-                        count += 1
-                        assert len(path) > 0
-                        if len(path) == 1:
-                            nid = path[0]
-                            if subT.get_edge_data(nid, nid) != None:
-                                path = [nid, nid]
-                        else:
-                            found = True
-                            for nida, nidb in zip(path, path[1:]):
-                                if subT.get_edge_data(nida, nidb) == None:
-                                    found = False
-                            if not found:
-                                breakpoint()
+                    try: # Try case to catch error when there are no paths found.
+                        for path in nx.shortest_simple_paths(subT, a, b):
+                            count += 1
+                            assert len(path) > 0
+                            if len(path) == 1:
+                                nid = path[0]
+                                if subT.get_edge_data(nid, nid) != None:
+                                    path = [nid, nid]
+                            else:
+                                found = True
+                                for nida, nidb in zip(path, path[1:]):
+                                    if subT.get_edge_data(nida, nidb) == None:
+                                        found = False
+                                if not found:
+                                    breakpoint()
 
-                        # Act on path.
-                        qs = array([(subT.nodes()[path[0]]["x"], subT.nodes()[path[0]]["y"])])
-                        for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-                            edgepoints = edge_curvature(subT, a, b)
-                            qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
-                        # Use points for partial curve matching.
-                        if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
-                            print("Found partial curve within threshold.")
-                            found_curve = True
-                            break
+                            # Act on path.
+                            qs = array([(subT.nodes()[path[0]]["x"], subT.nodes()[path[0]]["y"])])
+                            for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
+                                edgepoints = edge_curvature(subT, a, b)
+                                qs = np.append(qs, edgepoints[1:], axis=0) # Ignore first point when adding.
+                            # Use points for partial curve matching.
+                            if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
+                                print("Found partial curve within threshold.")
+                                found_curve = True
+                                edges_todo = edges_todo - set([uv]) # Remove edge from edge set.
+                                edge_results[uv] = {
+                                    "threshold": lam,
+                                    "path": path,
+                                }
+                                break
+                    except Exception as e:
+                        print(e)
+
             if not found_curve:
-                print(f"Lambda: {lam}. Insufficient nearby curve for {uvk}.")
+                print(f"Lambda: {lam}. Insufficient nearby curve for {uv}.")
             else:
-                print(f"Lambda: {lam}. Edge {uvk} has lambda distance threshold met.")
-                # breakpoint()
-                # Removing egde uvk from edges_todo.
-                edges_todo = edges_todo - set([uvk])
-                edge_results[uvk] = lam
+                print(f"Lambda: {lam}. Edge {uv} has lambda distance threshold met.")
 
         lam += 1 # Increment lambda
             
