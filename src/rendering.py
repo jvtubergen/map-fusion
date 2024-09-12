@@ -226,26 +226,72 @@ def plot_graph_and_curves(G, ps, qs):
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
-# Plot graph without projecting nodes (used for e.g. our relative pixel position coordinates).
-def plot_without_projection(G):
+def preplot_graph(G, ax, **properties): 
+    
+    assert type(G) == nx.Graph
+    
     # Nodes.
-    uvk, data = zip(*G.nodes(data=True))
-    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+    uv, data = zip(*G.nodes(data=True))
+    gdf_nodes = gpd.GeoDataFrame(data, index=uv)
     # Edges.
     u, v, data = zip(*G.edges(data=True))
     x_lookup = nx.get_node_attributes(G, "x")
     y_lookup = nx.get_node_attributes(G, "y")
-    def edge_latlon_curvature_to_relative_pixelcoord(u, v, data):
+
+    def extract_edge_geometry(u, v, data):
         if "geometry" in data:
             return data["geometry"]
         else:
             return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
-    edge_geoms = map(edge_latlon_curvature_to_relative_pixelcoord, u, v, data)
+
+    edge_geoms = map(extract_edge_geometry, u, v, data)
     gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
     gdf_edges["u"] = u
     gdf_edges["v"] = v
     gdf_edges = gdf_edges.set_index(["u", "v"])
     # Plot.
+    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **properties)
+    for i, row in gdf_edges.iterrows():
+        # gdf_edges.loc[[i]].plot(ax=ax, color=color, linewidth=linewidth, linestyle=linestyle)
+        gdf_edges.loc[[i]].plot(ax=ax, **properties)
+
+
+def preplot_curve(ps, ax, **properties):
+    # Construct GeoDataFrame .
+    edge = dataframe({"geometry": to_linestring(ps)}, index=[0])
+    # edge.plot(ax=ax, color=color, linewidth=linewidth, linestyle=linestyle)
+    edge.plot(ax=ax, **properties)
+
+
+# Render target graph (dotted gray) + curve (green) + path (blue).
+def plot_without_projection(Gs, pss):
+
+    fig, ax = plt.subplots()
+
+    for obj in Gs:
+        if type(obj) == tuple:
+            G, properties = obj
+            preplot_graph(G,  ax, **properties) 
+        else:
+            G = obj
+            preplot_graph(G,  ax) 
+
+    for obj in pss:
+        if type(obj) == tuple:
+            ps, properties = obj
+            preplot_curve(ps, ax, **properties) 
+        else:
+            ps = obj
+            preplot_curve(ps, ax) 
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    plt.show()
+
+# Example usage of plot_without_projection:
+#   plot_without_projection2([S], [])
+#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1)}) ])
+#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1), "linewidth":1, "linestyle": ":"}), (random_curve(), {"color":(0.1,0.5,0.1,1), "linewidth":3}) ])
     fig, ax = plt.subplots()
     ax = gdf_edges['geometry'].plot(ax=ax)
     ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"],)
