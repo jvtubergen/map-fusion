@@ -53,4 +53,4 @@ floor = math.floor
 
 norm = np.linalg.norm
 array = np.array
-GeoDataFrame = gpd.GeoDataFrame
+dataframe = gpd.GeoDataFrame
