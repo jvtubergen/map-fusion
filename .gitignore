@@ -5,5 +5,10 @@ cache
 dist
 graphs
 __pycache__
-*
-!src
+images
+logs
+tracks
+tests
+image*
+docs
+api_key.txt
