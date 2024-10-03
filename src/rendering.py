@@ -181,13 +181,16 @@ def plot_graph_and_curve(G, ps):
     G = G.copy()
     nx.set_node_attributes(G, 2, name="gid")
     nx.set_edge_attributes(G, 2, name="gid")
+    G.graph['crs'] = "EPSG:4326"
+    G = G.to_directed()
 
     # Construct subgraph from ps.
     H = convert_paths_into_graph([ps], nid=max(G.nodes())+1)
     nx.set_node_attributes(H, 1, name="gid")
     nx.set_edge_attributes(H, 1, name="gid")
     H.graph['crs'] = "EPSG:4326"
-    H = nx.MultiDiGraph(H)
+    H = nx.MultiGraph(H)
+    H = H.to_directed()
 
     F = nx.compose(G,H)
     nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="winter")
@@ -201,13 +204,16 @@ def plot_graph_and_curves(G, ps, qs):
     G = G.copy()
     nx.set_node_attributes(G, 2, name="gid")
     nx.set_edge_attributes(G, 2, name="gid")
+    G.graph['crs'] = "EPSG:4326"
+    G = G.to_directed()
 
     # Construct subgraph for ps.
     H = convert_paths_into_graph([ps], nid=max(G.nodes())+1)
     nx.set_node_attributes(H, 1, name="gid")
     nx.set_edge_attributes(H, 1, name="gid")
     H.graph['crs'] = "EPSG:4326"
-    H = nx.MultiDiGraph(H)
+    H = nx.MultiGraph(H)
+    H = H.to_directed()
 
     F = nx.compose(G,H)
 
@@ -216,13 +222,13 @@ def plot_graph_and_curves(G, ps, qs):
     nx.set_node_attributes(H, 3, name="gid")
     nx.set_edge_attributes(H, 3, name="gid")
     H.graph['crs'] = "EPSG:4326"
-    H = nx.MultiDiGraph(H)
+    H = nx.MultiGraph(H)
+    H = H.to_directed()
 
     F = nx.compose(F,H)
 
     nc = ox.plot.get_node_colors_by_attr(F, "gid", cmap="Paired")
     ec = ox.plot.get_edge_colors_by_attr(F, "gid", cmap="Paired")
-
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
@@ -230,6 +236,7 @@ def preplot_graph(G, ax, **properties):
     
     assert type(G) == nx.Graph
     
+    print("Extracting node attributes.")
     # Nodes.
     uv, data = zip(*G.nodes(data=True))
     gdf_nodes = gpd.GeoDataFrame(data, index=uv)
@@ -244,16 +251,18 @@ def preplot_graph(G, ax, **properties):
         else:
             return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
 
+    print("Mapping edge geometry.")
     edge_geoms = map(extract_edge_geometry, u, v, data)
     gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
     gdf_edges["u"] = u
     gdf_edges["v"] = v
     gdf_edges = gdf_edges.set_index(["u", "v"])
+
     # Plot.
+    print("Plotting data.")
     ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **properties)
-    for i, row in gdf_edges.iterrows():
-        # gdf_edges.loc[[i]].plot(ax=ax, color=color, linewidth=linewidth, linestyle=linestyle)
-        gdf_edges.loc[[i]].plot(ax=ax, **properties)
+    n = len(gdf_edges)
+    gdf_edges.plot(ax=ax, **properties)
 
 
 def preplot_curve(ps, ax, **properties):
@@ -268,7 +277,8 @@ def plot_without_projection(Gs, pss):
 
     fig, ax = plt.subplots()
 
-    for obj in Gs:
+    for i, obj in enumerate(Gs):
+        print(f"Plotting graph {i}.")
         if type(obj) == tuple:
             G, properties = obj
             preplot_graph(G,  ax, **properties) 
@@ -276,7 +286,8 @@ def plot_without_projection(Gs, pss):
             G = obj
             preplot_graph(G,  ax) 
 
-    for obj in pss:
+    for i, obj in enumerate(pss):
+        print(f"Plotting paths {i}.")
         if type(obj) == tuple:
             ps, properties = obj
             preplot_curve(ps, ax, **properties) 
@@ -292,9 +303,97 @@ def plot_without_projection(Gs, pss):
 #   plot_without_projection2([S], [])
 #   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1)}) ])
 #   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1), "linewidth":1, "linestyle": ":"}), (random_curve(), {"color":(0.1,0.5,0.1,1), "linewidth":3}) ])
+
+
+# Plot graph without projecting nodes (used for e.g. our relative pixel position coordinates).
+def plot_with_weight_without_projection(G, H, data_dict):
+
+    print("Plotting graphs.")
+    
+    def extract_edge_geometry(u, v, k, data):
+        if "geometry" in data:
+            return data["geometry"]
+        else:
+            return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
+
+    def extract_edge_weight(u, v, k, data):
+        return data['weight']
+
+    def extract_edge_color(u, v, k, data):
+        weight = data['weight']
+        color = cmap(normalize_weight(weight))
+        return color
+
+    def normalize_weight(w):
+        return (w - minweight) / (maxweight - minweight)
+
     fig, ax = plt.subplots()
-    ax = gdf_edges['geometry'].plot(ax=ax)
-    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"],)
+
+    # Render H.
+    # Nodes.
+    uvk, data = zip(*H.nodes(data=True))
+    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+    # Edges.
+    u, v, k, data = zip(*H.edges(data=True, keys=True))
+    x_lookup = nx.get_node_attributes(H, "x")
+    y_lookup = nx.get_node_attributes(H, "y")
+
+    edge_geoms = map(extract_edge_geometry, u, v, k, data)
+    edge_weights = map(extract_edge_weight, u, v, k, data)
+    edge_colors = map(extract_edge_color, u, v, k, data)
+    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+
+    gdf_edges["u"] = u
+    gdf_edges["v"] = v
+    gdf_edges = gdf_edges.set_index(["u", "v"])
+
+    # Plot.
+    gdf_edges.plot(ax=ax, color=(0.4, 0.4, 0.4, 1), linewidth=1, linestyle=":")
+
+    # Render G.
+    assert type(G) == nx.MultiGraph
+    G = G.copy()
+
+    # Assign weight to edges.
+    for uv in data_dict.keys():
+        (u, v) = uv
+        threshold = data_dict[uv]["threshold"]
+        G[u][v][0]['weight'] = threshold
+    
+    weights = array([G[u][v][key]['weight'] for u, v, key in G.edges(keys=True)])
+    minweight = weights.min()
+    maxweight = weights.max()
+
+    # Obtain normalized weights.
+    weights = array([G[u][v][key]['weight'] for u, v, key in G.edges(keys=True)])
+    norm_weights = (weights - weights.min()) / (weights.max() - weights.min())  # Normalize to [0, 1]
+
+    # Map weight to color map.
+    cmap = plt.cm.Greens
+    edge_colors = [cmap(weight) for weight in norm_weights]
+
+    # Nodes.
+    uvk, data = zip(*G.nodes(data=True))
+    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
+
+    # Edges.
+    u, v, k, data = zip(*G.edges(data=True, keys=True))
+    x_lookup = nx.get_node_attributes(G, "x")
+    y_lookup = nx.get_node_attributes(G, "y")
+    edge_geoms = map(extract_edge_geometry, u, v, k, data)
+    edge_weights = map(extract_edge_weight, u, v, k, data)
+    edge_colors = map(extract_edge_color, u, v, k, data)
+    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+    
+    gdf_edges["u"] = u
+    gdf_edges["v"] = v
+    gdf_edges["color"] = [cmap(weight) for weight in norm_weights]
+    gdf_edges = gdf_edges.set_index(["u", "v"])
+
+    # Plot G.
+    gdf_edges.plot(ax=ax, color=row['color'], linewidth=2)
+    
+    print("Show plot.")
     fig.canvas.draw()
     fig.canvas.flush_events()
     plt.show()
