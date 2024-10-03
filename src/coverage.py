@@ -1,56 +1,71 @@
 from dependencies import *
+from utilities import *
 from network import *
 from pcm import *
 from maps import *
-from curve import *
 from rendering import *
 
-###################################
+### Partial curve matching logic
+
+# Convert 2d numpy array into a list of Vectors used by the partial curve matching algorithm.
+def curve_to_vector_list(ps):
+    result = []
+    for [x,y] in ps:
+        result.append(Vector(x,y))
+    return result
+
+# Convert a nx.Graph into a graph structure used by the partial curve matching algorithm.
+def graph_to_rust_graph(G):
+
+    # Extract node data as Vectors from the graph.
+    def extract_nodes_list(G):
+        l = []
+        for nid, data in G.nodes(data = True):
+            l.append((nid, Vector(data['x'], data['y'])))
+        return l
+
+    # Extract vertices as Vec<(NID, Vector)>.
+    vertices = extract_nodes_list(G)
+    # Extract edges as Vec<(NID, NID)>.
+    edges = G.edges()
+    return make_graph(vertices, edges)
+
+# Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
+# If convert is true automatically convert input curves into vector lists.
+def is_partial_curve_undirected(ps, qs, eps, convert=False):
+    if convert:
+        ps = curve_to_vector_list(ps)
+        qs = curve_to_vector_list(qs)
+    assert type(ps[0]) == Vector
+    assert type(qs[0]) == Vector
+    try:
+        return partial_curve(ps, qs, eps) != None or partial_curve(ps[::-1], qs, eps)
+    except Exception as e:
+        print("Failed partial curve: ", e)
+        print("Parameters:")
+        print("  ps : ", ps)
+        print("  qs : ", qs)
+        print("  eps: ", eps)
+
+
 ###  Curve by curve coverage
-###################################
 
 # Curve coverage of ps by qs.
 # either return false or provide subcurve with step sequence
 # TODO: Optimization to check on bounding boxes before doing the interpolation.
 def curve_by_curve_coverage(ps, qs, lam):
-    return is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam)
+    return is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam)
 
 
 # Check coverage of a curve by a curve-set.
 def curve_by_curveset_coverage(ps, qss, lam):
     for qs in qss:
-        if is_partial_curve_undirected(to_curve(ps), to_curve(qs), lam):
+        if is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam):
             return True
     return False
 
 
-###################################
 ###  Curve by network coverage
-###################################
-
-
-# Extract path from a network.
-# 1. Construct minimal bounding box for area.
-# 2. Obtain vectorized graph.
-# 3. Extract nodes within area.
-# 4. Construct subnetwork.
-# 5. Generate all _simple edge_ paths within subnetwork.
-# 6. Check for curve by curve set coverage.
-
-# Generate a random curve.
-def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
-    ps = np.random.random((length, 2))
-    return a + (b - a) * ps
-        
-        
-# Length of curve.
-def curve_length(ps):
-    length = 0
-    for p1, p2 in zip(ps, ps[1:]):
-        length += np.linalg.norm(p1 - p2)
-    return length
-
-
 
 # Compute per (simplified) edge of S (Source graph) the coverage threshold in order to be matched by T (Target graph).
 # Assume S and T are a MultiGraph, simplified, and in appropriate coordinate system to measure distance differences in meter.
@@ -77,7 +92,7 @@ def edge_wise_coverage_threshold(S, T, max_threshold=None):
 
             u, v = uv
             ps = edge_curvature(S, u, v)
-            curve = to_curve(ps)
+            curve = curve_to_vector_list(ps)
             result = partial_curve_graph(graph, curve, lam)
             if result != None:
                 path = result
@@ -90,18 +105,3 @@ def edge_wise_coverage_threshold(S, T, max_threshold=None):
 
     return edge_results
 
-
-###################################
-###  Tests: Curve by curve coverage
-###################################
-
-# Test:
-# * Generate a curve randomly
-# * Per point generate three in range
-# * Pick one of those and represent as curve
-# * Pool unused nodes with some more randomly generated curves
-# * Add some arbitrary other nodes of these and add to curve
-# Verify:
-# * Expect to find some subcurve
-# * Generated subcurve within distance lambda
-    
