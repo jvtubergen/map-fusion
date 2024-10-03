@@ -19,6 +19,7 @@ import random
 from shapely.geometry import LineString, Point
 import utm
 import rtree
+from partial_curve_matching import Vector, partial_curve_graph, make_graph
 
 # IO dependencies
 from pathlib import Path

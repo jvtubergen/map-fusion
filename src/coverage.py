@@ -51,69 +51,6 @@ def curve_length(ps):
     return length
 
 
-# Extract bounding box on a curve. Use padding to lambda pad.
-def bounding_box(ps, padding):
-    padding = np.array([padding, padding])
-    lower = [np.min(ps[:,0]), np.min(ps[:,1])]
-    higher = [np.max(ps[:,0]), np.max(ps[:,1])]
-    return np.array([lower - padding, higher + padding])
-
-
-# Pad a bounding box.
-def pad_bounding_box(bb, padding):
-    padding = np.array([padding, padding])
-    return np.array([bb[0] - padding, bb[1] + padding])
-
-
-# Construct R-Tree on graph nodes.
-def graphnodes_to_rtree(G):
-    idx = rtree.index.Index()
-    for node, data in G.nodes(data = True):
-        x, y = data['x'], data['y']
-        idx.insert(node, (x, y, x, y))
-    return idx
-
-
-# Construct R-Tree on graph edges.
-def graphedges_to_rtree(G):
-
-    edgetree = rtree.index.RtreeContainer()
-
-    if type(G) == nx.MultiGraph:
-        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
-    if type(G) == nx.Graph:
-        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
-
-    for (eid, curvature) in elements:
-            minx = min(curvature[:,0])
-            maxx = max(curvature[:,0])
-            miny = min(curvature[:,1])
-            maxy = max(curvature[:,1])
-            edgetree.insert(eid, (minx, miny, maxx, maxy))
-    
-    return edgetree
-
-
-# Construct dictionary that links edge id to a bounding box.
-def graphedges_to_bboxs(G):
-
-    bboxs = {}
-
-    if type(G) == nx.MultiGraph:
-        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
-    if type(G) == nx.Graph:
-        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
-    
-    for (eid, curvature) in elements:
-        minx = min(curvature[:,0])
-        maxx = max(curvature[:,0])
-        miny = min(curvature[:,1])
-        maxy = max(curvature[:,1])
-        bbox = array([(minx, miny), (maxx, maxy)])
-        bboxs[eid] = bbox
-
-    return bboxs
-
 
 # Compute per (simplified) edge of S (Source graph) the coverage threshold in order to be matched by T (Target graph).
 # Assume S and T are a MultiGraph, simplified, and in appropriate coordinate system to measure distance differences in meter.
