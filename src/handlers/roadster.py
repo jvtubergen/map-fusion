@@ -1,4 +1,5 @@
-from dependencies import *
+import os
+import utm
 
 # Latlons for obtaining zone-numbers and zone-letters.
 centrums = {
@@ -37,4 +38,3 @@ def extract_trips(place, folder=None):
                 trip.append([x, y, t])
         trips.append(trip)
     return trips
-

@@ -31,7 +31,10 @@ import pickle
 from operator import itemgetter
 import traceback
 
-import gmaps.lib as gmaps
+# Handlers
+import handlers.sat2graph as sat2graph
+import handlers.roadster as roadster
+import handlers.gmaps.lib as gmaps
 
 
 # Math functions
