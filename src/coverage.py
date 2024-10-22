@@ -1,9 +1,6 @@
-from dependencies import *
+from external import *
 from utilities import *
 from network import *
-from pcm import *
-from maps import *
-from rendering import *
 
 ### Partial curve matching logic
 
@@ -14,8 +11,11 @@ def curve_to_vector_list(ps):
         result.append(Vector(x,y))
     return result
 
-# Convert a nx.Graph into a graph structure used by the partial curve matching algorithm.
+
+# Convert a nx.T2 into a graph structure used by the partial curve matching algorithm.
 def graph_to_rust_graph(G):
+
+    assert type(G) == nx.Graph
 
     # Extract node data as Vectors from the graph.
     def extract_nodes_list(G):
@@ -29,6 +29,7 @@ def graph_to_rust_graph(G):
     # Extract edges as Vec<(NID, NID)>.
     edges = G.edges()
     return make_graph(vertices, edges)
+
 
 # Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
 # If convert is true automatically convert input curves into vector lists.
@@ -72,13 +73,25 @@ def curve_by_curveset_coverage(ps, qss, lam):
 # todo optimize: Have a minimal distance per edge to start evaluation (e.g. some thresholds start at 700 meters).
 def edge_wise_coverage_threshold(S, T, max_threshold=None):
     
-    graph      = graph_to_rust_graph(T)
-    edgebboxs  = graphedges_to_bboxs(S) # Have a bounding box per edge so we can quickly pad for intersection test against T.
-    edgetree   = graphedges_to_rtree(T) # Place graph edges by coordinates in accelerated data structure (R-Tree).
-    edges_todo = S.edges()
+    assert type(S) == nx.Graph
+    assert type(T) == nx.Graph
 
-    nodedict = extract_nodes_dict(S)
+    assert not S.graph.get("simplified") # Vectorized.
+    assert not T.graph.get("simplified") # Vectorized.
 
+    # Transform to local coordinate system.
+    S = graph_transform_latlon_to_utm(S)
+    T = graph_transform_latlon_to_utm(T)
+
+    # Source graph should be simplified.
+    S = simplify_graph(S)
+
+    # Construct rust graph for target.
+    graph        = graph_to_rust_graph(T)
+    # edgebboxs  = graphedges_to_bboxs(S) # Have a bounding box per edge so we can quickly pad for intersection test against T.
+    # edgetree   = graphedges_to_rtree(T) # Place graph edges by coordinates in accelerated data structure (R-Tree).
+    edges_todo   = S.edges()
+    nodedict     = extract_nodes_dict(S)
     edge_results = {}
 
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
@@ -103,5 +116,6 @@ def edge_wise_coverage_threshold(S, T, max_threshold=None):
                 }
         lam += 1 # Increment lambda
 
-    return edge_results
+    return edge_results, edges_todo
+
 
