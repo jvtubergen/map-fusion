@@ -633,3 +633,56 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     return simplify_graph(G) # If it has curvature it crashes because of non-hashable numpy array in attributes.
     return G
     
+
+def graph_transform_utm_to_latlon(G, place):
+
+    G = G.copy()
+    letter, number = zone_letters[place], zone_numbers[place]
+
+    def transformer(row): 
+        x, y = row["x"], row["y"]
+        lat, lon = coord_to_latlon_by_place((x, y), place)
+        return {'x': lon, 'y': lat }
+
+    relabel_mapping = {}
+    for nid, data in G.nodes(data=True):
+        relabel_mapping[nid] = transformer(data)
+
+    nx.set_node_attributes(G, relabel_mapping)
+    return G
+
+
+def graph_transform_latlon_to_utm(G):
+
+    G = G.copy()
+
+    def transformer(row): 
+        lat, lon = row["y"], row["x"]
+        x, y = latlon_to_coord((lat, lon))
+        return {'x': x, 'y': y }
+        
+    relabel_mapping = {}
+    for nid, data in G.nodes(data=True):
+        relabel_mapping[nid] = transformer(data)
+
+    nx.set_node_attributes(G, relabel_mapping)
+    return G
+
+def graph_transform_coordinates(G, transformer):
+
+    G = G.copy()
+
+    relabel_mapping = {}
+    for nid, data in G.nodes(data=True):
+        x, y = data["x"], data["y"]
+        x, y = transformer(x, y)
+        relabel_mapping[nid] = {"x": x, "y": y}
+
+    nx.set_node_attributes(G, relabel_mapping)
+    return G
+
+def graph_utm_info(G):
+    node = G._node[list(G.nodes())[0]]
+    lat, lon = node['y'], node['x']
+    _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
+    return {"zone_number": zone_number, "zone_letter": zone_letter}
