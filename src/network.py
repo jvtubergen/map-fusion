@@ -1,71 +1,11 @@
-from dependencies import *
-from utilities import *
-from maps import *
+from external import *
 
-###################################
-###  Graph construction/extraction
-###################################
+from data_handling import *
+from coordinates import * 
+from utilities import *
 
 # Log debug actions of OSMnx to stdout.
 ox.settings.log_console = True
-
-# graphnames to read and use
-graphnames = {
-    "mapconstruction": [
-        'athens_large',
-        'athens_small',
-        'berlin',
-        'chicago',
-    ],
-    "kevin": [
-        'athens_large_kevin',
-        'chicago_kevin',
-    ],
-    "roadster": [ # Inferred by Roadster
-        'roadster_athens',
-        'roadster_chicago'
-    ],
-    "osm": [ # Extracted with OSMnx/Overpass from OSM
-        'osm_chicago',
-        'utrecht' # why not
-    ]
-}
-
-# Construct graph from data in specified folder. 
-# Expect folder to have to files edges.txt and vertices.txt. 
-# Expect those files to be CSV with u,v and id,x,y columns respectively .
-def construct_graph(folder):
-
-    edges_file_path    = folder + "/edges.txt"
-    vertices_file_path = folder + "/vertices.txt"
-
-    # Assuming the text files are CSV formatted
-    edges_df = pd.read_csv(edges_file_path)
-    vertices_df = pd.read_csv(vertices_file_path)
-
-    # Construct NetworkX graph
-    G = nx.Graph()
-
-    # Track node dictionary to simplify node extraction when computing edge lengths.
-    # TODO: nodedict unnecessary, use `G.nodes[key]` directly.
-    nodedict = {}
-    for node in vertices_df.iterrows():
-        i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
-        y, x = utm.conversion.to_latlon(x, y , 16, zone_letter="N")
-        G.add_node(int(i), x=x, y=y)
-        nodedict[i] = np.asarray([x, y], dtype=np.float64, order='c')
-
-    for edge in edges_df.iterrows():
-        u, v = itemgetter('u', 'v')(edge[1]) 
-        # Edge with edge length (inter-node distance) as attribute.
-        G.add_edge(int(u), int(v), length = np.linalg.norm(nodedict[u] - nodedict[v]))
-
-    G = nx.MultiDiGraph(G)
-    G = ox.simplify_graph(G)
-    G.graph['crs'] = "EPSG:4326"
-
-    return G
-
 
 # Utility function for convenience to extract graph by name.
 #   Either construction from raw data in folder or reading from graphml file.
@@ -103,6 +43,18 @@ def extract_graphset(name, optional=False):
         graphs["sat"]   = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
         graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
     return graphs
+
+
+# Retrieve truth graph with a bounding box.
+def retrieve_graph_truth(graphset, bbox):
+    # First check the graph does not exist.
+    graphml_path=f"graphsets/{graphset}/truth.graphml"
+    if Path(graphml_path).exists():
+        raise BaseException(f"The truth graph already exists at '{graphml_path}'.")
+    # Then retrieve and store graph. (Note: G is already simplified at retrieval.)
+    G = ox.graph_from_bbox(bbox=bbox, network_type="drive_service") 
+    G = G.to_undirected() 
+    ox.save_graphml(G, filepath=graphml_path)
 
 
 # Save a graph to storage as a GraphML format.
@@ -243,11 +195,12 @@ def vectorize_graph(G):
             linestring = attrs["geometry"]
             ps = list(linestring.coords)
 
-            # Drop first and last point because these are start and end node..
-            assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a]))
-            assert np.all(array(ps[0]) == array(nodes[b])) or np.all(array(ps[-1]) == array(nodes[b]))
+            # Sanity checks. 
+            assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a])) # Geometry starts at first node coordinate.
+            assert np.all(array(ps[0]) == array(nodes[b])) or np.all(array(ps[-1]) == array(nodes[b])) # Geometry ends at last node coordinate.
             assert len(ps) >= 1 # We expect at least one point in between start and end node.
 
+            # Drop first and last point because these are start and end node..
             ps = ps[1:-1]
 
             # Ensured we are adding new curvature.  Add new node ID to each coordinate.
@@ -308,6 +261,15 @@ def path_nodes_to_curve(G, path):
 to_linestring = lambda ps: LineString([Point(x, y) for x, y in ps])
 
 
+# Extract subgraph by a point and a radius (using a square rather than circle for distance measure though).
+def extract_subgraph(G, ps, lam):
+    edgetree = graphedges_to_rtree(G) # Place graph edges by coordinates in accelerated data structure (R-Tree).
+    bbox = bounding_box(ps, lam)
+    edges = list(edgetree.intersection((bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1]))) # Extract edges within bounding box.
+    subG = G.edge_subgraph(edges)
+    return subG
+
+
 # For a simplified graph, annotate edges with its curvature as a numpy array rather than the encoded shapely string.
 def annotate_edge_curvature_as_array(G):
 
@@ -361,6 +323,7 @@ def multi_edge_conserving(G):
 
     # Per multi-edge set, check the curvature differs (PCM threshold is larger than zero).
     edges = [(u, v, k) for u, v, k in G.edges(keys=True)]
+    nodes = extract_nodes_dict(G)
     for u,v in multiedge_groups:
         multiedges = list(filter(lambda x: x[0] == u and x[1] == v, edges))
         assert multiedges[0] == (u, v, 0)
@@ -385,7 +348,7 @@ def multi_edge_conserving(G):
         nidmax = max(G.nodes()) + 1 # Maximal node ID to prevent overwriting existing node IDs in the graph.
         for (u, v, k, ps) in unique_curves:
             if u == v: # In case of self-loop we have to add two edges in between
-                if len(ps) > 3:
+                if len(ps) > 3: # At least 2 vertices for curvature (Besides start and end node).
                     i = floor(len(ps)/3) # Index to cut curve at.
                     j = floor(2*len(ps)/3) # Index to cut curve at.
                     x0, y0 = ps[i]
@@ -404,13 +367,27 @@ def multi_edge_conserving(G):
                     i = floor(len(ps)/2) # Index to cut curve at.
                     x, y = ps[i]
                     G.add_node(nidmax, x=x, y=y)
+                    nodes[nidmax] = ps[i]
                     # b. Add two edges to the graph with u-nidmax and nidmax-v.
                     #    Make sure to extract geometry and ad 
                     # print("total edge curvature:\n", ps)
                     # print(f"Adding edge {u, nidmax} with geometry: \n", ps[0:i+1])
-                    G.add_edge(u, nidmax, 0, geometry=to_linestring(ps[0:i+1]))
+                    curvature = ps[0:i+1]
+                    G.add_edge(u, nidmax, 0, geometry=to_linestring(curvature))
+                    # Sanity check: Start and end node of curvature match with node position.
+                    if not (np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u]))):
+                        breakpoint()
+                    assert np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u])) # Geometry starts at first node coordinate.
+                    if not (np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax]))):
+                        breakpoint()
+                    assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry ends at last node coordinate.
+                    
                     # print(f"Adding edge {nidmax, v} with geometry: \n", ps[i:])
-                    G.add_edge(nidmax, v, 0, geometry=to_linestring(ps[i:]))
+                    curvature = ps[i:]
+                    G.add_edge(nidmax, v, 0, geometry=to_linestring(curvature))
+                    # Sanity check: Start and end node of curvature match with node position.
+                    assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry starts at first node coordinate.
+                    assert np.all(array(curvature[0]) == array(nodes[v])) or np.all(array(curvature[-1]) == array(nodes[v])) # Geometry ends at last node coordinate.
                     # c. Mark the edge for deletion.
                     edges_to_delete.append((u, v, k))
                     # d. Increment nidmax for subsequent element.
@@ -486,7 +463,7 @@ def duplicated_edges(G):
     coordinates = np.array(coordinates)
 
     # Extract duplications
-    uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
+    uniques, inverses, counts = np.unique(coordinates, return_inverse=True, axis=0, return_counts=True)
     duplicated = []
     for edge_id, index_to_unique in zip(edges, inverses):
         if counts[index_to_unique] > 1:
@@ -518,7 +495,7 @@ def duplicated_edges_grouped(G):
     coordinates = np.array(coordinates)
 
     # Construct dictionary.
-    uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
+    uniques, inverses, counts = np.unique(coordinates, return_inverse=True, axis=0, return_counts=True)
     duplicated = {}
     for edge_id, index_to_unique in zip(edge_ids, inverses):
         if counts[index_to_unique] > 1:
@@ -607,7 +584,7 @@ def cut_out_ROI(G, p1, p2):
     # We have to iterate graph nodes only once to check bounding box.
     for nid, data in G.nodes(data = True):
         y, x = data['y'], data['x']
-        if contains(bb, [y, x]):
+        if contains(bb, [x, y]):
             to_keep.append(nid)
         else:
             to_drop.append(nid)
@@ -631,6 +608,7 @@ def middle_latitute(G):
 # Compute relative positioning.
 # Note: Takes a reference latitude for deciding on the GSD. Make sure to keep this value consistent when applied to different graphs.
 # Note: Flip y-axis by subtracting from minimal latitude value (-max_lat) to maintain directionality.
+# todo: Rely on UTM conversion instead of your hacky solution.
 def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     # 0. GSD on average latitude and reference pixel positions.
     zoom = 24 # Sufficiently accurate.

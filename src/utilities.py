@@ -1,4 +1,4 @@
-from dependencies import * 
+from external import * 
 
 ### R-Tree
 
@@ -98,3 +98,8 @@ curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
     ps = np.random.random((length, 2))
     return a + (b - a) * ps
+
+
+### Linestrings
+
+to_linestring = lambda ps: LineString([Point(x, y) for x, y in ps])
