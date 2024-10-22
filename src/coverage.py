@@ -119,3 +119,65 @@ def edge_wise_coverage_threshold(S, T, max_threshold=None):
     return edge_results, edges_todo
 
 
+# Obtain threshold per simplified edge of S.
+def edge_graph_coverage(S, T, max_threshold=None):
+    assert type(S) == nx.Graph
+    assert type(T) == nx.Graph
+    assert not S.graph.get("simplified") # Vectorized.
+    assert not T.graph.get("simplified") # Vectorized.
+
+    G = S.copy()
+
+    # Transform to local coordinate system.
+    S = graph_transform_latlon_to_utm(S)
+    T = graph_transform_latlon_to_utm(T)
+
+    # We need a multi-graph because there can be multiple roads 
+    S2 = ox.simplify_graph(nx.MultiGraph(S).to_directed(), track_merged=True).to_undirected()
+    T2 = graph_to_rust_graph(T)
+    
+    # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
+    leftS  = S.edges()
+    leftS2 = S2.edges(keys=True)
+    lam  = 1 # Start with a threshold of 1 meter.
+    thresholds = {}
+    while len(leftS2) > 0 and (max_threshold == None or lam <= max_threshold):
+
+        print(f"Lambda: {lam}. Edges: {len(leftS2)}")
+        for uvk in leftS2:
+            u, v, k = uvk
+            ps = edge_curvature(S2, u, v, k=k)
+            curve = curve_to_vector_list(ps)
+
+            path = partial_curve_graph(T2, curve, lam)
+            if path != None:
+
+                leftS2 = leftS2 - set([uvk]) # Remove edge from edge set.
+
+                # Obtain vectorized edges concerning this simplified edge.
+                edge_info = S2.get_edge_data(u, v, k)
+                annotate = [(u, v)]
+                if "merged_edges" in edge_info:
+                    annotate = annotate + edge_info["merged_edges"]
+
+                # Add reverse.
+                to_add = []
+                for uv in annotate:
+                    u, v = uv
+                    uv = (v, u)
+                    to_add += [uv]
+                annotate += to_add
+
+                # Annotate S with result information.
+                for uv in annotate:
+                    # print(f"Annotating {uv}.")
+                    leftS = leftS - set([uv])
+                    thresholds[uv] = {"threshold": lam}
+
+        lam += 1 # Increment lambda
+    
+    for uv in leftS:
+        thresholds[uv] = {"threshold": None}
+    
+    nx.set_edge_attributes(G, thresholds)
+    return G
