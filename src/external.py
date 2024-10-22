@@ -1,43 +1,34 @@
+# Remote libraries
 import pandas as pd
 import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 import numpy as np
+# Rendering
 import matplotlib
 import matplotlib.pyplot as plt
 import PIL as pil
-
-import os
-import subprocess
-
-# Standard library
-import math
-import itertools
-import random
-
-# Geometry utilities
+# Geometry
 from shapely.geometry import LineString, Point
 import utm
 import rtree
-from partial_curve_matching import Vector, partial_curve_graph, make_graph
-
+from partial_curve_matching import Vector, partial_curve_graph, make_graph # (Shared library)
 # IO dependencies
 from pathlib import Path
 from fileinput import input
 import json
 import pickle
-
+import os
+# Standard library
+import math
+import itertools
+import random
+import subprocess
 # Utils
 from operator import itemgetter
 import traceback
 
-# Handlers
-import handlers.sat2graph as sat2graph
-import handlers.roadster as roadster
-import handlers.gmaps.lib as gmaps
-
-
-# Math functions
+# Shortcuts
 cos  = math.cos
 sec  = lambda phi: 1/cos(phi) # Secant
 sin  = math.sin
