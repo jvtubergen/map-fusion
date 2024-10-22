@@ -1,7 +1,5 @@
 import json 
-import sys 
 import numpy as np  
-
 
 def graphInsert(node_neighbor, n1key, n2key):
 	if n1key != n2key:

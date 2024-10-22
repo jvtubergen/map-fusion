@@ -634,6 +634,7 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     return G
     
 
+# Transform graphnodes UTM coordinate system into latitude-longitude coordinates.
 def graph_transform_utm_to_latlon(G, place):
 
     G = G.copy()
@@ -652,6 +653,7 @@ def graph_transform_utm_to_latlon(G, place):
     return G
 
 
+# Transform graphnodes latitude-longitude coordinates into UTM coordinate system.
 def graph_transform_latlon_to_utm(G):
 
     G = G.copy()
@@ -668,6 +670,8 @@ def graph_transform_latlon_to_utm(G):
     nx.set_node_attributes(G, relabel_mapping)
     return G
 
+
+# Transform graphnodes x,y coordinates by custom function.
 def graph_transform_coordinates(G, transformer):
 
     G = G.copy()
@@ -681,6 +685,8 @@ def graph_transform_coordinates(G, transformer):
     nx.set_node_attributes(G, relabel_mapping)
     return G
 
+
+# Derive UTM zone number and zone letter of a graph by taking arbitrary latlon coordinate from graph.
 def graph_utm_info(G):
     node = G._node[list(G.nodes())[0]]
     lat, lon = node['y'], node['x']
