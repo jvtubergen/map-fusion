@@ -1,6 +1,4 @@
-from dependencies import *
-from coverage import *
-from network import *
+from external import *
 
 
 # Convert a collection of paths into gid-annotated nodes and edges to thereby render with different colors.
@@ -232,14 +230,22 @@ def plot_graph_and_curves(G, ps, qs):
     ox.plot_graph(F, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
-def preplot_graph(G, ax, **properties): 
+# Preplot a graph. Can be performed multiple times to render graphs together.
+def preplot_graph(G, ax, **properties):
+    _preplot_graph(G, ax, properties, properties)
+
+# Preplot a graph with seperate node and edge properties.
+def _preplot_graph(G, ax, node_properties, edge_properties): 
     
-    assert type(G) == nx.Graph
+    if type(G) != nx.Graph:
+        print("Warning: Expecting an nx.Graph to render.")
     
     print("Extracting node attributes.")
     # Nodes.
     uv, data = zip(*G.nodes(data=True))
     gdf_nodes = gpd.GeoDataFrame(data, index=uv)
+    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **node_properties)
+
     # Edges.
     u, v, data = zip(*G.edges(data=True))
     x_lookup = nx.get_node_attributes(G, "x")
@@ -260,9 +266,7 @@ def preplot_graph(G, ax, **properties):
 
     # Plot.
     print("Plotting data.")
-    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **properties)
-    n = len(gdf_edges)
-    gdf_edges.plot(ax=ax, **properties)
+    gdf_edges.plot(ax=ax, **edge_properties)
 
 
 def preplot_curve(ps, ax, **properties):
