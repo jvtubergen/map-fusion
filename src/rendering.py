@@ -309,95 +309,32 @@ def plot_without_projection(Gs, pss):
 #   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1), "linewidth":1, "linestyle": ":"}), (random_curve(), {"color":(0.1,0.5,0.1,1), "linewidth":3}) ])
 
 
-# Plot graph without projecting nodes (used for e.g. our relative pixel position coordinates).
-def plot_with_weight_without_projection(G, H, data_dict):
+# Plot with weights on edges of S defining color intensity.
+def plot_with_weight_without_projection(S, T, max_threshold):
 
-    print("Plotting graphs.")
-    
-    def extract_edge_geometry(u, v, k, data):
-        if "geometry" in data:
-            return data["geometry"]
-        else:
-            return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
-
-    def extract_edge_weight(u, v, k, data):
-        return data['weight']
-
-    def extract_edge_color(u, v, k, data):
-        weight = data['weight']
-        color = cmap(normalize_weight(weight))
-        return color
-
-    def normalize_weight(w):
-        return (w - minweight) / (maxweight - minweight)
+    x_lookup = nx.get_node_attributes(S, "x")
+    y_lookup = nx.get_node_attributes(S, "y")
+    def extract_edge_geometry(u, v):
+        return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
 
     fig, ax = plt.subplots()
 
-    # Render H.
-    # Nodes.
-    uvk, data = zip(*H.nodes(data=True))
-    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
-    # Edges.
-    u, v, k, data = zip(*H.edges(data=True, keys=True))
-    x_lookup = nx.get_node_attributes(H, "x")
-    y_lookup = nx.get_node_attributes(H, "y")
+    # Render target.
+    _preplot_graph(T,  ax, {"color": (0,0,0,0)}, {"color":(0.4,0.4,0.4,1), "linestyle": ":"}) 
 
-    edge_geoms = map(extract_edge_geometry, u, v, k, data)
-    edge_weights = map(extract_edge_weight, u, v, k, data)
-    edge_colors = map(extract_edge_color, u, v, k, data)
-    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
-
-    gdf_edges["u"] = u
-    gdf_edges["v"] = v
-    gdf_edges = gdf_edges.set_index(["u", "v"])
+    # Render source.
+    thresholds = [S[u][v]['threshold'] for u, v in S.edges()]
+    thresholds = array([max_threshold if x == None else x for x in thresholds]) # Map none to zero.
+    norm_thresholds = thresholds / max_threshold  # Normalize to [0, 1]
+    cmap = plt.cm.Greens
+    u, v, data = zip(*S.edges(data=True))
+    edge_geoms = map(extract_edge_geometry, u, v)
+    edge_coloring = [cmap(threshold) for threshold in norm_thresholds]
+    _preplot_graph(S, ax, {"color": (0,0,0,0)}, {"color":edge_coloring, "linewidth": 2})
 
     # Plot.
-    gdf_edges.plot(ax=ax, color=(0.4, 0.4, 0.4, 1), linewidth=1, linestyle=":")
-
-    # Render G.
-    assert type(G) == nx.MultiGraph
-    G = G.copy()
-
-    # Assign weight to edges.
-    for uv in data_dict.keys():
-        (u, v) = uv
-        threshold = data_dict[uv]["threshold"]
-        G[u][v][0]['weight'] = threshold
-    
-    weights = array([G[u][v][key]['weight'] for u, v, key in G.edges(keys=True)])
-    minweight = weights.min()
-    maxweight = weights.max()
-
-    # Obtain normalized weights.
-    weights = array([G[u][v][key]['weight'] for u, v, key in G.edges(keys=True)])
-    norm_weights = (weights - weights.min()) / (weights.max() - weights.min())  # Normalize to [0, 1]
-
-    # Map weight to color map.
-    cmap = plt.cm.Greens
-    edge_colors = [cmap(weight) for weight in norm_weights]
-
-    # Nodes.
-    uvk, data = zip(*G.nodes(data=True))
-    gdf_nodes = gpd.GeoDataFrame(data, index=uvk)
-
-    # Edges.
-    u, v, k, data = zip(*G.edges(data=True, keys=True))
-    x_lookup = nx.get_node_attributes(G, "x")
-    y_lookup = nx.get_node_attributes(G, "y")
-    edge_geoms = map(extract_edge_geometry, u, v, k, data)
-    edge_weights = map(extract_edge_weight, u, v, k, data)
-    edge_colors = map(extract_edge_color, u, v, k, data)
-    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
-    
-    gdf_edges["u"] = u
-    gdf_edges["v"] = v
-    gdf_edges["color"] = [cmap(weight) for weight in norm_weights]
-    gdf_edges = gdf_edges.set_index(["u", "v"])
-
-    # Plot G.
-    gdf_edges.plot(ax=ax, color=row['color'], linewidth=2)
-    
     print("Show plot.")
     fig.canvas.draw()
     fig.canvas.flush_events()
     plt.show()
+
