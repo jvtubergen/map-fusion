@@ -3684,6 +3684,8 @@ def main():
         super_verbose=super_verbose)
 
 
-###############################################################################
-if __name__ == "__main__":
-    main()
+def run(truth=None, proposed=None):
+    output_name = "apls_test"
+    weight = "length"
+    im_dir = "apls_images"
+    execute(output_name, [truth], [proposed], ["NOFCKINGIDEA"], )
