@@ -88,13 +88,8 @@ def add_travel_time(G_, speed_key='inferred_speed_mps', length_key='length',
             speed = data[speed_key]
             if type(speed) == list:
                 speed = np.mean(speed)
-            # print("speed:", speed)
         else:
-            print("speed_key not found:", speed_key)
-            return
-#            data['inferred_speed'] = default_speed
-#            data[speed_key] = default_speed
-#            speed = default_speed
+            speed = default_speed
         if verbose:
             print("data[length_key]:", data[length_key])
             print("speed:", speed)
