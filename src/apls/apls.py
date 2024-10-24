@@ -2266,364 +2266,364 @@ def execute(output_name, gt_list, gp_list, root_list, im_loc_list=[],
 
         ##################
         # PLOTS
-        if i < n_plots:
+        # if i < n_plots:
 
-            # # plot init0
-            # if test_method == 'osmnx':
-            #    fig, ax = osmnx_funcs.plot_graph(G0, show=show_plots, close=False,
-            #                            fig_height=fig_height,
-            #                            fig_width=fig_width)
-            #    ax.set_title('Raw Ground Truth Graph', fontsize=title_fontsize)
-            #    plt.savefig(os.path.join(outdir, 'gt_graph_raw.png'), dpi=dpi)
-            #    plt.close('all')
+        #     # # plot init0
+        #     # if test_method == 'osmnx':
+        #     #    fig, ax = osmnx_funcs.plot_graph(G0, show=show_plots, close=False,
+        #     #                            fig_height=fig_height,
+        #     #                            fig_width=fig_width)
+        #     #    ax.set_title('Raw Ground Truth Graph', fontsize=title_fontsize)
+        #     #    plt.savefig(os.path.join(outdir, 'gt_graph_raw.png'), dpi=dpi)
+        #     #    plt.close('all')
 
-            # skip plots if no nodes
-            if (len(G_gt_cp.nodes()) == 0) or (len(G_p_cp.nodes()) == 0):
-                continue
+        #     # skip plots if no nodes
+        #     if (len(G_gt_cp.nodes()) == 0) or (len(G_p_cp.nodes()) == 0):
+        #         continue
 
-            # set graph size
-            max_extent = max(fig_height, fig_width)
-            xmin, xmax, ymin, ymax, dx, dy = apls_utils._get_graph_extent(
-                G_gt_cp)
-            if dx <= dy:
-                fig_height = max_extent
-                fig_width = max(1, 1. * max_extent * dx / dy)
-            else:
-                fig_width = max_extent
-                fig_height = max(1, 1. * max_extent * dy / dx)
-            if verbose:
-                print("fig_width, fig_height:", fig_width, fig_height)
+        #     # set graph size
+        #     max_extent = max(fig_height, fig_width)
+        #     xmin, xmax, ymin, ymax, dx, dy = apls_utils._get_graph_extent(
+        #         G_gt_cp)
+        #     if dx <= dy:
+        #         fig_height = max_extent
+        #         fig_width = max(1, 1. * max_extent * dx / dy)
+        #     else:
+        #         fig_width = max_extent
+        #         fig_height = max(1, 1. * max_extent * dy / dx)
+        #     if verbose:
+        #         print("fig_width, fig_height:", fig_width, fig_height)
 
-            # plot ground truth
-            fig, ax = osmnx_funcs.plot_graph(
-                G_gt_init, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax = apls_plots.plot_node_ids(
-                    G_gt_init, ax, fontsize=4)  # node ids
-            ax.set_title('Ground Truth Graph', fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(outdir, 'gt_graph.png'), dpi=dpi)
-            # plt.clf()
-            # plt.cla()
-            plt.close('all')
+        #     # plot ground truth
+        #     fig, ax = osmnx_funcs.plot_graph(
+        #         G_gt_init, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax = apls_plots.plot_node_ids(
+        #             G_gt_init, ax, fontsize=4)  # node ids
+        #     ax.set_title('Ground Truth Graph', fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(outdir, 'gt_graph.png'), dpi=dpi)
+        #     # plt.clf()
+        #     # plt.cla()
+        #     plt.close('all')
 
-            #  gt midpoints
-            fig0, ax0 = osmnx_funcs.plot_graph(
-                G_gt_cp, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax0 = apls_plots.plot_node_ids(
-                    G_gt_cp, ax0, fontsize=4)  # node ids
-            ax0.set_title('Ground Truth With Midpionts',
-                          fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'gt_graph_midpoints.png'), dpi=dpi)
-            plt.close('all')
+        #     #  gt midpoints
+        #     fig0, ax0 = osmnx_funcs.plot_graph(
+        #         G_gt_cp, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax0 = apls_plots.plot_node_ids(
+        #             G_gt_cp, ax0, fontsize=4)  # node ids
+        #     ax0.set_title('Ground Truth With Midpionts',
+        #                   fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'gt_graph_midpoints.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # plot ground truth nodes from prop
-            fig, ax = osmnx_funcs.plot_graph(
-                G_gt_cp_prime, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax = apls_plots.plot_node_ids(
-                    G_gt_cp_prime, ax, fontsize=4)  # node ids
-            ax.set_title(
-                'Ground Truth Graph with Proposal Control Nodes',
-                fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'gt_graph_prop_control_points.png'), dpi=dpi)
-            # plt.clf()
-            # plt.cla()
-            plt.close('all')
+        #     # plot ground truth nodes from prop
+        #     fig, ax = osmnx_funcs.plot_graph(
+        #         G_gt_cp_prime, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax = apls_plots.plot_node_ids(
+        #             G_gt_cp_prime, ax, fontsize=4)  # node ids
+        #     ax.set_title(
+        #         'Ground Truth Graph with Proposal Control Nodes',
+        #         fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'gt_graph_prop_control_points.png'), dpi=dpi)
+        #     # plt.clf()
+        #     # plt.cla()
+        #     plt.close('all')
 
-            # remove geometry to test whether we correctly added midpoints and edges
-            Gtmp = G_gt_cp.copy()  # G_gt_cp_prime.copy()
-            for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
-                try:
-                    #line = data['geometry']
-                    data.pop('geometry', None)
-                except:
-                    data[0].pop('geometry', None)
-            fig, ax = osmnx_funcs.plot_graph(Gtmp, show=show_plots, close=False,
-                                    fig_height=fig_height, fig_width=fig_width)
-            ax.set_title(
-                'Ground Truth Graph (cp) without any geometry', size='x-small')
-            # plt.tight_layout()
-            plt.savefig(os.path.join(outdir, 'gt_without_geom.png'), dpi=dpi)
-            plt.close('all')
+        #     # remove geometry to test whether we correctly added midpoints and edges
+        #     Gtmp = G_gt_cp.copy()  # G_gt_cp_prime.copy()
+        #     for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
+        #         try:
+        #             #line = data['geometry']
+        #             data.pop('geometry', None)
+        #         except:
+        #             data[0].pop('geometry', None)
+        #     fig, ax = osmnx_funcs.plot_graph(Gtmp, show=show_plots, close=False,
+        #                             fig_height=fig_height, fig_width=fig_width)
+        #     ax.set_title(
+        #         'Ground Truth Graph (cp) without any geometry', size='x-small')
+        #     # plt.tight_layout()
+        #     plt.savefig(os.path.join(outdir, 'gt_without_geom.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # plot proposal
-            fig, ax = osmnx_funcs.plot_graph(
-                G_p_init, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax = apls_plots.plot_node_ids(
-                    G_p_init, ax, fontsize=4)  # node ids
-            ax.set_title('Proposal Graph', fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(outdir, 'prop_graph.png'), dpi=dpi)
-            plt.close('all')
+        #     # plot proposal
+        #     fig, ax = osmnx_funcs.plot_graph(
+        #         G_p_init, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax = apls_plots.plot_node_ids(
+        #             G_p_init, ax, fontsize=4)  # node ids
+        #     ax.set_title('Proposal Graph', fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(outdir, 'prop_graph.png'), dpi=dpi)
+        #     plt.close('all')
 
-            #  proposal midpoints
-            fig0, ax0 = osmnx_funcs.plot_graph(
-                G_p_cp, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax = apls_plots.plot_node_ids(
-                    G_p_cp, ax0, fontsize=4)  # node ids
-            ax0.set_title('Proposal With Midpionts', fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'prop_graph_midpoints.png'), dpi=dpi)
-            plt.close('all')
+        #     #  proposal midpoints
+        #     fig0, ax0 = osmnx_funcs.plot_graph(
+        #         G_p_cp, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax = apls_plots.plot_node_ids(
+        #             G_p_cp, ax0, fontsize=4)  # node ids
+        #     ax0.set_title('Proposal With Midpionts', fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'prop_graph_midpoints.png'), dpi=dpi)
+        #     plt.close('all')
 
-            #  proposal midpoints
-            fig0, ax0 = osmnx_funcs.plot_graph(
-                G_p_cp_prime, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            if show_node_ids:
-                ax = apls_plots.plot_node_ids(
-                    G_p_cp_prime, ax0, fontsize=4)  # node ids
-            ax0.set_title('Proposal With Midpionts from GT',
-                          fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'prop_graph_midpoints_gt_control_points.png'), dpi=dpi)
-            plt.close('all')
+        #     #  proposal midpoints
+        #     fig0, ax0 = osmnx_funcs.plot_graph(
+        #         G_p_cp_prime, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     if show_node_ids:
+        #         ax = apls_plots.plot_node_ids(
+        #             G_p_cp_prime, ax0, fontsize=4)  # node ids
+        #     ax0.set_title('Proposal With Midpionts from GT',
+        #                   fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'prop_graph_midpoints_gt_control_points.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # plot ground truth buffer and proposal graph
-            # make sure geometry is in G_p_init
-            G_tmp = G_p_init.copy()
-            # for i,(u,v,attr_dict) in enumerate(G_tmp.edges(data=True)):
-            #    if 'geometry_wkt' in attr_dict.keys():
-            #        attr_dict['geometry'] = attr_dict['geometry_wkt']
-            #        print "attr_dict:", attr_dict
-            fig, ax3 = osmnx_funcs.plot_graph(
-                G_tmp, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            try:
-                apls_plots._plot_buff(G_gt_init, ax3, buff=max_snap_dist,
-                                 color='yellow', alpha=0.3,
-                                 title='',
-                                 title_fontsize=title_fontsize, outfile='',
-                                 verbose=False)
-            except:
-                print("Cannot make buffer plot...")
-            ax3.set_title('Propoal Graph with Ground Truth Buffer',
-                          fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'prop_graph_plus_gt_buff.png'), dpi=dpi)
-            # plt.clf()
-            # plt.cla()
-            plt.close('all')
+        #     # plot ground truth buffer and proposal graph
+        #     # make sure geometry is in G_p_init
+        #     G_tmp = G_p_init.copy()
+        #     # for i,(u,v,attr_dict) in enumerate(G_tmp.edges(data=True)):
+        #     #    if 'geometry_wkt' in attr_dict.keys():
+        #     #        attr_dict['geometry'] = attr_dict['geometry_wkt']
+        #     #        print "attr_dict:", attr_dict
+        #     fig, ax3 = osmnx_funcs.plot_graph(
+        #         G_tmp, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     try:
+        #         apls_plots._plot_buff(G_gt_init, ax3, buff=max_snap_dist,
+        #                          color='yellow', alpha=0.3,
+        #                          title='',
+        #                          title_fontsize=title_fontsize, outfile='',
+        #                          verbose=False)
+        #     except:
+        #         print("Cannot make buffer plot...")
+        #     ax3.set_title('Propoal Graph with Ground Truth Buffer',
+        #                   fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'prop_graph_plus_gt_buff.png'), dpi=dpi)
+        #     # plt.clf()
+        #     # plt.cla()
+        #     plt.close('all')
 
-            # plot proposal buffer and ground truth graph
-            fig, ax4 = osmnx_funcs.plot_graph(
-                G_gt_init, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            try:
-                apls_plots._plot_buff(G_p_init, ax4, buff=max_snap_dist,
-                                  color='yellow', alpha=0.3,
-                                  title='',
-                                  title_fontsize=title_fontsize, outfile='',
-                                  verbose=False)
-            except:
-                print("Cannot make buffer plot...")
-            ax4.set_title('Ground Graph with Proposal Buffer',
-                          fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'gt_graph_plus_prop_buff.png'), dpi=dpi)
-            # plt.clf()
-            # plt.cla()
-            plt.close('all')
+        #     # plot proposal buffer and ground truth graph
+        #     fig, ax4 = osmnx_funcs.plot_graph(
+        #         G_gt_init, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     try:
+        #         apls_plots._plot_buff(G_p_init, ax4, buff=max_snap_dist,
+        #                           color='yellow', alpha=0.3,
+        #                           title='',
+        #                           title_fontsize=title_fontsize, outfile='',
+        #                           verbose=False)
+        #     except:
+        #         print("Cannot make buffer plot...")
+        #     ax4.set_title('Ground Graph with Proposal Buffer',
+        #                   fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'gt_graph_plus_prop_buff.png'), dpi=dpi)
+        #     # plt.clf()
+        #     # plt.cla()
+        #     plt.close('all')
 
-            # remove geometry to test whether we correctly added midpoints and edges
-            Gtmp = G_p_cp.copy()  # G_gt_cp_prime.copy()
-            for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
-                try:
-                    #line = data['geometry']
-                    data.pop('geometry', None)
-                except:
-                    data[0].pop('geometry', None)
-            fig, ax = osmnx_funcs.plot_graph(
-                Gtmp, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            ax.set_title(
-                'Proposal Graph (cp) without any geometry', size='x-small')
-            # plt.tight_layout()
-            plt.savefig(os.path.join(
-                outdir, 'prop_cp_without_geom.png'), dpi=dpi)
-            plt.close('all')
+        #     # remove geometry to test whether we correctly added midpoints and edges
+        #     Gtmp = G_p_cp.copy()  # G_gt_cp_prime.copy()
+        #     for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
+        #         try:
+        #             #line = data['geometry']
+        #             data.pop('geometry', None)
+        #         except:
+        #             data[0].pop('geometry', None)
+        #     fig, ax = osmnx_funcs.plot_graph(
+        #         Gtmp, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     ax.set_title(
+        #         'Proposal Graph (cp) without any geometry', size='x-small')
+        #     # plt.tight_layout()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'prop_cp_without_geom.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # remove geometry to test whether we correctly added midpoints and edges
-            Gtmp = G_p_init.copy()  # G_gt_cp_prime.copy()
-            for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
-                try:
-                    #line = data['geometry']
-                    data.pop('geometry', None)
-                except:
-                    data[0].pop('geometry', None)
-            fig, ax = osmnx_funcs.plot_graph(
-                Gtmp, show=show_plots, close=False,
-                fig_height=fig_height, fig_width=fig_width)
-            ax.set_title('Proposal Graph without any geometry', size='x-small')
-            # plt.tight_layout()
-            plt.savefig(os.path.join(outdir, 'prop_without_geom.png'), dpi=dpi)
-            plt.close('all')
+        #     # remove geometry to test whether we correctly added midpoints and edges
+        #     Gtmp = G_p_init.copy()  # G_gt_cp_prime.copy()
+        #     for itmp, (u, v, key, data) in enumerate(Gtmp.edges(keys=True, data=True)):
+        #         try:
+        #             #line = data['geometry']
+        #             data.pop('geometry', None)
+        #         except:
+        #             data[0].pop('geometry', None)
+        #     fig, ax = osmnx_funcs.plot_graph(
+        #         Gtmp, show=show_plots, close=False,
+        #         fig_height=fig_height, fig_width=fig_width)
+        #     ax.set_title('Proposal Graph without any geometry', size='x-small')
+        #     # plt.tight_layout()
+        #     plt.savefig(os.path.join(outdir, 'prop_without_geom.png'), dpi=dpi)
+        #     plt.close('all')
 
-            ###################################
-            # plot some paths...
-            # get source and target nodes
+        #     ###################################
+        #     # plot some paths...
+        #     # get source and target nodes
 
-            # use idxs?
-            #source_idx = np.random.randint(0,len(G_gt_cp.nodes()))
-            #target_idx = np.random.randint(0,len(G_gt_cp.nodes()))
-            # specify source and target node, if desired
-            # if len(gt_file) == 0:
-            ##    source_idx =  27
-            ##    target_idx =  36
-            # print "source_idx:", source_idx
-            # print "target_idx:", target_idx
-            #source = G_gt_cp.nodes()[source_idx]
-            #target = G_gt_cp.nodes()[target_idx]
+        #     # use idxs?
+        #     #source_idx = np.random.randint(0,len(G_gt_cp.nodes()))
+        #     #target_idx = np.random.randint(0,len(G_gt_cp.nodes()))
+        #     # specify source and target node, if desired
+        #     # if len(gt_file) == 0:
+        #     ##    source_idx =  27
+        #     ##    target_idx =  36
+        #     # print "source_idx:", source_idx
+        #     # print "target_idx:", target_idx
+        #     #source = G_gt_cp.nodes()[source_idx]
+        #     #target = G_gt_cp.nodes()[target_idx]
 
-            # get a random source and target that are in both ground truth and prop
-            if len(G_gt_cp.nodes()) < 200:
-                print("G_gt_cp.nodes():", G_gt_cp.nodes())
-            if len(G_gt_cp_prime.nodes()) < 200:
-                print("G_p_cp_prime.nodes():", G_gt_cp_prime.nodes())
-            possible_sources = set(G_gt_cp.nodes()).intersection(
-                set(G_p_cp_prime.nodes()))
-            if len(possible_sources) == 0:
-                continue
-            source = random.choice(list(possible_sources))
-            possible_targets = set(G_gt_cp.nodes()).intersection(
-                set(G_p_cp_prime.nodes())) - set([source])
-            if len(possible_targets) == 0:
-                continue
-            target = random.choice(list(possible_targets))
-            print("source, target:", source, target)
+        #     # get a random source and target that are in both ground truth and prop
+        #     if len(G_gt_cp.nodes()) < 200:
+        #         print("G_gt_cp.nodes():", G_gt_cp.nodes())
+        #     if len(G_gt_cp_prime.nodes()) < 200:
+        #         print("G_p_cp_prime.nodes():", G_gt_cp_prime.nodes())
+        #     possible_sources = set(G_gt_cp.nodes()).intersection(
+        #         set(G_p_cp_prime.nodes()))
+        #     if len(possible_sources) == 0:
+        #         continue
+        #     source = random.choice(list(possible_sources))
+        #     possible_targets = set(G_gt_cp.nodes()).intersection(
+        #         set(G_p_cp_prime.nodes())) - set([source])
+        #     if len(possible_targets) == 0:
+        #         continue
+        #     target = random.choice(list(possible_targets))
+        #     print("source, target:", source, target)
 
-            # compute paths to node of interest, and plot
-            t0 = time.time()
-            lengths, paths = nx.single_source_dijkstra(
-                G_gt_cp, source=source, weight=weight)
-            print("Time to calculate:", len(lengths),
-                  "paths:", time.time() - t0, "seconds")
+        #     # compute paths to node of interest, and plot
+        #     t0 = time.time()
+        #     lengths, paths = nx.single_source_dijkstra(
+        #         G_gt_cp, source=source, weight=weight)
+        #     print("Time to calculate:", len(lengths),
+        #           "paths:", time.time() - t0, "seconds")
 
-            # plot a single route
-            try:
-                fig, ax = osmnx_funcs.plot_graph_route(G_gt_cp, paths[target],
-                                              route_color='yellow',
-                                              route_alpha=0.8,
-                                              orig_dest_node_alpha=0.3,
-                                              orig_dest_node_size=120,
-                                              route_linewidth=route_linewidth,
-                                              orig_dest_node_color=target_color,
-                                              show=show_plots,
-                                              close=False,
-                                              fig_height=fig_height,
-                                              fig_width=fig_width)
-                plen = np.round(lengths[target], 2)
-            except:
-                print("Proposal route not possible")
-                fig, ax = plt.subplots()
-                plen = -1
-            title = "Ground Truth Graph, L = " + str(plen)
-            source_x = G_gt_cp.nodes[source]['x']
-            source_y = G_gt_cp.nodes[source]['y']
-            ax.scatter(source_x, source_y, color=source_color, s=75)
-            t_x = G_gt_cp.nodes[target]['x']
-            t_y = G_gt_cp.nodes[target]['y']
-            ax.scatter(t_x, t_y, color=target_color, s=75)
-            ax.set_title(title, fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'single_source_route_ground_truth.png'), dpi=dpi)
-            plt.close('all')
+        #     # plot a single route
+        #     try:
+        #         fig, ax = osmnx_funcs.plot_graph_route(G_gt_cp, paths[target],
+        #                                       route_color='yellow',
+        #                                       route_alpha=0.8,
+        #                                       orig_dest_node_alpha=0.3,
+        #                                       orig_dest_node_size=120,
+        #                                       route_linewidth=route_linewidth,
+        #                                       orig_dest_node_color=target_color,
+        #                                       show=show_plots,
+        #                                       close=False,
+        #                                       fig_height=fig_height,
+        #                                       fig_width=fig_width)
+        #         plen = np.round(lengths[target], 2)
+        #     except:
+        #         print("Proposal route not possible")
+        #         fig, ax = plt.subplots()
+        #         plen = -1
+        #     title = "Ground Truth Graph, L = " + str(plen)
+        #     source_x = G_gt_cp.nodes[source]['x']
+        #     source_y = G_gt_cp.nodes[source]['y']
+        #     ax.scatter(source_x, source_y, color=source_color, s=75)
+        #     t_x = G_gt_cp.nodes[target]['x']
+        #     t_y = G_gt_cp.nodes[target]['y']
+        #     ax.scatter(t_x, t_y, color=target_color, s=75)
+        #     ax.set_title(title, fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'single_source_route_ground_truth.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # get all paths from source for proposal graph
-            lengths_prop, paths_prop = nx.single_source_dijkstra(
-                G_p_cp_prime, source=source, weight=weight)
-            gt_set = set(lengths.keys())
-            prop_set = set(lengths_prop.keys())
-            missing_nodes = gt_set - prop_set
-            print("Proposal route missing nodes:", missing_nodes)
+        #     # get all paths from source for proposal graph
+        #     lengths_prop, paths_prop = nx.single_source_dijkstra(
+        #         G_p_cp_prime, source=source, weight=weight)
+        #     gt_set = set(lengths.keys())
+        #     prop_set = set(lengths_prop.keys())
+        #     missing_nodes = gt_set - prop_set
+        #     print("Proposal route missing nodes:", missing_nodes)
 
-            ##############
-            # compute path to node of interest
-            t0 = time.time()
-            lengths_ptmp, paths_ptmp = nx.single_source_dijkstra(
-                G_p_cp_prime, source=source, weight=weight)
-            print("Time to calculate:", len(lengths),
-                  "paths:", time.time() - t0, "seconds")
+        #     ##############
+        #     # compute path to node of interest
+        #     t0 = time.time()
+        #     lengths_ptmp, paths_ptmp = nx.single_source_dijkstra(
+        #         G_p_cp_prime, source=source, weight=weight)
+        #     print("Time to calculate:", len(lengths),
+        #           "paths:", time.time() - t0, "seconds")
 
-            # plot a single route
-            try:
-                fig, ax = osmnx_funcs.plot_graph_route(
-                    G_p_cp_prime, paths_ptmp[target],
-                    route_color='yellow',
-                    route_alpha=0.8,
-                    orig_dest_node_alpha=0.3,
-                    orig_dest_node_size=120,
-                    route_linewidth=route_linewidth,
-                    orig_dest_node_color=target_color,
-                    show=show_plots,
-                    close=False,
-                    fig_height=fig_height,
-                    fig_width=fig_width)
-                #title= "Source-" + source_color + " " + str(source) + " Target: " + str(target)
-                plen = np.round(lengths_ptmp[target], 2)
-            except:
-                print("Proposal route not possible")
-                fig, ax = plt.subplots()
-                plen = -1
-            title = "Proposal Graph, L = " + str(plen)
-            source_x = G_p_cp_prime.nodes[source]['x']
-            source_y = G_p_cp_prime.nodes[source]['y']
-            ax.scatter(source_x, source_y, color=source_color, s=75)
-            t_x = G_p_cp_prime.nodes[target]['x']
-            t_y = G_p_cp_prime.nodes[target]['y']
-            ax.scatter(t_x, t_y, color=target_color, s=75)
-            ax.set_title(title, fontsize=title_fontsize)
-            # plt.show()
-            plt.savefig(os.path.join(
-                outdir, 'single_source_route_prop.png'), dpi=dpi)
-            plt.close('all')
+        #     # plot a single route
+        #     try:
+        #         fig, ax = osmnx_funcs.plot_graph_route(
+        #             G_p_cp_prime, paths_ptmp[target],
+        #             route_color='yellow',
+        #             route_alpha=0.8,
+        #             orig_dest_node_alpha=0.3,
+        #             orig_dest_node_size=120,
+        #             route_linewidth=route_linewidth,
+        #             orig_dest_node_color=target_color,
+        #             show=show_plots,
+        #             close=False,
+        #             fig_height=fig_height,
+        #             fig_width=fig_width)
+        #         #title= "Source-" + source_color + " " + str(source) + " Target: " + str(target)
+        #         plen = np.round(lengths_ptmp[target], 2)
+        #     except:
+        #         print("Proposal route not possible")
+        #         fig, ax = plt.subplots()
+        #         plen = -1
+        #     title = "Proposal Graph, L = " + str(plen)
+        #     source_x = G_p_cp_prime.nodes[source]['x']
+        #     source_y = G_p_cp_prime.nodes[source]['y']
+        #     ax.scatter(source_x, source_y, color=source_color, s=75)
+        #     t_x = G_p_cp_prime.nodes[target]['x']
+        #     t_y = G_p_cp_prime.nodes[target]['y']
+        #     ax.scatter(t_x, t_y, color=target_color, s=75)
+        #     ax.set_title(title, fontsize=title_fontsize)
+        #     # plt.show()
+        #     plt.savefig(os.path.join(
+        #         outdir, 'single_source_route_prop.png'), dpi=dpi)
+        #     plt.close('all')
 
-            # overlay plot on image
-            if len(im_loc_list) > 0:
-                # print ("im_loc_list:", im_loc_list)
-                image_path = im_loc_list[i]
-                if os.path.exists(image_path):
+        #     # overlay plot on image
+        #     if len(im_loc_list) > 0:
+        #         # print ("im_loc_list:", im_loc_list)
+        #         image_path = im_loc_list[i]
+        #         if os.path.exists(image_path):
 
-                    # copy image file to output dir, if desired
-                    # shutil.copy(image_path, outdir)
+        #             # copy image file to output dir, if desired
+        #             # shutil.copy(image_path, outdir)
 
-                    # plot graphs overlaid on image
-                    # width_key, width_mult = 'speed_mph', 0.3
-                    gt_color, prop_color = 'cyan', 'lime'
-                    image_name = outroot
-                    figname = os.path.join(outdir, 'overlaid.png')
-                    _ = apls_plots._plot_gt_prop_graphs(
-                        G_gt_init, G_p_init, image_path,
-                        figsize=(16, 8), show_endnodes=True,
-                        width_key=2,  # width_key,
-                        width_mult=1,
-                        gt_color=gt_color, prop_color=prop_color,
-                        default_node_size=20,
-                        title=image_name, adjust=False,
-                        figname=figname, verbose=super_verbose)
+        #             # plot graphs overlaid on image
+        #             # width_key, width_mult = 'speed_mph', 0.3
+        #             gt_color, prop_color = 'cyan', 'lime'
+        #             image_name = outroot
+        #             figname = os.path.join(outdir, 'overlaid.png')
+        #             _ = apls_plots._plot_gt_prop_graphs(
+        #                 G_gt_init, G_p_init, image_path,
+        #                 figsize=(16, 8), show_endnodes=True,
+        #                 width_key=2,  # width_key,
+        #                 width_mult=1,
+        #                 gt_color=gt_color, prop_color=prop_color,
+        #                 default_node_size=20,
+        #                 title=image_name, adjust=False,
+        #                 figname=figname, verbose=super_verbose)
 
-            #############
-            t2 = time.time()
-            print("Total time to create graphs, compute metric, and plot:",
-                  t2-t0, "seconds")
+        #     #############
+        #     t2 = time.time()
+        #     print("Total time to create graphs, compute metric, and plot:",
+        #           t2-t0, "seconds")
 
     # print and save total cost
     print(("C_arr:", C_arr))
