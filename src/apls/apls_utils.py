@@ -91,7 +91,7 @@ def _nodes_near_origin(G_, node, kdtree, kd_idx_dic,
     maximally simplified graph'''
 
     # get node coordinates
-    n_props = G_.node[node]
+    n_props = G_.nodes[node]
     x0, y0 = n_props[x_coord], n_props[y_coord]
     point = [x0, y0]
 
@@ -211,8 +211,8 @@ def _query_kd_ball(kdtree, kd_idx_dic, point, r_meters, keep_point=True):
 ###############################################################################
 def _get_graph_extent(G_):
     '''min and max x and y'''
-    xall = [G_.node[n]['x'] for n in G_.nodes()]
-    yall = [G_.node[n]['y'] for n in G_.nodes()]
+    xall = [G_.nodes[n]['x'] for n in G_.nodes()]
+    yall = [G_.nodes[n]['y'] for n in G_.nodes()]
     xmin, xmax = np.min(xall), np.max(xall)
     ymin, ymax = np.min(yall), np.max(yall)
     dx, dy = xmax-xmin, ymax-ymin
@@ -227,7 +227,7 @@ def _get_node_positions(G_, x_coord='x', y_coord='y'):
     arr = np.zeros((nrows, ncols))
     # populate node array
     for i, n in enumerate(G_.nodes()):
-        n_props = G_.node[n]
+        n_props = G_.nodes[n]
         x, y = n_props[x_coord], n_props[y_coord]
         arr[i] = [x, y]
     return arr

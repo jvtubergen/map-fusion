@@ -44,7 +44,7 @@ def ensure_radial_linestrings(G_sub_, origin_node, x_coord='x', y_coord='y',
     """
 
     # get location of graph center
-    n_props = G_sub_.node[origin_node]
+    n_props = G_sub_.nodes[origin_node]
     origin_loc = [n_props[x_coord], n_props[y_coord]]
 
     # iterate through edges and check in linestring goes toward or away from
@@ -299,7 +299,7 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
 
         if (i % 20) == 0:
             print(i, "Origin node:", origin_node)
-        n_props = G_gt_.node[origin_node]
+        n_props = G_gt_.nodes[origin_node]
         x0, y0 = n_props[x_coord], n_props[y_coord]
         origin_point = [x0, y0]
 
@@ -354,7 +354,7 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         # get closest node
         origin_node_p = node_names_p[np.argmin(dists_m_refine_p)]
         # get coords of the closest point
-        n_props = G_p_.node[origin_node_p]
+        n_props = G_p_.nodes[origin_node_p]
         xp, yp = n_props['x'], n_props['y']
         if verbose:
             print(("origin_node_p:", origin_node_p))
@@ -427,7 +427,7 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
             # draw a circle (this doesn't work unless it's a PatchCollection!)
             node_coords = []
             for i, n in enumerate(G_holes.nodes()):
-                n_props = G_holes.node[n]
+                n_props = G_holes.nodes[n]
                 node_coords.append([n_props[x_coord], n_props[y_coord]])
             patches = [Circle((coord), hole_size, alpha=0.3)
                        for coord in node_coords]
@@ -474,7 +474,7 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
             # draw a circle (this doesn't work unless it's a PatchCollection!)
             node_coords = []
             for i, n in enumerate(G_holes.nodes()):
-                n_props = G_holes.node[n]
+                n_props = G_holes.nodes[n]
                 node_coords.append([n_props[x_coord], n_props[y_coord]])
             patches = [Circle((coord), hole_size, alpha=0.3)
                        for coord in node_coords]
