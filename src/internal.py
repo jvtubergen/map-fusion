@@ -2,7 +2,7 @@
 import handlers.sat2graph as sat2graph
 import handlers.roadster as roadster
 import handlers.gmaps.lib as gmaps
-import apls.apls.run as apls
+from apls.apls import run as apls
 
 from coordinates import *
 from utilities import *

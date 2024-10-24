@@ -37,6 +37,7 @@ dependencies = [
   "rtree", # Indexing nodes subgraph extraction by bounding box.
   "pillow", # Image extraction 
   "requests", # gmaps-image dependency for API requests.
+  "opencv-python"
 ]
 
 [project.urls]
