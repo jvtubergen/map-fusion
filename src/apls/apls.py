@@ -2182,10 +2182,10 @@ def execute(output_name, gt_list, gp_list, root_list, im_loc_list=[],
 
         #########################
         # Metric
-        if i < n_plots:
-            res_dir = outdir
-        else:
-            res_dir = ''
+        # if i < n_plots:
+            # res_dir = outdir
+        # else:
+        res_dir = ''
         C, C_gt_onto_prop, C_prop_onto_gt = compute_apls_metric(
             all_pairs_lengths_gt_native, all_pairs_lengths_prop_native,
             all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime,
