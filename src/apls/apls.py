@@ -1342,7 +1342,7 @@ def make_graphs_yuge(G_gt, G_p,
 
     # get ground truth control points, which will be a subset of nodes
     sample_size = min(max_nodes, len(G_gt_cp.nodes()))
-    rand_nodes_gt = random.sample(G_gt_cp.nodes(), sample_size)
+    rand_nodes_gt = random.sample(list(G_gt_cp.nodes()), sample_size)
     rand_nodes_gt_set = set(rand_nodes_gt)
     control_points_gt = []
     for itmp,n in enumerate(rand_nodes_gt):
@@ -1405,7 +1405,7 @@ def make_graphs_yuge(G_gt, G_p,
     # get control points, which will be a subset of nodes
     # (original method sets proposal control points as all nodes in G_p_cp)
     sample_size = min(max_nodes, len(G_p_cp.nodes()))
-    rand_nodes_p = random.sample(G_p_cp.nodes(), sample_size)
+    rand_nodes_p = random.sample(list(G_p_cp.nodes()), sample_size)
     rand_nodes_p_set = set(rand_nodes_p)
     control_points_prop = []
     for n in rand_nodes_p:
