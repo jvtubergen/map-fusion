@@ -177,7 +177,12 @@ def _query_kd_nearest(kdtree, kd_idx_dic, point, n_neighbors=10,
     # print("apls_utils.query_kd_neareast - idxs_refilne:", idxs_refine)
     # print("apls_utils.query_kd_neareast - dists_m_refilne:", dists_m)
     dists_m_refine = list(dists_m)
-    node_names = [kd_idx_dic[i] for i in idxs_refine]
+    node_names = []
+    for i in idxs_refine:
+        if i in kd_idx_dic:
+            node_names.append(kd_idx_dic[i])
+        # if i not in kd_idx_dic:
+            # breakpoint()
 
     return node_names, idxs_refine, dists_m_refine
 
