@@ -150,3 +150,32 @@ def workflow_inferred_satellite_image_neighborhood_to_graph(place=None):
             G.add_edge(snid, tnid)
 
     write_graph(G, graphset="sat2graph", place=place, overwrite=True)
+
+
+# results = workflow_apply_apls(place="chicago", truth_graphset="openstreetmaps", proposed_graphset="roadster")
+def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None):
+
+    truth = read_graph(place=place, graphset=truth_graphset)
+    proposed = read_graph(place=place, graphset=proposed_graphset)
+
+    truth = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(truth)))
+    proposed = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(proposed)))
+
+    truth = graph_annotate_edge_length(truth)
+    truth = graph_add_geometry_to_straight_edges(truth) # Add geometry for straight line segments (edges with no curvature).
+    proposed = graph_annotate_edge_length(proposed)
+    proposed = graph_add_geometry_to_straight_edges(proposed) # Add geometry for straight line segments (edges with no curvature).
+
+    # Set EPSG might be necessary for plotting results within APLS logic.
+    # proposed.graph['crs'] = "EPSG:4326"
+    # proposed.graph['crs'] = "EPSG:4326"
+
+    results = apls(truth=truth, proposed=proposed)
+
+    # normalized_apls = results["APLS"][0] * (results["tot_meters_gt"] / results["tot_meters_p"])
+    a = results["tot_meters_gt"][0]
+    b = results["tot_meters_p"][0]
+    c = results["APLS"][0]
+    normalized_apls = (max(a,b) / min(a,b)) * c 
+
+    return normalized_apls
