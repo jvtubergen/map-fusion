@@ -17,6 +17,7 @@ import numpy as np
 import networkx as nx
 import scipy.spatial
 import matplotlib.pyplot as plt
+import copy
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 from shapely.geometry import Point, LineString
@@ -30,6 +31,431 @@ import apls
 import apls_plots
 import apls_utils
 import osmnx_funcs
+
+
+###############################################################################
+def cut_linestring(line, distance, verbose=False):
+    """
+    Cuts a shapely linestring at a specified distance from its starting point.
+
+    Notes
+    ----
+    Return orignal linestring if distance <= 0 or greater than the length of
+    the line.
+    Reference:
+        http://toblerity.org/shapely/manual.html#linear-referencing-methods
+
+    Arguments
+    ---------
+    line : shapely linestring
+        Input shapely linestring to cut.
+    distanct : float
+        Distance from start of line to cut it in two.
+    verbose : boolean
+        Switch to print relevant values to screen.  Defaults to ``False``.
+
+    Returns
+    -------
+    [line1, line2] : list
+        Cut linestrings.  If distance <= 0 or greater than the length of
+        the line, return input line.
+    """
+
+    if verbose:
+        print("Cutting linestring at distance", distance, "...")
+    if distance <= 0.0 or distance >= line.length:
+        return [LineString(line)]
+
+    # iterate through coorda and check if interpolated point has been passed
+    # already or not
+    coords = list(line.coords)
+    for i, p in enumerate(coords):
+        pdl = line.project(Point(p))
+        if verbose:
+            print(i, p, "line.project point:", pdl)
+        if pdl == distance:
+            return [
+                LineString(coords[:i+1]),
+                LineString(coords[i:])]
+        if pdl > distance:
+            cp = line.interpolate(distance)
+            return [
+                LineString(coords[:i] + [(cp.x, cp.y)]),
+                LineString([(cp.x, cp.y)] + coords[i:])]
+
+    # if we've reached here then that means we've encountered a self-loop and
+    # the interpolated point is between the final midpoint and the the original
+    # node
+    i = len(coords) - 1
+    cp = line.interpolate(distance)
+    return [
+        LineString(coords[:i] + [(cp.x, cp.y)]),
+        LineString([(cp.x, cp.y)] + coords[i:])]
+
+
+###############################################################################
+def get_closest_edge_from_G(G_, point, nearby_nodes_set=set([]),
+                            verbose=False):
+    """
+    Return closest edge to point, and distance to said edge.
+
+    Notes
+    -----
+    Just discovered a similar function:
+        https://github.com/gboeing/osmnx/blob/master/osmnx/utils.py#L501
+
+    Arguments
+    ---------
+    G_ : networkx graph
+        Input networkx graph, with edges assumed to have a dictioary of
+        properties that includes the 'geometry' key.
+    point : shapely Point
+        Shapely point containing (x, y) coordinates.
+    nearby_nodes_set : set
+        Set of possible edge endpoints to search.  If nearby_nodes_set is not
+        empty, only edges with a node in this set will be checked (this can
+        greatly speed compuation on large graphs).  If nearby_nodes_set is
+        empty, check all possible edges in the graph.
+        Defaults to ``set([])``.
+    verbose : boolean
+        Switch to print relevant values to screen.  Defaults to ``False``.
+
+    Returns
+    -------
+    best_edge, min_dist, best_geom : tuple
+        best_edge is the closest edge to the point
+        min_dist is the distance to that edge
+        best_geom is the geometry of the ege
+    """
+
+    # get distances from point to lines
+    dist_list = []
+    edge_list = []
+    geom_list = []
+    p = point  # Point(point_coords)
+    for i, (u, v, key, data) in enumerate(G_.edges(keys=True, data=True)):
+        # print((" in get_closest_edge(): u,v,key,data:", u,v,key,data))
+        # print ("  in get_closest_edge(): data:", data)
+
+        # skip if u,v not in nearby nodes
+        if len(nearby_nodes_set) > 0:
+            if (u not in nearby_nodes_set) and (v not in nearby_nodes_set):
+                continue
+        if verbose:
+            print(("u,v,key,data:", u, v, key, data))
+            print(("  type data['geometry']:", type(data['geometry'])))
+        try:
+            line = data['geometry']
+        except KeyError:
+            line = data['attr_dict']['geometry']
+        geom_list.append(line)
+        dist_list.append(p.distance(line))
+        edge_list.append([u, v, key])
+    # get closest edge
+    min_idx = np.argmin(dist_list)
+    min_dist = dist_list[min_idx]
+    best_edge = edge_list[min_idx]
+    best_geom = geom_list[min_idx]
+
+    return best_edge, min_dist, best_geom
+
+
+###############################################################################
+def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
+                        nearby_nodes_set=set([]), allow_renaming=True,
+                        verbose=False, super_verbose=False):
+    """
+    Insert a new node in the graph closest to the given point.
+
+    Notes
+    -----
+    If the point is too far from the graph, don't insert a node.
+    Assume all edges have a linestring geometry
+    http://toblerity.org/shapely/manual.html#object.simplify
+    Sometimes the point to insert will have the same coordinates as an
+    existing point.  If allow_renaming == True, relabel the existing node.
+    convert linestring to multipoint?
+     https://github.com/Toblerity/Shapely/issues/190
+
+    TODO : Implement a version without renaming that tracks which node is
+        closest to the desired point.
+
+    Arguments
+    ---------
+    G_ : networkx graph
+        Input networkx graph, with edges assumed to have a dictioary of
+        properties that includes the 'geometry' key.
+    point : shapely Point
+        Shapely point containing (x, y) coordinates
+    node_id : int
+        Unique identifier of node to insert. Defaults to ``100000``.
+    max_distance_meters : float
+        Maximum distance in meters between point and graph. Defaults to ``5``.
+    nearby_nodes_set : set
+        Set of possible edge endpoints to search.  If nearby_nodes_set is not
+        empty, only edges with a node in this set will be checked (this can
+        greatly speed compuation on large graphs).  If nearby_nodes_set is
+        empty, check all possible edges in the graph.
+        Defaults to ``set([])``.
+    allow_renameing : boolean
+        Switch to allow renaming of an existing node with node_id if the
+        existing node is closest to the point. Defaults to ``False``.
+    verbose : boolean
+        Switch to print relevant values to screen.  Defaults to ``False``.
+    super_verbose : boolean
+        Switch to print mucho values to screen.  Defaults to ``False``.
+
+    Returns
+    -------
+    G_, node_props, min_dist : tuple
+        G_ is the updated graph
+        node_props gives the properties of the inserted node
+        min_dist is the distance from the point to the graph
+    """
+
+    # check if node_id already exists in G
+    # if node_id in set(G_.nodes()):
+    #    print ("node_id:", node_id, "already in G, cannot insert node!")
+    #    return
+
+    best_edge, min_dist, best_geom = get_closest_edge_from_G(
+            G_, point, nearby_nodes_set=nearby_nodes_set,
+            verbose=super_verbose)
+    [u, v, key] = best_edge
+    G_node_set = set(G_.nodes())
+
+    if verbose:
+        print("Inserting point:", node_id)
+        print("best edge:", best_edge)
+        print("  best edge dist:", min_dist)
+        u_loc = [G_.nodes[u]['x'], G_.nodes[u]['y']]
+        v_loc = [G_.nodes[v]['x'], G_.nodes[v]['y']]
+        print("ploc:", (point.x, point.y))
+        print("uloc:", u_loc)
+        print("vloc:", v_loc)
+
+    if min_dist > max_distance_meters:
+        if verbose:
+            print("min_dist > max_distance_meters, skipping...")
+        return G_, {}, -1, -1
+
+    else:
+        # updated graph
+
+        # skip if node exists already
+        if node_id in G_node_set:
+            if verbose:
+                print("Node ID:", node_id, "already exists, skipping...")
+            return G_, {}, -1, -1
+
+        # G_.edges[best_edge[0]][best_edge[1]][0]['geometry']
+        line_geom = best_geom
+
+        # Length along line that is closest to the point
+        line_proj = line_geom.project(point)
+
+        # Now combine with interpolated point on line
+        new_point = line_geom.interpolate(line_geom.project(point))
+        x, y = new_point.x, new_point.y
+
+        #################
+        # create new node
+        
+        try:
+            # first get zone, then convert to latlon
+            _, _, zone_num, zone_letter = utm.from_latlon(G_.nodes[u]['lat'],
+                                                          G_.nodes[u]['lon'])
+            # convert utm to latlon
+            lat, lon = utm.to_latlon(x, y, zone_num, zone_letter)
+        except:
+            lat, lon = y, x
+
+        # set properties
+        # props = G_.nodes[u]
+        node_props = {'highway': 'insertQ',
+                      'lat':     lat,
+                      'lon':     lon,
+                      'osmid':   node_id,
+                      'x':       x,
+                      'y':       y}
+        # add node
+        G_.add_node(node_id, **node_props)
+
+        # assign, then update edge props for new edge
+        _, _, edge_props_new = copy.deepcopy(
+            list(G_.edges([u, v], data=True))[0])
+        # remove extraneous 0 key
+
+        # print ("edge_props_new.keys():", edge_props_new)
+        # if list(edge_props_new.keys()) == [0]:
+        #    edge_props_new = edge_props_new[0]
+
+        # cut line
+        split_line = cut_linestring(line_geom, line_proj)
+        # line1, line2, cp = cut_linestring(line_geom, line_proj)
+        if split_line is None:
+            print("Failure in cut_linestring()...")
+            print("type(split_line):", type(split_line))
+            print("split_line:", split_line)
+            print("line_geom:", line_geom)
+            print("line_geom.length:", line_geom.length)
+            print("line_proj:", line_proj)
+            print("min_dist:", min_dist)
+            return G_, {}, 0, 0
+
+        if verbose:
+            print("split_line:", split_line)
+
+        # if cp.is_empty:
+        if len(split_line) == 1:
+            if verbose:
+                print("split line empty, min_dist:", min_dist)
+            # get coincident node
+            outnode = ''
+            outnode_x, outnode_y = -1, -1
+            x_p, y_p = new_point.x, new_point.y
+            x_u, y_u = G_.nodes[u]['x'], G_.nodes[u]['y']
+            x_v, y_v = G_.nodes[v]['x'], G_.nodes[v]['y']
+            # if verbose:
+            #    print "x_p, y_p:", x_p, y_p
+            #    print "x_u, y_u:", x_u, y_u
+            #    print "x_v, y_v:", x_v, y_v
+
+            # sometimes it seems that the nodes aren't perfectly coincident,
+            # so see if it's within a buffer
+            buff = 0.05  # meters
+            if (abs(x_p - x_u) <= buff) and (abs(y_p - y_u) <= buff):
+                outnode = u
+                outnode_x, outnode_y = x_u, y_u
+            elif (abs(x_p - x_v) <= buff) and (abs(y_p - y_v) <= buff):
+                outnode = v
+                outnode_x, outnode_y = x_v, y_v
+            # original method with exact matching
+            # if (x_p == x_u) and (y_p == y_u):
+            #    outnode = u
+            #    outnode_x, outnode_y = x_u, y_u
+            # elif (x_p == x_v) and (y_p == y_v):
+            #    outnode = v
+            #    outnode_x, outnode_y = x_v, y_v
+            else:
+                print("Error in determining node coincident with node: "
+                      + str(node_id) + " along edge: " + str(best_edge))
+                print("x_p, y_p:", x_p, y_p)
+                print("x_u, y_u:", x_u, y_u)
+                print("x_v, y_v:", x_v, y_v)
+                # return
+                return G_, {}, 0, 0
+
+            # if the line cannot be split, that means that the new node
+            # is coincident with an existing node.  Relabel, if desired
+            if allow_renaming:
+                node_props = G_.nodes[outnode]
+                # A dictionary with the old labels as keys and new labels
+                #  as values. A partial mapping is allowed.
+                mapping = {outnode: node_id}
+                Gout = nx.relabel_nodes(G_, mapping)
+                if verbose:
+                    print("Swapping out node ids:", mapping)
+                return Gout, node_props, x_p, y_p
+
+            else:
+                # new node is already added, presumably at the exact location
+                # of an existing node.  So just remove the best edge and make
+                # an edge from new node to existing node, length should be 0.0
+
+                line1 = LineString([new_point, Point(outnode_x, outnode_y)])
+                edge_props_line1 = edge_props_new.copy()
+                edge_props_line1['length'] = line1.length
+                edge_props_line1['geometry'] = line1
+                # make sure length is zero
+                if line1.length > buff:
+                    print("Nodes should be coincident and length 0!")
+                    print("  line1.length:", line1.length)
+                    print("  x_u, y_u :", x_u, y_u)
+                    print("  x_v, y_v :", x_v, y_v)
+                    print("  x_p, y_p :", x_p, y_p)
+                    print("  new_point:", new_point)
+                    print("  Point(outnode_x, outnode_y):",
+                          Point(outnode_x, outnode_y))
+                    return
+
+                # add edge of length 0 from new node to neareest existing node
+                G_.add_edge(node_id, outnode, **edge_props_line1)
+                return G_, node_props, x, y
+
+                # originally, if not renaming nodes,
+                # just ignore this complication and return the orignal
+                # return G_, node_props, 0, 0
+
+        else:
+            # else, create new edges
+            line1, line2 = split_line
+
+            # get distances
+            # print ("insert_point(), G_.nodes[v]:", G_.nodes[v])
+            u_loc = [G_.nodes[u]['x'], G_.nodes[u]['y']]
+            v_loc = [G_.nodes[v]['x'], G_.nodes[v]['y']]
+            # compare to first point in linestring
+            geom_p0 = list(line_geom.coords)[0]
+            # or compare to inserted point? [this might fail if line is very
+            #    curved!]
+            # geom_p0 = (x,y)
+            dist_to_u = scipy.spatial.distance.euclidean(u_loc, geom_p0)
+            dist_to_v = scipy.spatial.distance.euclidean(v_loc, geom_p0)
+            # reverse edge order if v closer than u
+            if dist_to_v < dist_to_u:
+                line2, line1 = split_line
+
+            if verbose:
+                print("Creating two edges from split...")
+                print("   original_length:", line_geom.length)
+                print("   line1_length:", line1.length)
+                print("   line2_length:", line2.length)
+                print("   u, dist_u_to_point:", u, dist_to_u)
+                print("   v, dist_v_to_point:", v, dist_to_v)
+                print("   min_dist:", min_dist)
+
+            # add new edges
+            edge_props_line1 = edge_props_new.copy()
+            edge_props_line1['length'] = line1.length
+            edge_props_line1['geometry'] = line1
+            # remove geometry?
+            # edge_props_line1.pop('geometry', None)
+            # line2
+            edge_props_line2 = edge_props_new.copy()
+            edge_props_line2['length'] = line2.length
+            edge_props_line2['geometry'] = line2
+            # remove geometry?
+            # edge_props_line1.pop('geometry', None)
+
+            # insert edge regardless of direction
+            # G_.add_edge(u, node_id, **edge_props_line1)
+            # G_.add_edge(node_id, v, **edge_props_line2)
+
+            # check which direction linestring is travelling (it may be going
+            # from v -> u, which means we need to reverse the linestring)
+            # otherwise new edge is tangled
+            geom_p0 = list(line_geom.coords)[0]
+            dist_to_u = scipy.spatial.distance.euclidean(u_loc, geom_p0)
+            dist_to_v = scipy.spatial.distance.euclidean(v_loc, geom_p0)
+            # if verbose:
+            #    print "dist_to_u, dist_to_v:", dist_to_u, dist_to_v
+            if dist_to_u < dist_to_v:
+                G_.add_edge(u, node_id, **edge_props_line1)
+                G_.add_edge(node_id, v, **edge_props_line2)
+            else:
+                G_.add_edge(node_id, u, **edge_props_line1)
+                G_.add_edge(v, node_id, **edge_props_line2)
+
+            if verbose:
+                print("insert edges:", u, '-', node_id, 'and', node_id, '-', v)
+
+            # remove initial edge
+            G_.remove_edge(u, v, key)
+
+            return G_, node_props, x, y
+
+
 
 
 ###############################################################################
@@ -152,7 +578,7 @@ def insert_holes_or_marbles(G_, origin_node, interval=50, n_id_add_val=1,
                     print("node_id:", node_id)
 
                 # add to graph
-                Gout, node_props, xn, yn = apls.insert_point_into_G(
+                Gout, node_props, xn, yn = insert_point_into_G(
                     Gout, point, node_id=node_id, allow_renaming=False,
                     verbose=verbose)
 
