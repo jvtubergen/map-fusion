@@ -43,8 +43,8 @@ def compute_single_sp(G_gt_, G_prop_, kd_idx_dic_prop, kdtree_prop,
     if verbose:
         print("source_gt:", source_gt, "target_gt:", target_gt)
     # source_gt, target_gt = 10002, 10039
-    x_s_gt, y_s_gt = G_gt_.node[source_gt][x_coord], G_gt_.node[source_gt][y_coord]
-    x_t_gt, y_t_gt = G_gt_.node[target_gt][x_coord], G_gt_.node[target_gt][y_coord]
+    x_s_gt, y_s_gt = G_gt_.nodes[source_gt][x_coord], G_gt_.nodes[source_gt][y_coord]
+    x_t_gt, y_t_gt = G_gt_.nodes[target_gt][x_coord], G_gt_.nodes[target_gt][y_coord]
 
     # if verbose:
     #    print ("x_s_gt:", x_s_gt)
@@ -74,8 +74,8 @@ def compute_single_sp(G_gt_, G_prop_, kd_idx_dic_prop, kdtree_prop,
 
     else:
         source_p, target_p = source_p_l[0], target_p_l[0]
-        x_s_p, y_s_p = G_prop_.node[source_p][x_coord], G_prop_.node[source_p][y_coord]
-        x_t_p, y_t_p = G_prop_.node[target_p][x_coord], G_prop_.node[target_p][y_coord]
+        x_s_p, y_s_p = G_prop_.nodes[source_p][x_coord], G_prop_.nodes[source_p][y_coord]
+        x_t_p, y_t_p = G_prop_.nodes[target_p][x_coord], G_prop_.nodes[target_p][y_coord]
 
         # get route
         if not nx.has_path(G_prop_, source_p, target_p):
