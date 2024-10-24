@@ -2655,7 +2655,7 @@ def execute(output_name, gt_list, gp_list, root_list, im_loc_list=[],
 
     print(("Tot APLS = np.mean(APLS_arr:", np.mean(df['APLS'].values)))
 
-    return
+    return df
 
 
 ###############################################################################
@@ -2663,4 +2663,4 @@ def run(truth=None, proposed=None):
     output_name = "apls_test"
     weight = "length"
     im_dir = "apls_images"
-    execute(output_name, [truth], [proposed], ["NOFCKINGIDEA"], )
+    return execute(output_name, [truth], [proposed], ["randomstring"], )
