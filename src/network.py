@@ -185,6 +185,15 @@ def graph_annotate_edge_length(G):
     return G
 
 
+# Preparing graph for APLS usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
+def graph_prepare_apls(G):
+    G = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(G)))
+    G = graph_annotate_edge_length(G)
+    G = graph_add_geometry_to_straight_edges(G) # Add geometry for straight line segments (edges with no curvature).
+    # G.graph['crs'] = "EPSG:4326" # Set EPSG might be necessary for plotting results within APLS logic.
+    return G
+
+
 ###############################################
 ###  Graph vectorization and simplification ###
 ###############################################
