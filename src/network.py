@@ -147,6 +147,45 @@ def gen_random_shortest_path(G):
 
 
 ###############################################
+###  Edge annotation utilities
+###############################################
+
+# Ensure geometry element part of graph.
+def graph_add_geometry_to_straight_edges(G):
+
+    _G = annotate_edge_curvature_as_array(G)
+    edges = np.array(list(_G.edges(data=True, keys=True)))
+
+    edge_attrs = {}
+    for (a, b, k, attrs) in edges:
+        if "geometry" not in attrs:
+            curvature = attrs["curvature"]
+            geometry = to_linestring(curvature)
+            edge_attrs[(a, b, k)] = {"geometry": geometry}
+
+    nx.set_edge_attributes(G, edge_attrs)
+    return G
+
+
+# Add path length data element.
+def graph_annotate_edge_length(G):
+
+    _G = annotate_edge_curvature_as_array(G)
+    edges = np.array(list(_G.edges(data=True, keys=True)))
+
+    edge_attrs = {}
+    for (a, b, k, attrs) in edges:
+
+        ps = attrs["curvature"]
+        length = curve_length(ps)
+        assert length > 0 # Assert non-zero length.
+        edge_attrs[(a, b, k)] = {"length": length}
+    
+    nx.set_edge_attributes(G, edge_attrs)
+    return G
+
+
+###############################################
 ###  Graph vectorization and simplification ###
 ###############################################
 
