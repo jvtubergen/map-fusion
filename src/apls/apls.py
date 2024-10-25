@@ -2666,11 +2666,66 @@ def run(truth=None, proposed=None):
     return execute(output_name, [truth], [proposed], ["randomstring"], )
 
 
+# APLS metric performed on two simplified nx.MultiGraphs.
 def apls(truth=None, proposed=None):
+
+    weight = "length"
+    speed_key='inferred_speed_mps'
+    travel_time_key='travel_time_s'
+    test_method='gt_json_prop_json'
+    max_files=1000
+    linestring_delta=50
+    is_curved_eps=10**3
+    max_snap_dist=4
+    max_nodes=500
+    n_plots=10
+    min_path_length=10
+    topo_hole_size=4
+    topo_subgraph_radius=150
+    topo_interval=30
+    sp_length_buffer=0.05
+    use_pix_coords=False
+    allow_renaming=True
+    verbose=False
+    super_verbose=False
+
+
+    if len(truth.nodes()) < 500:  # 2000:
+        G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
+            control_points_gt, control_points_prop, \
+            all_pairs_lengths_gt_native, all_pairs_lengths_prop_native, \
+            all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime  \
+            = make_graphs(truth, proposed,
+                            weight=weight,
+                            speed_key=speed_key,
+                            travel_time_key=travel_time_key,
+                            linestring_delta=linestring_delta,
+                            is_curved_eps=is_curved_eps,
+                            max_snap_dist=max_snap_dist,
+                            allow_renaming=allow_renaming,
+                            verbose=verbose)
+
+    # get large graphs and paths
+    else:
+        G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
+            control_points_gt, control_points_prop, \
+            all_pairs_lengths_gt_native, all_pairs_lengths_prop_native, \
+            all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime  \
+            = make_graphs_huge(truth, proposed,
+                                weight=weight,
+                                speed_key=speed_key,
+                                travel_time_key=travel_time_key,
+                                max_nodes=max_nodes,
+                                max_snap_dist=max_snap_dist,
+                                allow_renaming=allow_renaming,
+                                verbose=verbose,
+                                super_verbose=super_verbose)
 
     C, C_gt_onto_prop, C_prop_onto_gt = compute_apls_metric(
         all_pairs_lengths_gt_native, all_pairs_lengths_prop_native,
         all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime,
         control_points_gt, control_points_prop,
         min_path_length=min_path_length,
-        verbose=verbose, res_dir=res_dir)
+        verbose=verbose, res_dir="")
+    
+    return C, C_gt_onto_prop, C_prop_onto_gt
