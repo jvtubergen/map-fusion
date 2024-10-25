@@ -1716,7 +1716,7 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
     if normalize:
         norm = len(diffs)
         diff_norm = diff_tot / norm
-        C = 1. - diff_norm
+        # C = 1. - diff_norm # Here the inversion occurs.
     else:
         C = diff_tot
 
@@ -2737,20 +2737,26 @@ def apls(truth=None, proposed=None):
 
     results = _apls(truth=truth, proposed=proposed)
 
-    gt = array(results[3])
-    pr = array(results[4])
+    gt = np.array(results[3])
+    pr = np.array(results[4])
 
     apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
 
-    return apls_result
+    # Filter out failed results.
+    gt = gt[np.where(gt < 1)]
+    pr = pr[np.where(pr < 1)]
+
+    apls_prime_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
+
+    return apls_result, apls_prime_result
 
 
 def apls_prime(truth=None, proposed=None):
 
     results = _apls(truth=truth, proposed=proposed)
 
-    gt = array(results[3])
-    pr = array(results[4])
+    gt = np.array(results[3])
+    pr = np.array(results[4])
 
     # Filter out failed results.
     gt = gt[np.where(gt < 1)]

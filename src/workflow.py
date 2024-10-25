@@ -157,32 +157,7 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
 
     truth = read_graph(place=place, graphset=truth_graphset)
     proposed = read_graph(place=place, graphset=proposed_graphset)
-
-    truth = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(truth)))
-    proposed = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(proposed)))
-
-    truth = graph_annotate_edge_length(truth)
-    truth = graph_add_geometry_to_straight_edges(truth) # Add geometry for straight line segments (edges with no curvature).
-    proposed = graph_annotate_edge_length(proposed)
-    proposed = graph_add_geometry_to_straight_edges(proposed) # Add geometry for straight line segments (edges with no curvature).
-
-    # Set EPSG might be necessary for plotting results within APLS logic.
-    # proposed.graph['crs'] = "EPSG:4326"
-    # proposed.graph['crs'] = "EPSG:4326"
-
-    results = apls(truth=truth, proposed=proposed)
-
-    gt = array(results[3])
-    pr = array(results[4])
-    apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
-    
+    results = apls(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))
     return results
 
-    # # normalized_apls = results["APLS"][0] * (results["tot_meters_gt"] / results["tot_meters_p"])
-    # a = results["tot_meters_gt"][0]
-    # b = results["tot_meters_p"][0]
-    # c = results["APLS"][0]
-    # normalized_apls = (max(a,b) / min(a,b)) * c 
-
-    # return normalized_apls
 
