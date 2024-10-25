@@ -171,6 +171,11 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
     # proposed.graph['crs'] = "EPSG:4326"
 
     results = apls(truth=truth, proposed=proposed)
+
+    gt = array(results[3])
+    pr = array(results[4])
+    apls_result = scipy.stats.hmean([np.average(gt), np.average(pr)])
+    
     return results
 
     # # normalized_apls = results["APLS"][0] * (results["tot_meters_gt"] / results["tot_meters_p"])
