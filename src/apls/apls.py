@@ -2689,6 +2689,7 @@ def apls(truth=None, proposed=None):
     allow_renaming=True
     verbose=False
     super_verbose=False
+    res_dir = "apls_results"
 
 
     if len(truth.nodes()) < 500:  # 2000:
