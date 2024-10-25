@@ -1816,6 +1816,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
             figsize=(10, 5), scatter_alpha=0.8, scatter_size=8,
             scatter_png=scatter_png,
             hist_png=hist_png)
+    diffs_gt = diffs
     ######################
 
     ####################
@@ -1854,7 +1855,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
             figsize=(10, 5), scatter_alpha=0.8, scatter_size=8,
             scatter_png=scatter_png,
             hist_png=hist_png)
-
+    diffs_pr = diffs
     ####################
 
     ####################
@@ -1873,7 +1874,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
           ") =", np.round(C_tot, 2))
     print("Total time to compute metric:", str(dt1 + dt2), "seconds")
 
-    return C_tot, C_gt_onto_prop, C_prop_onto_gt
+    return C_tot, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
 
 
 ###############################################################################
@@ -2721,11 +2722,11 @@ def apls(truth=None, proposed=None):
                                 verbose=verbose,
                                 super_verbose=super_verbose)
 
-    C, C_gt_onto_prop, C_prop_onto_gt = compute_apls_metric(
+    C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr = compute_apls_metric(
         all_pairs_lengths_gt_native, all_pairs_lengths_prop_native,
         all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime,
         control_points_gt, control_points_prop,
         min_path_length=min_path_length,
-        verbose=verbose, res_dir="")
+        verbose=verbose, res_dir=res_dir)
     
-    return C, C_gt_onto_prop, C_prop_onto_gt
+    return C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr

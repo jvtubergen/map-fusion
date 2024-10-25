@@ -171,11 +171,13 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
     # proposed.graph['crs'] = "EPSG:4326"
 
     results = apls(truth=truth, proposed=proposed)
+    return results
 
-    # normalized_apls = results["APLS"][0] * (results["tot_meters_gt"] / results["tot_meters_p"])
-    a = results["tot_meters_gt"][0]
-    b = results["tot_meters_p"][0]
-    c = results["APLS"][0]
-    normalized_apls = (max(a,b) / min(a,b)) * c 
+    # # normalized_apls = results["APLS"][0] * (results["tot_meters_gt"] / results["tot_meters_p"])
+    # a = results["tot_meters_gt"][0]
+    # b = results["tot_meters_p"][0]
+    # c = results["APLS"][0]
+    # normalized_apls = (max(a,b) / min(a,b)) * c 
 
-    return normalized_apls
+    # return normalized_apls
+
