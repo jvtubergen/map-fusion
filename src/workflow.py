@@ -174,7 +174,7 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
 
     gt = array(results[3])
     pr = array(results[4])
-    apls_result = scipy.stats.hmean([np.average(gt), np.average(pr)])
+    apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
     
     return results
 
