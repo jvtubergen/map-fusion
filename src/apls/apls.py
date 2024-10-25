@@ -1210,7 +1210,7 @@ def make_graphs(G_gt_, G_p_,
 
 
 ###############################################################################
-def make_graphs_yuge(G_gt, G_p,
+def make_graphs_huge(G_gt, G_p,
                      weight='length',
                      speed_key='inferred_speed_mps',
                      travel_time_key='travel_time_s',
@@ -1274,7 +1274,7 @@ def make_graphs_yuge(G_gt, G_p,
     """
     
     t0 = time.time()
-    print("Executing make_graphs_yuge()...")
+    print("Executing make_graphs_huge()...")
 
     print("Ensure G_gt 'geometry' is a shapely geometry, not a linestring...")
     for i, (u, v, key, data) in enumerate(G_gt.edges(keys=True, data=True)):
@@ -1519,7 +1519,7 @@ def make_graphs_yuge(G_gt, G_p,
 
     ###############
     tf = time.time()
-    print("Time to run make_graphs_yuge in apls.py:", tf - t0, "seconds")
+    print("Time to run make_graphs_huge in apls.py:", tf - t0, "seconds")
 
     return G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
         control_points_gt, control_points_prop, \
@@ -2120,7 +2120,7 @@ def execute(output_name, gt_list, gp_list, root_list, im_loc_list=[],
                 control_points_gt, control_points_prop, \
                 all_pairs_lengths_gt_native, all_pairs_lengths_prop_native, \
                 all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime  \
-                = make_graphs_yuge(G_gt_init, G_p_init,
+                = make_graphs_huge(G_gt_init, G_p_init,
                                    weight=weight,
                                    speed_key=speed_key,
                                    travel_time_key=travel_time_key,
@@ -2664,3 +2664,13 @@ def run(truth=None, proposed=None):
     weight = "length"
     im_dir = "apls_images"
     return execute(output_name, [truth], [proposed], ["randomstring"], )
+
+
+def apls(truth=None, proposed=None):
+
+    C, C_gt_onto_prop, C_prop_onto_gt = compute_apls_metric(
+        all_pairs_lengths_gt_native, all_pairs_lengths_prop_native,
+        all_pairs_lengths_gt_prime, all_pairs_lengths_prop_prime,
+        control_points_gt, control_points_prop,
+        min_path_length=min_path_length,
+        verbose=verbose, res_dir=res_dir)
