@@ -2668,7 +2668,7 @@ def run(truth=None, proposed=None):
 
 
 # APLS metric performed on two simplified nx.MultiGraphs.
-def _apls(truth=None, proposed=None):
+def apls_detailed(truth=None, proposed=None):
 
     weight = "length"
     speed_key='inferred_speed_mps'
@@ -2735,7 +2735,7 @@ def _apls(truth=None, proposed=None):
 
 def apls(truth=None, proposed=None):
 
-    results = _apls(truth=truth, proposed=proposed)
+    results = apls_detailed(truth=truth, proposed=proposed)
 
     gt = np.array(results[3])
     pr = np.array(results[4])
@@ -2753,7 +2753,7 @@ def apls(truth=None, proposed=None):
 
 def apls_prime(truth=None, proposed=None):
 
-    results = _apls(truth=truth, proposed=proposed)
+    results = apls_detailed(truth=truth, proposed=proposed)
 
     gt = np.array(results[3])
     pr = np.array(results[4])
