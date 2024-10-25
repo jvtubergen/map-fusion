@@ -1,6 +1,11 @@
 from external import *
 from internal import *
 
+links = {
+    "gps": "roadster",
+    "osm": "openstreetmaps",
+    "sat": "sat2graph"
+}
 
 def workflow_converting_stored_graphs_from_utm_into_latlon_coordinate_system():
 
@@ -186,3 +191,36 @@ def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset
     proposed = read_graph(place=place, graphset=proposed_graphset)
 
     return apls_prime(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))
+
+
+# workflow_edge_coverage_by_threshold(place="chicago", left_graphset="gps", right_graphset="sat")
+def workflow_edge_coverage_by_threshold(place=None, left_graphset=None, right_graphset=None):
+
+    left  = read_graph(place=place, graphset=links[left_graphset])
+    right = read_graph(place=place, graphset=links[right_graphset])
+
+    print("left:", left)
+    print("right:", right )
+
+    # Edges in left graph which are not covered by right graph.
+    covered_left = edge_wise_coverage_threshold(left, right, max_threshold=100)
+    # Edges in right graph which are not covered by left graph.
+    covered_right = edge_wise_coverage_threshold(right, left, max_threshold=100)
+    
+    return covered_left, covered_right
+
+
+def workflow_construct_coverage_by_threshold(place=None):
+
+    gps_vs_osm, osm_vs_gps = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="gps", right_graphset="osm")
+    pickle.dump(gps_vs_osm, open("data/coverage/gps_vs_osm.pkl", "wb"))
+    pickle.dump(osm_vs_gps, open("data/coverage/osm_vs_gps.pkl", "wb"))
+
+    sat_vs_osm, osm_vs_sat = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="sat", right_graphset="osm")
+    pickle.dump(sat_vs_osm, open("data/coverage/sat_vs_osm.pkl", "wb"))
+    pickle.dump(osm_vs_sat, open("data/coverage/osm_vs_sat.pkl", "wb"))
+
+    sat_vs_gps, gps_vs_sat = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="sat", right_graphset="gps")
+    pickle.dump(sat_vs_gps, open("data/coverage/sat_vs_gps.pkl", "wb"))
+    pickle.dump(gps_vs_sat, open("data/coverage/gps_vs_sat.pkl", "wb"))
+
