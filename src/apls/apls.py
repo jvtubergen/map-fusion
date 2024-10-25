@@ -2668,7 +2668,7 @@ def run(truth=None, proposed=None):
 
 
 # APLS metric performed on two simplified nx.MultiGraphs.
-def apls(truth=None, proposed=None):
+def _apls(truth=None, proposed=None):
 
     weight = "length"
     speed_key='inferred_speed_mps'
@@ -2731,3 +2731,31 @@ def apls(truth=None, proposed=None):
         verbose=verbose, res_dir=res_dir)
     
     return C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
+
+
+def apls(truth=None, proposed=None):
+
+    results = _apls(truth=truth, proposed=proposed)
+
+    gt = array(results[3])
+    pr = array(results[4])
+
+    apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
+
+    return apls_result
+
+
+def apls_prime(truth=None, proposed=None):
+
+    results = _apls(truth=truth, proposed=proposed)
+
+    gt = array(results[3])
+    pr = array(results[4])
+
+    # Filter out failed results.
+    gt = gt[np.where(gt < 1)]
+    pr = pr[np.where(pr < 1)]
+
+    apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
+
+    return apls_result
