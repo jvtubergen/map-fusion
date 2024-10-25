@@ -158,6 +158,31 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
     truth = read_graph(place=place, graphset=truth_graphset)
     proposed = read_graph(place=place, graphset=proposed_graphset)
     results = apls(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))
+
     return results
 
+def workflow_report_apls_and_prime(place=None):
 
+    sat_vs_osm = workflow_apply_apls(place=place, truth_graphset="openstreetmaps", proposed_graphset="sat2graph")
+    gps_vs_osm = workflow_apply_apls(place=place, truth_graphset="openstreetmaps", proposed_graphset="roadster")
+    sat_vs_gps = workflow_apply_apls(place=place, truth_graphset="sat2graph", proposed_graphset="roadster")
+
+    print("sat vs osm:")
+    print("APLS : ", sat_vs_osm[0])
+    print("APLS+: ", sat_vs_osm[1])
+
+    print("gps vs osm:")
+    print("APLS : ", gps_vs_osm[0])
+    print("APLS+: ", gps_vs_osm[1])
+
+    print("sat vs gps:")
+    print("APLS : ", sat_vs_gps[0])
+    print("APLS+: ", sat_vs_gps[1])
+
+##################################################################################
+def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset=None):
+
+    truth = read_graph(place=place, graphset=truth_graphset)
+    proposed = read_graph(place=place, graphset=proposed_graphset)
+
+    return apls_prime(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))

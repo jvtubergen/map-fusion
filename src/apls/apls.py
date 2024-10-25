@@ -1716,7 +1716,7 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
     if normalize:
         norm = len(diffs)
         diff_norm = diff_tot / norm
-        # C = 1. - diff_norm # Here the inversion occurs.
+        C = 1. - diff_norm # Here the inversion occurs.
     else:
         C = diff_tot
 
