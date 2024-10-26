@@ -213,16 +213,16 @@ def workflow_edge_coverage_by_threshold(place=None, left_graphset=None, right_gr
 def workflow_construct_coverage_by_threshold(place=None):
 
     gps_vs_osm, osm_vs_gps = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="gps", right_graphset="osm")
-    pickle.dump(gps_vs_osm, open("data/coverage/gps_vs_osm.pkl", "wb"))
-    pickle.dump(osm_vs_gps, open("data/coverage/osm_vs_gps.pkl", "wb"))
+    pickle.dump(gps_vs_osm, open(f"data/coverage/{place}_gps_vs_osm.pkl", "wb"))
+    pickle.dump(osm_vs_gps, open(f"data/coverage/{place}_osm_vs_gps.pkl", "wb"))
 
     sat_vs_osm, osm_vs_sat = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="sat", right_graphset="osm")
-    pickle.dump(sat_vs_osm, open("data/coverage/sat_vs_osm.pkl", "wb"))
-    pickle.dump(osm_vs_sat, open("data/coverage/osm_vs_sat.pkl", "wb"))
+    pickle.dump(sat_vs_osm, open(f"data/coverage/{place}_sat_vs_osm.pkl", "wb"))
+    pickle.dump(osm_vs_sat, open(f"data/coverage/{place}_osm_vs_sat.pkl", "wb"))
 
     sat_vs_gps, gps_vs_sat = workflow_edge_coverage_by_threshold(place="chicago", left_graphset="sat", right_graphset="gps")
-    pickle.dump(sat_vs_gps, open("data/coverage/sat_vs_gps.pkl", "wb"))
-    pickle.dump(gps_vs_sat, open("data/coverage/gps_vs_sat.pkl", "wb"))
+    pickle.dump(sat_vs_gps, open(f"data/coverage/{place}_sat_vs_gps.pkl", "wb"))
+    pickle.dump(gps_vs_sat, open(f"data/coverage/{place}_gps_vs_sat.pkl", "wb"))
 
 
 def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago", left="gps", right="osm"):
