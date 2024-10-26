@@ -49,6 +49,13 @@ import sp_metric
 # if in docker, the line below may be necessary
 # matplotlib.use('agg')
 
+_verbose = False
+
+def verbose_print(*args):
+    global _verbose
+    if _verbose:
+        print(*args)
+
 
 ###############################################################################
 def add_travel_time(G_, speed_key='inferred_speed_mps', length_key='length',
@@ -90,9 +97,10 @@ def add_travel_time(G_, speed_key='inferred_speed_mps', length_key='length',
                 speed = np.mean(speed)
         else:
             speed = default_speed
-        if verbose:
-            print("data[length_key]:", data[length_key])
-            print("speed:", speed)
+
+        verbose_print("data[length_key]:", data[length_key])
+        verbose_print("speed:", speed)
+
         travel_time_seconds = data[length_key] / speed
         data[travel_time_key] = travel_time_seconds
 
@@ -178,27 +186,18 @@ def create_edge_linestrings(G_, remove_redundant=True, verbose=False):
                         if (line_geom == geom_seen_tmp) \
                                 or (line_geom_rev == geom_seen_tmp):
                             bad_edges.append((u, v))  # , key))
-                            if verbose:
-                                print("\nRedundant edge:", u, v)  # , key)
+                            verbose_print("\nRedundant edge:", u, v)  # , key)
                 else:
                     edge_seen_set.add((u, v))
                     geom_seen.append(line_geom)
                     geom_seen.append(line_geom_rev)
 
     if remove_redundant:
-        if verbose:
-            print("\nedge_seen_set:", edge_seen_set)
-            print("redundant edges:", bad_edges)
+        verbose_print("\nedge_seen_set:", edge_seen_set)
+        verbose_print("redundant edges:", bad_edges)
         for (u, v) in bad_edges:
             if G_.has_edge(u, v):
                 G_.remove_edge(u, v)  # , key)
-            # # for (u,v,key) in bad_edges:
-            # try:
-            #     G_.remove_edge(u, v)  # , key)
-            # except:
-            #     if verbose:
-            #         print("Edge DNE:", u, v)  # ,key)
-            #     pass
 
     return G_
 
@@ -231,8 +230,7 @@ def cut_linestring(line, distance, verbose=False):
         the line, return input line.
     """
 
-    if verbose:
-        print("Cutting linestring at distance", distance, "...")
+    verbose_print("Cutting linestring at distance", distance, "...")
     if distance <= 0.0 or distance >= line.length:
         return [LineString(line)]
 
@@ -241,8 +239,7 @@ def cut_linestring(line, distance, verbose=False):
     coords = list(line.coords)
     for i, p in enumerate(coords):
         pdl = line.project(Point(p))
-        if verbose:
-            print(i, p, "line.project point:", pdl)
+        verbose_print(i, p, "line.project point:", pdl)
         if pdl == distance:
             return [
                 LineString(coords[:i+1]),
@@ -304,16 +301,15 @@ def get_closest_edge_from_G(G_, point, nearby_nodes_set=set([]),
     geom_list = []
     p = point  # Point(point_coords)
     for i, (u, v, key, data) in enumerate(G_.edges(keys=True, data=True)):
-        # print((" in get_closest_edge(): u,v,key,data:", u,v,key,data))
-        # print ("  in get_closest_edge(): data:", data)
 
         # skip if u,v not in nearby nodes
         if len(nearby_nodes_set) > 0:
             if (u not in nearby_nodes_set) and (v not in nearby_nodes_set):
                 continue
-        if verbose:
-            print(("u,v,key,data:", u, v, key, data))
-            print(("  type data['geometry']:", type(data['geometry'])))
+
+        verbose_print(("u,v,key,data:", u, v, key, data))
+        verbose_print(("  type data['geometry']:", type(data['geometry'])))
+
         try:
             line = data['geometry']
         except KeyError:
@@ -321,6 +317,7 @@ def get_closest_edge_from_G(G_, point, nearby_nodes_set=set([]),
         geom_list.append(line)
         dist_list.append(p.distance(line))
         edge_list.append([u, v, key])
+
     # get closest edge
     min_idx = np.argmin(dist_list)
     min_dist = dist_list[min_idx]
@@ -394,19 +391,17 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
     [u, v, key] = best_edge
     G_node_set = set(G_.nodes())
 
-    if verbose:
-        print("Inserting point:", node_id)
-        print("best edge:", best_edge)
-        print("  best edge dist:", min_dist)
-        u_loc = [G_.nodes[u]['x'], G_.nodes[u]['y']]
-        v_loc = [G_.nodes[v]['x'], G_.nodes[v]['y']]
-        print("ploc:", (point.x, point.y))
-        print("uloc:", u_loc)
-        print("vloc:", v_loc)
+    verbose_print("Inserting point:", node_id)
+    verbose_print("best edge:", best_edge)
+    verbose_print("  best edge dist:", min_dist)
+    u_loc = [G_.nodes[u]['x'], G_.nodes[u]['y']]
+    v_loc = [G_.nodes[v]['x'], G_.nodes[v]['y']]
+    verbose_print("ploc:", (point.x, point.y))
+    verbose_print("uloc:", u_loc)
+    verbose_print("vloc:", v_loc)
 
     if min_dist > max_distance_meters:
-        if verbose:
-            print("min_dist > max_distance_meters, skipping...")
+        verbose_print("min_dist > max_distance_meters, skipping...")
         return G_, {}, -1, -1
 
     else:
@@ -414,8 +409,7 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
 
         # skip if node exists already
         if node_id in G_node_set:
-            if verbose:
-                print("Node ID:", node_id, "already exists, skipping...")
+            verbose_print("Node ID:", node_id, "already exists, skipping...")
             return G_, {}, -1, -1
 
         # G_.edges[best_edge[0]][best_edge[1]][0]['geometry']
@@ -464,29 +458,28 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
         split_line = cut_linestring(line_geom, line_proj)
         # line1, line2, cp = cut_linestring(line_geom, line_proj)
         if split_line is None:
-            print("Failure in cut_linestring()...")
-            print("type(split_line):", type(split_line))
-            print("split_line:", split_line)
-            print("line_geom:", line_geom)
-            print("line_geom.length:", line_geom.length)
-            print("line_proj:", line_proj)
-            print("min_dist:", min_dist)
+            verbose_print("Failure in cut_linestring()...")
+            verbose_print("type(split_line):", type(split_line))
+            verbose_print("split_line:", split_line)
+            verbose_print("line_geom:", line_geom)
+            verbose_print("line_geom.length:", line_geom.length)
+            verbose_print("line_proj:", line_proj)
+            verbose_print("min_dist:", min_dist)
             return G_, {}, 0, 0
 
-        if verbose:
-            print("split_line:", split_line)
+        if _verbose:
+            verbose_print("split_line:", split_line)
 
         # if cp.is_empty:
         if len(split_line) == 1:
-            if verbose:
-                print("split line empty, min_dist:", min_dist)
+            verbose_print("split line empty, min_dist:", min_dist)
             # get coincident node
             outnode = ''
             outnode_x, outnode_y = -1, -1
             x_p, y_p = new_point.x, new_point.y
             x_u, y_u = G_.nodes[u]['x'], G_.nodes[u]['y']
             x_v, y_v = G_.nodes[v]['x'], G_.nodes[v]['y']
-            # if verbose:
+            # if _verbose:
             #    print "x_p, y_p:", x_p, y_p
             #    print "x_u, y_u:", x_u, y_u
             #    print "x_v, y_v:", x_v, y_v
@@ -510,9 +503,9 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
             else:
                 print("Error in determining node coincident with node: "
                       + str(node_id) + " along edge: " + str(best_edge))
-                print("x_p, y_p:", x_p, y_p)
-                print("x_u, y_u:", x_u, y_u)
-                print("x_v, y_v:", x_v, y_v)
+                verbose_print("x_p, y_p:", x_p, y_p)
+                verbose_print("x_u, y_u:", x_u, y_u)
+                verbose_print("x_v, y_v:", x_v, y_v)
                 # return
                 return G_, {}, 0, 0
 
@@ -524,8 +517,7 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
                 #  as values. A partial mapping is allowed.
                 mapping = {outnode: node_id}
                 Gout = nx.relabel_nodes(G_, mapping)
-                if verbose:
-                    print("Swapping out node ids:", mapping)
+                verbose_print("Swapping out node ids:", mapping)
                 return Gout, node_props, x_p, y_p
 
             else:
@@ -539,13 +531,13 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
                 edge_props_line1['geometry'] = line1
                 # make sure length is zero
                 if line1.length > buff:
-                    print("Nodes should be coincident and length 0!")
-                    print("  line1.length:", line1.length)
-                    print("  x_u, y_u :", x_u, y_u)
-                    print("  x_v, y_v :", x_v, y_v)
-                    print("  x_p, y_p :", x_p, y_p)
-                    print("  new_point:", new_point)
-                    print("  Point(outnode_x, outnode_y):",
+                    verbose_print("Nodes should be coincident and length 0!")
+                    verbose_print("  line1.length:", line1.length)
+                    verbose_print("  x_u, y_u :", x_u, y_u)
+                    verbose_print("  x_v, y_v :", x_v, y_v)
+                    verbose_print("  x_p, y_p :", x_p, y_p)
+                    verbose_print("  new_point:", new_point)
+                    verbose_print("  Point(outnode_x, outnode_y):",
                           Point(outnode_x, outnode_y))
                     return
 
@@ -576,14 +568,13 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
             if dist_to_v < dist_to_u:
                 line2, line1 = split_line
 
-            if verbose:
-                print("Creating two edges from split...")
-                print("   original_length:", line_geom.length)
-                print("   line1_length:", line1.length)
-                print("   line2_length:", line2.length)
-                print("   u, dist_u_to_point:", u, dist_to_u)
-                print("   v, dist_v_to_point:", v, dist_to_v)
-                print("   min_dist:", min_dist)
+            verbose_print("Creating two edges from split...")
+            verbose_print("   original_length:", line_geom.length)
+            verbose_print("   line1_length:", line1.length)
+            verbose_print("   line2_length:", line2.length)
+            verbose_print("   u, dist_u_to_point:", u, dist_to_u)
+            verbose_print("   v, dist_v_to_point:", v, dist_to_v)
+            verbose_print("   min_dist:", min_dist)
 
             # add new edges
             edge_props_line1 = edge_props_new.copy()
@@ -608,7 +599,7 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
             geom_p0 = list(line_geom.coords)[0]
             dist_to_u = scipy.spatial.distance.euclidean(u_loc, geom_p0)
             dist_to_v = scipy.spatial.distance.euclidean(v_loc, geom_p0)
-            # if verbose:
+            # if _verbose:
             #    print "dist_to_u, dist_to_v:", dist_to_u, dist_to_v
             if dist_to_u < dist_to_v:
                 G_.add_edge(u, node_id, **edge_props_line1)
@@ -617,8 +608,7 @@ def insert_point_into_G(G_, point, node_id=100000, max_distance_meters=5,
                 G_.add_edge(node_id, u, **edge_props_line1)
                 G_.add_edge(v, node_id, **edge_props_line2)
 
-            if verbose:
-                print("insert edges:", u, '-', node_id, 'and', node_id, '-', v)
+            verbose_print("insert edges:", u, '-', node_id, 'and', node_id, '-', v)
 
             # remove initial edge
             G_.remove_edge(u, v, key)
@@ -695,12 +685,12 @@ def insert_control_points(G_, control_points, max_distance_meters=10,
     for i, [node_id, x, y] in enumerate(control_points):
         
         if math.isinf(x) or math.isinf(y):
-            print("Infinity in coords!:", x, y)
+            verbose_print("Infinity in coords!:", x, y)
             return
         
-        # if verbose:
+        # if _verbose:
         if (i % 20) == 0:
-            print(i, "/", len(control_points),
+            verbose_print(i, "/", len(control_points),
                   "Insert control point:", node_id, "x =", x, "y =", y)
         point = Point(x, y)
 
@@ -730,7 +720,7 @@ def insert_control_points(G_, control_points, max_distance_meters=10,
             new_ys.append(ynew)
 
     t1 = time.time()
-    print("Time to run insert_control_points():", t1-t0, "seconds")
+    verbose_print("Time to run insert_control_points():", t1-t0, "seconds")
     return Gout, new_xs, new_ys
 
 
@@ -817,11 +807,10 @@ def create_graph_midpoints(G_, linestring_delta=50, is_curved_eps=0.03,
                 continue
             #################
 
-            if verbose:
-                print("create_graph_midpoints()...")
-                print("  u,v:", u, v)
-                print("  data:", data)
-                print("  edge_props_init:", edge_props_init)
+            verbose_print("create_graph_midpoints()...")
+            verbose_print("  u,v:", u, v)
+            verbose_print("  data:", data)
+            verbose_print("  edge_props_init:", edge_props_init)
 
             # interpolate midpoints
             # if edge is short, use midpoint, else get evenly spaced points
@@ -831,15 +820,13 @@ def create_graph_midpoints(G_, linestring_delta=50, is_curved_eps=0.03,
                 # get evenly spaced points
                 npoints = len(np.arange(0, linelen, linestring_delta)) + 1
                 interp_dists = np.linspace(0, linelen, npoints)[1:-1]
-                if verbose:
-                    print("  interp_dists:", interp_dists)
+                verbose_print("  interp_dists:", interp_dists)
 
             # create nodes
             node_id_new_list = []
             xms_tmp, yms_tmp = [], []
             for j, d in enumerate(interp_dists):
-                if verbose:
-                    print("    ", j, "interp_dist:", d)
+                verbose_print("    ", j, "interp_dist:", d)
 
                 midPoint = line.interpolate(d)
                 xm0, ym0 = midPoint.xy
@@ -850,16 +837,14 @@ def create_graph_midpoints(G_, linestring_delta=50, is_curved_eps=0.03,
                 yms.append(ym)
                 xms_tmp.append(xm)
                 yms_tmp.append(ym)
-                if verbose:
-                    print("    midpoint:", xm, ym)
+                verbose_print("    midpoint:", xm, ym)
 
                 # add node to graph, with properties of u
                 node_id = midpoint_name_val
                 # node_id = np.round(u + midpoint_name_val,2)
                 midpoint_name_val += midpoint_name_inc
                 node_id_new_list.append(node_id)
-                if verbose:
-                    print("    node_id:", node_id)
+                verbose_print("    node_id:", node_id)
 
                 # if j > 3:
                 #    continue
@@ -895,17 +880,14 @@ def _clean_sub_graphs(G_, min_length=80, max_nodes_to_skip=100,
     if len(G_.nodes()) == 0:
         return G_
 
-    if verbose:
-        print("Running clean_sub_graphs...")
+    verbose_print("Running clean_sub_graphs...")
     sub_graphs = list(nx.connected_component_subgraphs(G_))
     bad_nodes = []
-    if verbose:
-        print(" len(G_.nodes()):", len(G_.nodes()))
-        print(" len(G_.edges()):", len(G_.edges()))
-    if super_verbose:
-        print("G_.nodes:", G_.nodes())
-        edge_tmp = G_.edges()[np.random.randint(len(G_.edges()))]
-        print(edge_tmp, "G.edge props:", G_.edges[edge_tmp[0]][edge_tmp[1]])
+    verbose_print(" len(G_.nodes()):", len(G_.nodes()))
+    verbose_print(" len(G_.edges()):", len(G_.edges()))
+    verbose_print("G_.nodes:", G_.nodes())
+    edge_tmp = G_.edges()[np.random.randint(len(G_.edges()))]
+    verbose_print(edge_tmp, "G.edge props:", G_.edges[edge_tmp[0]][edge_tmp[1]])
 
     for G_sub in sub_graphs:
         # don't check length if too many nodes in subgraph
@@ -915,9 +897,8 @@ def _clean_sub_graphs(G_, min_length=80, max_nodes_to_skip=100,
         else:
             all_lengths = dict(
                 nx.all_pairs_dijkstra_path_length(G_sub, weight=weight))
-            if super_verbose:
-                print("  \nGs.nodes:", G_sub.nodes())
-                print("  all_lengths:", all_lengths)
+            verbose_print("  \nGs.nodes:", G_sub.nodes())
+            verbose_print("  all_lengths:", all_lengths)
             # get all lenghts
             lens = []
 
@@ -928,26 +909,20 @@ def _clean_sub_graphs(G_, min_length=80, max_nodes_to_skip=100,
                 for uprime in v.keys():
                     vprime = v[uprime]
                     lens.append(vprime)
-                    if super_verbose:
-                        print("  u, v", u, v)
-                        print("    uprime, vprime:", uprime, vprime)
+                    verbose_print("  u, v", u, v)
+                    verbose_print("    uprime, vprime:", uprime, vprime)
             max_len = np.max(lens)
-            if super_verbose:
-                print("  Max length of path:", max_len)
+            verbose_print("  Max length of path:", max_len)
             if max_len < min_length:
                 bad_nodes.extend(G_sub.nodes())
-                if super_verbose:
-                    print(" appending to bad_nodes:", G_sub.nodes())
+                verbose_print(" appending to bad_nodes:", G_sub.nodes())
 
     # remove bad_nodes
     G_.remove_nodes_from(bad_nodes)
-    if verbose:
-        print(" num bad_nodes:", len(bad_nodes))
-        # print ("bad_nodes:", bad_nodes)
-        print(" len(G'.nodes()):", len(G_.nodes()))
-        print(" len(G'.edges()):", len(G_.edges()))
-    if super_verbose:
-        print("  G_.nodes:", G_.nodes())
+    verbose_print(" num bad_nodes:", len(bad_nodes))
+    verbose_print(" len(G'.nodes()):", len(G_.nodes()))
+    verbose_print(" len(G'.edges()):", len(G_.edges()))
+    verbose_print("  G_.nodes:", G_.nodes())
 
     return G_
 
@@ -1029,22 +1004,22 @@ def make_graphs(G_gt_, G_p_,
     """
 
     t0 = time.time()
-    print("Executing make_graphs()...")
+    verbose_print("Executing make_graphs()...")
 
-    print("Ensure", weight, "in gt graph prpperties")
-    print("type(G_gt_)", type(G_gt_))
+    verbose_print("Ensure", weight, "in gt graph prpperties")
+    verbose_print("type(G_gt_)", type(G_gt_))
     for i, (u, v, data) in enumerate(G_gt_.edges(keys=False, data=True)):
-        # print("G_gt_.edges[u, v]:", G_gt_.edges[u, v])
-        # print("G_gt_.edges[u, v][weight]:", G_gt_.edges[u, v][weight])
+        verbose_print("G_gt_.edges[u, v]:", G_gt_.edges[u, v])
+        verbose_print("G_gt_.edges[u, v][weight]:", G_gt_.edges[u, v][weight])
         if weight not in data.keys():
             print("Error!", weight, "not in G_gt_ edge u, v, data:", u, v, data)
             return
 
-    print("Ensure G_gt 'geometry' is a shapely geometry, not a linestring...")
+    verbose_print("Ensure G_gt 'geometry' is a shapely geometry, not a linestring...")
     for i, (u, v, key, data) in enumerate(G_gt_.edges(keys=True, data=True)):
         if i == 0:
-            print(("u,v,key,data:", u, v, key, data))
-            print(("  type data['geometry']:", type(data['geometry'])))
+            verbose_print(("u,v,key,data:", u, v, key, data))
+            verbose_print(("  type data['geometry']:", type(data['geometry'])))
         try:
             line = data['geometry']
         except KeyError:
@@ -1054,16 +1029,11 @@ def make_graphs(G_gt_, G_p_,
 
     # create graph with midpoints
     G_gt0 = create_edge_linestrings(G_gt_.to_undirected())
-    # create graph with linestrings?
-    # G_gt_cp = G_gt.to_undirected()
-    # G_gt_cp = create_edge_linestrings(G_gt.to_undirected())
 
-    if verbose:
-        print("len G_gt.nodes():", len(list(G_gt0.nodes())))
-        print("len G_gt.edges():", len(list(G_gt0.edges())))
+    verbose_print("len G_gt.nodes():", len(list(G_gt0.nodes())))
+    verbose_print("len G_gt.edges():", len(list(G_gt0.edges())))
 
-    if verbose:
-        print("Creating gt midpoints")
+    verbose_print("Creating gt midpoints")
     G_gt_cp0, xms, yms = create_graph_midpoints(
         G_gt0.copy(),
         linestring_delta=linestring_delta,
@@ -1080,12 +1050,11 @@ def make_graphs(G_gt_, G_p_,
     for n in G_gt_cp.nodes():
         u_x, u_y = G_gt_cp.nodes[n]['x'], G_gt_cp.nodes[n]['y']
         control_points_gt.append([n, u_x, u_y])
-    if verbose:
-        print("len control_points_gt:", len(control_points_gt))
+    
+    verbose_print("len control_points_gt:", len(control_points_gt))
 
     # get ground truth paths
-    if verbose:
-        print("Get ground truth paths...")
+    verbose_print("Get ground truth paths...")
     all_pairs_lengths_gt_native = dict(
         nx.shortest_path_length(G_gt_cp, weight=weight))
     # all_pairs_lengths_gt_native = dict(
@@ -1095,19 +1064,19 @@ def make_graphs(G_gt_, G_p_,
     ###############
     # Proposal
 
-    print("Ensure", weight, "in prop graph prpperties")
-    print("type(G_p_)", type(G_p_))
+    verbose_print("Ensure", weight, "in prop graph prpperties")
+    verbose_print("type(G_p_)", type(G_p_))
     for i, (u, v, data) in enumerate(G_p_.edges(keys=False, data=True)):
         if weight not in data.keys():
             print("Error!", weight, "not in G_p_ edge u, v, data:", u, v, data)
             return
 
     # get proposal graph with native midpoints
-    print("Ensure G_p 'geometry' is a shapely geometry, not a linestring...")
+    verbose_print("Ensure G_p 'geometry' is a shapely geometry, not a linestring...")
     for i, (u, v, key, data) in enumerate(G_p_.edges(keys=True, data=True)):
         if i == 0:
-            print(("u,v,key,data:", u, v, key, data))
-            print(("  type data['geometry']:", type(data['geometry'])))
+            verbose_print(("u,v,key,data:", u, v, key, data))
+            verbose_print(("  type data['geometry']:", type(data['geometry'])))
         try:
             line = data['geometry']
         except:
@@ -1121,12 +1090,10 @@ def make_graphs(G_gt_, G_p_,
                           speed_key=speed_key,
                           travel_time_key=travel_time_key)
 
-    if verbose:
-        print("len G_p.nodes():", len(G_p.nodes()))
-        print("len G_p.edges():", len(G_p.edges()))
+    verbose_print("len G_p.nodes():", len(G_p.nodes()))
+    verbose_print("len G_p.edges():", len(G_p.edges()))
 
-    if verbose:
-        print("Creating proposal midpoints")
+    verbose_print("Creating proposal midpoints")
     G_p_cp0, xms_p, yms_p = create_graph_midpoints(
         G_p.copy(),
         linestring_delta=linestring_delta,
@@ -1137,9 +1104,9 @@ def make_graphs(G_gt_, G_p_,
     G_p_cp = add_travel_time(G_p_cp0.copy(),
                              speed_key=speed_key,
                              travel_time_key=travel_time_key)
-    if verbose:
-        print("len G_p_cp.nodes():", len(G_p_cp.nodes()))
-        print("len G_p_cp.edges():", len(G_p_cp.edges()))
+
+    verbose_print("len G_p_cp.nodes():", len(G_p_cp.nodes()))
+    verbose_print("len G_p_cp.edges():", len(G_p_cp.edges()))
 
     # set proposal control nodes, originally just all nodes in G_p_cp
     # original method sets proposal control points as all nodes in G_p_cp
@@ -1156,10 +1123,9 @@ def make_graphs(G_gt_, G_p_,
 
     ###############
     # insert gt control points into proposal
-    if verbose:
-        print("Inserting", len(control_points_gt),
-              "control points into G_p...")
-        print("G_p.nodes():", G_p.nodes())
+    verbose_print("Inserting", len(control_points_gt),
+            "control points into G_p...")
+    verbose_print("G_p.nodes():", G_p.nodes())
     G_p_cp_prime0, xn_p, yn_p = insert_control_points(
         G_p.copy(), control_points_gt,
         max_distance_meters=max_snap_dist,
@@ -1176,8 +1142,7 @@ def make_graphs(G_gt_, G_p_,
 
     ###############
     # now insert control points into ground truth
-    if verbose:
-        print("\nInserting", len(control_points_prop),
+    verbose_print("\nInserting", len(control_points_prop),
               "control points into G_gt...")
     # permit renaming of inserted nodes if coincident with existing node
     G_gt_cp_prime0, xn_gt, yn_gt = insert_control_points(
@@ -1201,7 +1166,7 @@ def make_graphs(G_gt_, G_p_,
         # nx.all_pairs_dijkstra_path_length(G_p_cp_prime, weight=weight))
 
     tf = time.time()
-    print("Time to run make_graphs in apls.py:", tf - t0, "seconds")
+    verbose_print("Time to run make_graphs in apls.py:", tf - t0, "seconds")
 
     return G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
         control_points_gt, control_points_prop, \
@@ -1274,16 +1239,16 @@ def make_graphs_huge(G_gt, G_p,
     """
     
     t0 = time.time()
-    print("Executing make_graphs_huge()...")
+    verbose_print("Executing make_graphs_huge()...")
 
-    print("Ensure G_gt 'geometry' is a shapely geometry, not a linestring...")
+    verbose_print("Ensure G_gt 'geometry' is a shapely geometry, not a linestring...")
     for i, (u, v, key, data) in enumerate(G_gt.edges(keys=True, data=True)):
         if i == 0:
             try:
-                print(("u,v,key,data:", u, v, key, data))
+                verbose_print(("u,v,key,data:", u, v, key, data))
             except:
                 pass
-            print(("  type data['geometry']:", type(data['geometry'])))
+            verbose_print(("  type data['geometry']:", type(data['geometry'])))
         try:
             line = data['geometry']
         except:
@@ -1291,11 +1256,11 @@ def make_graphs_huge(G_gt, G_p,
         if type(line) == str:  # or type(line) == unicode:
             data['geometry'] = shapely.wkt.loads(line)
 
-    print("Ensure G_p 'geometry' is a shapely geometry, not a linestring...")
+    verbose_print("Ensure G_p 'geometry' is a shapely geometry, not a linestring...")
     for i, (u, v, key, data) in enumerate(G_p.edges(keys=True, data=True)):
         if i == 0:
-            print(("u,v,key,data:", u, v, key, data))
-            print(("  type data['geometry']:", type(data['geometry'])))
+            verbose_print(("u,v,key,data:", u, v, key, data))
+            verbose_print(("  type data['geometry']:", type(data['geometry'])))
         try:
             line = data['geometry']
         except:
@@ -1306,36 +1271,37 @@ def make_graphs_huge(G_gt, G_p,
     # create graph with linestrings?
     G_gt_cp = G_gt.to_undirected()
     # G_gt_cp = create_edge_linestrings(G_gt.to_undirected())
-    if verbose:
-        print("len(G_gt.nodes()):", len(G_gt_cp.nodes()))
-        print("len(G_gt.edges()):", len(G_gt_cp.edges()))
-        # print("G_gt.nodes():", G_gt_cp.nodes())
-        # print("G_gt.edges()):", G_gt_cp.edges())
+
+    if _verbose:
+        verbose_print("len(G_gt.nodes()):", len(G_gt_cp.nodes()))
+        verbose_print("len(G_gt.edges()):", len(G_gt_cp.edges()))
+        # verbose_print("G_gt.nodes():", G_gt_cp.nodes())
+        # verbose_print("G_gt.edges()):", G_gt_cp.edges())
         # gt node and edge props
         node = random.choice(list(G_gt.nodes()))
-        print("node:", node, "G_gt random node props:", G_gt.nodes[node])
+        verbose_print("node:", node, "G_gt random node props:", G_gt.nodes[node])
         edge_tmp = random.choice(list(G_gt.edges()))
-        print("G_gt edge_tmp:", edge_tmp)
+        verbose_print("G_gt edge_tmp:", edge_tmp)
         try:
-            print("edge:", edge_tmp, "G_gt random edge props:",
+            verbose_print("edge:", edge_tmp, "G_gt random edge props:",
                   G_gt.edges[edge_tmp[0]][edge_tmp[1]])
         except:
             try:
-                print("edge:", edge_tmp, "G_gt random edge props:",
+                verbose_print("edge:", edge_tmp, "G_gt random edge props:",
                   G_gt.edges[edge_tmp[0], edge_tmp[1], 0])
             except:
                 pass
         # prop node and edge props
         node = random.choice(list(G_p.nodes()))
-        print("node:", node, "G_p random node props:", G_p.nodes[node])
+        verbose_print("node:", node, "G_p random node props:", G_p.nodes[node])
         edge_tmp = random.choice(list(G_p.edges()))
-        print("G_p edge_tmp:", edge_tmp)
+        verbose_print("G_p edge_tmp:", edge_tmp)
         try:
-            print("edge:", edge_tmp, "G_p random edge props:",
+            verbose_print("edge:", edge_tmp, "G_p random edge props:",
                   G_p.edges[edge_tmp[0]][edge_tmp[1]])
         except:
             try:
-                print("edge:", edge_tmp, "G_p random edge props:",
+                verbose_print("edge:", edge_tmp, "G_p random edge props:",
                   G_p.edges[edge_tmp[0], edge_tmp[1], 0])
             except:
                 pass
@@ -1346,12 +1312,12 @@ def make_graphs_huge(G_gt, G_p,
     rand_nodes_gt_set = set(rand_nodes_gt)
     control_points_gt = []
     for itmp,n in enumerate(rand_nodes_gt):
-        if verbose and (i % 20) == 0:
+        if _verbose and (i % 20) == 0:
             print ("control_point", itmp, ":", n, ":", G_gt_cp.nodes[n])
         u_x, u_y = G_gt_cp.nodes[n]['x'], G_gt_cp.nodes[n]['y']
         control_points_gt.append([n, u_x, u_y])
-    if verbose:
-        print("len control_points_gt:", len(control_points_gt))
+    if _verbose:
+        verbose_print("len control_points_gt:", len(control_points_gt))
     # add travel time
     G_gt_cp = add_travel_time(G_gt_cp,
                               speed_key=speed_key,
@@ -1360,12 +1326,12 @@ def make_graphs_huge(G_gt, G_p,
     # get route lengths between all control points
     # gather all paths from nodes of interest, keep only routes to control nodes
     tt = time.time()
-    if verbose:
-        print("Computing all_pairs_lengths_gt_native...")
+    if _verbose:
+        verbose_print("Computing all_pairs_lengths_gt_native...")
     all_pairs_lengths_gt_native = {}
     for itmp, source in enumerate(rand_nodes_gt):
-        if verbose and ((itmp % 50) == 0):
-            print((itmp, "source:", source))
+        if _verbose and ((itmp % 50) == 0):
+            verbose_print((itmp, "source:", source))
         paths_tmp = nx.single_source_dijkstra_path_length(
             G_gt_cp, source, weight=weight)
         # delete items
@@ -1373,8 +1339,8 @@ def make_graphs_huge(G_gt, G_p,
             if k not in rand_nodes_gt_set:
                 del paths_tmp[k]
         all_pairs_lengths_gt_native[source] = paths_tmp
-    if verbose:
-        print(("Time to compute all source routes for",
+    if _verbose:
+        verbose_print(("Time to compute all source routes for",
                sample_size, "nodes:", time.time() - tt, "seconds"))
 
     # get individual routes (super slow!)
@@ -1398,9 +1364,9 @@ def make_graphs_huge(G_gt, G_p,
     # get proposal graph with native midpoints
     G_p_cp = G_p.to_undirected()
     #G_p_cp = create_edge_linestrings(G_p.to_undirected())
-    if verbose:
-        print("len G_p_cp.nodes():", len(G_p_cp.nodes()))
-        print("G_p_cp.edges():", len(G_p_cp.edges()))
+    if _verbose:
+        verbose_print("len G_p_cp.nodes():", len(G_p_cp.nodes()))
+        verbose_print("G_p_cp.edges():", len(G_p_cp.edges()))
 
     # get control points, which will be a subset of nodes
     # (original method sets proposal control points as all nodes in G_p_cp)
@@ -1419,12 +1385,12 @@ def make_graphs_huge(G_gt, G_p,
     # get paths
     # gather all paths from nodes of interest, keep only routes to control nodes
     tt = time.time()
-    if verbose:
-        print("Computing all_pairs_lengths_prop_native...")
+    if _verbose:
+        verbose_print("Computing all_pairs_lengths_prop_native...")
     all_pairs_lengths_prop_native = {}
     for itmp, source in enumerate(rand_nodes_p):
-        if verbose and ((itmp % 50) == 0):
-            print((itmp, "source:", source))
+        if _verbose and ((itmp % 50) == 0):
+            verbose_print((itmp, "source:", source))
         paths_tmp = nx.single_source_dijkstra_path_length(
             G_p_cp, source, weight=weight)
         # delete items
@@ -1432,16 +1398,16 @@ def make_graphs_huge(G_gt, G_p,
             if k not in rand_nodes_p_set:
                 del paths_tmp[k]
         all_pairs_lengths_prop_native[source] = paths_tmp
-    if verbose:
-        print(("Time to compute all source routes for",
+    if _verbose:
+        verbose_print(("Time to compute all source routes for",
                max_nodes, "nodes:", time.time() - tt, "seconds"))
 
     ###############
     # insert gt control points into proposal
-    if verbose:
-        print("Inserting", len(control_points_gt),
+    if _verbose:
+        verbose_print("Inserting", len(control_points_gt),
               "control points into G_p...")
-        print("len G_p.nodes():", len(G_p.nodes()))
+        verbose_print("len G_p.nodes():", len(G_p.nodes()))
     G_p_cp_prime, xn_p, yn_p = insert_control_points(
         G_p.copy(), control_points_gt, max_distance_meters=max_snap_dist,
         allow_renaming=allow_renaming, verbose=super_verbose)
@@ -1452,8 +1418,8 @@ def make_graphs_huge(G_gt, G_p,
 
     ###############
     # now insert control points into ground truth
-    if verbose:
-        print("\nInserting", len(control_points_prop),
+    if _verbose:
+        verbose_print("\nInserting", len(control_points_prop),
               "control points into G_gt...")
     # permit renaming of inserted nodes if coincident with existing node
     G_gt_cp_prime, xn_gt, yn_gt = insert_control_points(
@@ -1469,15 +1435,15 @@ def make_graphs_huge(G_gt, G_p,
     # gt_prime
     tt = time.time()
     all_pairs_lengths_gt_prime = {}
-    if verbose:
-        print("Computing all_pairs_lengths_gt_prime...")
+    if _verbose:
+        verbose_print("Computing all_pairs_lengths_gt_prime...")
     G_gt_cp_prime_nodes_set = set(G_gt_cp_prime.nodes())
     # for source in G_gt_cp_prime_nodes_set:
     #     if source in G_gt_cp_prime_nodes_set:
     #         paths_tmp = nx.single_source_dijkstra_path_length(G_gt_cp_prime, source, weight=weight)
     for itmp, source in enumerate(rand_nodes_p_set):
-        if verbose and ((itmp % 50) == 0):
-            print((itmp, "source:", source))
+        if _verbose and ((itmp % 50) == 0):
+            verbose_print((itmp, "source:", source))
         if source in G_gt_cp_prime_nodes_set:
             paths_tmp = nx.single_source_dijkstra_path_length(
                 G_gt_cp_prime, source, weight=weight)
@@ -1486,22 +1452,22 @@ def make_graphs_huge(G_gt, G_p,
                 if k not in rand_nodes_p_set:
                     del paths_tmp[k]
             all_pairs_lengths_gt_prime[source] = paths_tmp
-    if verbose:
-        print(("Time to compute all source routes for",
+    if _verbose:
+        verbose_print(("Time to compute all source routes for",
                max_nodes, "nodes:", time.time() - tt, "seconds"))
 
     # prop_prime
     tt = time.time()
     all_pairs_lengths_prop_prime = {}
-    if verbose:
-        print("Computing all_pairs_lengths_prop_prime...")
+    if _verbose:
+        verbose_print("Computing all_pairs_lengths_prop_prime...")
     G_p_cp_prime_nodes_set = set(G_p_cp_prime.nodes())
     # for source in G_p_cp_prime_nodes_set:
     #     if source in G_p_cp_prime_nodes_set:
     #         paths_tmp = nx.single_source_dijkstra_path_length(G_p_cp_prime, source, weight=weight)
     for itmp, source in enumerate(rand_nodes_gt_set):
-        if verbose and ((itmp % 50) == 0):
-            print((itmp, "source:", source))
+        if _verbose and ((itmp % 50) == 0):
+            verbose_print((itmp, "source:", source))
         if source in G_p_cp_prime_nodes_set:
             paths_tmp = nx.single_source_dijkstra_path_length(
                 G_p_cp_prime, source, weight=weight)
@@ -1510,8 +1476,8 @@ def make_graphs_huge(G_gt, G_p,
                 if k not in rand_nodes_gt_set:
                     del paths_tmp[k]
             all_pairs_lengths_prop_prime[source] = paths_tmp
-    if verbose:
-        print(("Time to compute all source routes for",
+    if _verbose:
+        verbose_print(("Time to compute all source routes for",
                max_nodes, "nodes:", time.time() - tt, "seconds"))
 
     #all_pairs_lengths_gt_prime = nx.all_pairs_dijkstra_path_length(G_gt_cp_prime, weight=weight)
@@ -1519,7 +1485,7 @@ def make_graphs_huge(G_gt, G_p,
 
     ###############
     tf = time.time()
-    print("Time to run make_graphs_huge in apls.py:", tf - t0, "seconds")
+    verbose_print("Time to run make_graphs_huge in apls.py:", tf - t0, "seconds")
 
     return G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
         control_points_gt, control_points_prop, \
@@ -1612,7 +1578,7 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
     prop_start_nodes_set = set(all_pairs_lengths_prop.keys())
     t0 = time.time()
 
-    print()
+    verbose_print()
     if len(gt_start_nodes_set) == 0:
         return 0, [], [], {}
 
@@ -1622,15 +1588,15 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
     else:
         good_nodes = control_nodes
 
-    if verbose:
-        print("\nComputing path_sim_metric()...")
-        print("good_nodes:", good_nodes)
+    if _verbose:
+        verbose_print("\nComputing path_sim_metric()...")
+        verbose_print("good_nodes:", good_nodes)
 
     # iterate overall start nodes
     # for start_node, paths in all_pairs_lengths.iteritems():
     for start_node in good_nodes:
-        if verbose:
-            print("start node:", start_node)
+        if _verbose:
+            verbose_print("start node:", start_node)
         node_dic_tmp = {}
 
         # if we are not careful with control nodes, it's possible that the
@@ -1639,8 +1605,8 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
         # if the start node is missing from proposal, use maximum diff for
         # all possible routes to that node
         if start_node not in gt_start_nodes_set:
-            print("for ss, node", start_node, "not in set")
-            print("   skipping N paths:", len(
+            verbose_print("for ss, node", start_node, "not in set")
+            verbose_print("   skipping N paths:", len(
                 list(all_pairs_lengths_prop[start_node].keys())))
             for end_node, len_prop in all_pairs_lengths_prop[start_node].items():
                 diffs.append(diff_max)
@@ -1673,8 +1639,8 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
 
             end_nodes_prop_set = set(paths_prop.keys())
             missing_nodes = end_nodes_gt_set - end_nodes_prop_set
-            if verbose:
-                print("missing nodes:", missing_nodes)
+            if _verbose:
+                verbose_print("missing nodes:", missing_nodes)
 
             # iterate over all paths from node
             for end_node in end_nodes_gt_set:
@@ -1695,10 +1661,10 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
                     # length as diff_max
                     len_prop = missing_path_len
 
-                if verbose:
-                    print("end_node:", end_node)
-                    print("   len_gt:", len_gt)
-                    print("   len_prop:", len_prop)
+                if _verbose:
+                    verbose_print("end_node:", end_node)
+                    verbose_print("   len_gt:", len_gt)
+                    verbose_print("   len_prop:", len_prop)
 
                 # compute path difference metric
                 diff = single_path_metric(len_gt, len_prop, diff_max=diff_max)
@@ -1720,7 +1686,7 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
     else:
         C = diff_tot
 
-    print("Time to compute metric (score = ", C, ") for ", len(diffs),
+    verbose_print("Time to compute metric (score = ", C, ") for ", len(diffs),
           "routes:", time.time() - t0, "seconds")
 
     return C, diffs, routes, diff_dic
@@ -1777,17 +1743,17 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
     # return 0 if no paths
     if (len(list(all_pairs_lengths_gt_native.keys())) == 0) \
             or (len(list(all_pairs_lengths_prop_native.keys())) == 0):
-        print("len(all_pairs_lengths_gt_native.keys()) == 0)")
+        verbose_print("len(all_pairs_lengths_gt_native.keys()) == 0)")
         return 0, 0, 0
 
     ####################
     # compute metric (gt to prop)
-    # if verbose:
-    print("Compute metric (gt snapped onto prop)")
+    # if _verbose:
+    verbose_print("Compute metric (gt snapped onto prop)")
     # control_nodes = all_pairs_lengths_gt_native.keys()
     control_nodes = [z[0] for z in control_points_gt]
-    if verbose:
-        print(("control_nodes_gt:", control_nodes))
+    if _verbose:
+        verbose_print(("control_nodes_gt:", control_nodes))
     C_gt_onto_prop, diffs, routes, diff_dic = path_sim_metric(
         all_pairs_lengths_gt_native,
         all_pairs_lengths_prop_prime,
@@ -1796,11 +1762,12 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
         diff_max=1, missing_path_len=-1, normalize=True,
         verbose=super_verbose)
     dt1 = time.time() - t0
-    if verbose:
-        print("len(diffs):", len(diffs))
-        if len(diffs) > 0:
-            print("  max(diffs):", np.max(diffs))
-            print("  min(diffs)", np.min(diffs))
+
+    verbose_print("len(diffs):", len(diffs))
+    if len(diffs) > 0:
+        verbose_print("  max(diffs):", np.max(diffs))
+        verbose_print("  min(diffs)", np.min(diffs))
+
     if len(res_dir) > 0:
         scatter_png = os.path.join(
             res_dir, 'all_pairs_paths_diffs_gt_to_prop.png')
@@ -1821,13 +1788,12 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
 
     ####################
     # compute metric (prop to gt)
-    # if verbose:
-    print("Compute metric (prop snapped onto gt)")
+    # if _verbose:
+    verbose_print("Compute metric (prop snapped onto gt)")
     t1 = time.time()
     # control_nodes = all_pairs_lengths_prop_native.keys()
     control_nodes = [z[0] for z in control_points_prop]
-    if verbose:
-        print("control_nodes:", control_nodes)
+    verbose_print("control_nodes:", control_nodes)
     C_prop_onto_gt, diffs, routes, diff_dic = path_sim_metric(
         all_pairs_lengths_prop_native,
         all_pairs_lengths_gt_prime,
@@ -1836,11 +1802,12 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
         diff_max=1, missing_path_len=-1, normalize=True,
         verbose=super_verbose)
     dt2 = time.time() - t1
-    if verbose:
-        print("len(diffs):", len(diffs))
-        if len(diffs) > 0:
-            print("  max(diffs):", np.max(diffs))
-            print("  min(diffs)", np.min(diffs))
+
+    verbose_print("len(diffs):", len(diffs))
+    if len(diffs) > 0:
+        verbose_print("  max(diffs):", np.max(diffs))
+        verbose_print("  min(diffs)", np.min(diffs))
+
     if len(res_dir) > 0:
         scatter_png = os.path.join(
             res_dir, 'all_pairs_paths_diffs_prop_to_gt.png')
@@ -1861,7 +1828,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
     ####################
     # Total
 
-    print("C_gt_onto_prop, C_prop_onto_gt:", C_gt_onto_prop, C_prop_onto_gt)
+    verbose_print("C_gt_onto_prop, C_prop_onto_gt:", C_gt_onto_prop, C_prop_onto_gt)
     if (C_gt_onto_prop <= 0) or (C_prop_onto_gt <= 0) \
             or (np.isnan(C_gt_onto_prop)) or (np.isnan(C_prop_onto_gt)):
         C_tot = 0
@@ -1869,10 +1836,10 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
         C_tot = scipy.stats.hmean([C_gt_onto_prop, C_prop_onto_gt])
         if np.isnan(C_tot):
             C_tot = 0
-    print("Total APLS Metric = Mean(", np.round(C_gt_onto_prop, 2), "+",
+    verbose_print("Total APLS Metric = Mean(", np.round(C_gt_onto_prop, 2), "+",
           np.round(C_prop_onto_gt, 2),
           ") =", np.round(C_tot, 2))
-    print("Total time to compute metric:", str(dt1 + dt2), "seconds")
+    verbose_print("Total time to compute metric:", str(dt1 + dt2), "seconds")
 
     return C_tot, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
 
@@ -2733,7 +2700,10 @@ def apls_detailed(truth=None, proposed=None):
     return C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
 
 
-def apls(truth=None, proposed=None):
+def apls(truth=None, proposed=None, verbose=False):
+
+    global _verbose
+    _verbose = verbose
 
     results = apls_detailed(truth=truth, proposed=proposed)
 
