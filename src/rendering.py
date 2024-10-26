@@ -338,3 +338,5 @@ def plot_with_weight_without_projection(S, T, max_threshold):
     fig.canvas.flush_events()
     plt.show()
 
+
+def plot_graphs(graphs):

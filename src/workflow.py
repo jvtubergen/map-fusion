@@ -224,3 +224,15 @@ def workflow_construct_coverage_by_threshold(place=None):
     pickle.dump(sat_vs_gps, open("data/coverage/sat_vs_gps.pkl", "wb"))
     pickle.dump(gps_vs_sat, open("data/coverage/gps_vs_sat.pkl", "wb"))
 
+
+def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago", left="gps", right="osm"):
+
+    left_vs_right = pickle.load(open(f"data/coverage/{place}_{left}_vs_{right}.pkl", "rb"))
+    left = read_graph(place="chicago", graphset=links[left])
+    right = read_graph(place="chicago", graphset=links[right])
+
+    for curr in range(10, 100):
+        subleft = subgraph_by_coverage_thresholds(left, left_vs_right, max_threshold=curr)
+        result = apls(truth=graph_prepare_apls(right), proposed=graph_prepare_apls(subleft))
+        print(f"threshold up to {curr}: ", result)
+        # plot_graphs([subleft])

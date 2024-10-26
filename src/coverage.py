@@ -181,3 +181,36 @@ def edge_graph_coverage(S, T, max_threshold=None):
     
     nx.set_edge_attributes(G, thresholds)
     return G
+
+
+# Extract subgraph covered below given threshold (feed in coverage data).
+def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
+
+    edges = []
+    thresholds = []
+    for edge in coverage_data[0].keys():
+        threshold = coverage_data[0][edge]["threshold"]
+        edges.append(edge)
+        thresholds.append(threshold)
+
+    # Set threshold above 100 to inf.
+    for edge in coverage_data[1]:
+        threshold = inf
+        edges.append(edge)
+        thresholds.append(threshold)
+
+    # Transform to array masking to easily filter out thresholds below or above certain value.
+    edges = array(edges)
+    thresholds = array(thresholds)
+    valids = edges[np.where(thresholds <= 10)]
+    invalids = edges[np.where(thresholds > 10)]
+
+    # Extract subgraph on valid edges.
+    valid_edges = set()
+    [valid_edges.add((edge[0], edge[1])) for edge in valids.tolist()]
+    subgraph = graph.edge_subgraph(valid_edges)
+
+    # Extract largest connected component.
+    subgraph = ox.utils_graph.get_largest_component(subgraph.to_directed()).to_undirected()
+
+    return subgraph

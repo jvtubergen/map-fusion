@@ -42,6 +42,7 @@ log  = math.log
 pow  = math.pow
 pi   = math.pi
 sqrt = math.sqrt
+inf  = math.inf
 
 ceil = math.ceil
 floor = math.floor
