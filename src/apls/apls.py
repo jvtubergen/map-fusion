@@ -50,12 +50,13 @@ import sp_metric
 # matplotlib.use('agg')
 
 _verbose = False
+_plot    = False
 
 def verbose_print(*args):
     global _verbose
     if _verbose:
         print(*args)
-
+    
 
 ###############################################################################
 def add_travel_time(G_, speed_key='inferred_speed_mps', length_key='length',
@@ -1768,7 +1769,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
         verbose_print("  max(diffs):", np.max(diffs))
         verbose_print("  min(diffs)", np.min(diffs))
 
-    if len(res_dir) > 0:
+    if _plot:
         scatter_png = os.path.join(
             res_dir, 'all_pairs_paths_diffs_gt_to_prop.png')
         hist_png = os.path.join(
@@ -1808,7 +1809,7 @@ def compute_apls_metric(all_pairs_lengths_gt_native,
         verbose_print("  max(diffs):", np.max(diffs))
         verbose_print("  min(diffs)", np.min(diffs))
 
-    if len(res_dir) > 0:
+    if _plot:
         scatter_png = os.path.join(
             res_dir, 'all_pairs_paths_diffs_prop_to_gt.png')
         hist_png = os.path.join(
@@ -1874,8 +1875,11 @@ def apls_detailed(truth=None, proposed=None):
     allow_renaming=True
     verbose=False
     super_verbose=False
-    res_dir = "apls_results"
 
+    if _plot:
+        res_dir = "apls_results"
+    else:
+        res_dir = ""
 
     if len(truth.nodes()) < 500:  # 2000:
         G_gt_cp, G_p_cp, G_gt_cp_prime, G_p_cp_prime, \
@@ -1918,10 +1922,12 @@ def apls_detailed(truth=None, proposed=None):
     return C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
 
 
-def apls(truth=None, proposed=None, verbose=False):
+def apls(truth=None, proposed=None, verbose=False, plot=False):
 
     global _verbose
+    global _plot
     _verbose = verbose
+    _plot = plot
 
     results = apls_detailed(truth=truth, proposed=proposed)
 
