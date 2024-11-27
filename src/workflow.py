@@ -58,12 +58,11 @@ def workflow_constructing_osm_on_boundaries(roi=None):
     return G
 
 
-# workflow_extract_image_on_roi(place='berlin', margin=50, save=True)
-def workflow_extract_image_on_roi(place=None, margin=0, save=False):
+# workflow_extract_image_on_roi(region=roi['berlin'], margin=50, savefile="berlin")
+def workflow_extract_image_on_roi(region=None, margin=0, savefile=None):
 
-    roi = roi[place]
-    south, west = translate_latlon_by_meters(lat=roi["south"], lon=roi["west"], west=margin, south=margin)
-    north, east = translate_latlon_by_meters(lat=roi["north"], lon=roi["east"], east=margin, north=margin)
+    south, west = translate_latlon_by_meters(lat=region["south"], lon=region["west"], west=margin, south=margin)
+    north, east = translate_latlon_by_meters(lat=region["north"], lon=region["east"], east=margin, north=margin)
 
     lat_reference = 0.5 * south + 0.5 * north  # Reference latitude.
     scale = 2 # Always adhere to scale of 2: results in less requests.
@@ -78,9 +77,9 @@ def workflow_extract_image_on_roi(place=None, margin=0, save=False):
     api_key = gmaps.read_api_key()
     image, coordinates = gmaps.construct_image(west=west, south=south, north=north, east=east, zoom=zoom, scale=scale, api_key=api_key, square=False, verbose=True)
 
-    if save:
-        imagefilename = f"{place}.png"
-        coordinatesfilename = f"{place}_coordinates.pkl"
+    if savefile != None:
+        imagefilename = f"{savefile}.png"
+        coordinatesfilename = f"{savefile}_coordinates.pkl"
         gmaps.write_image(image, imagefilename)
         pickle.dump(coordinates, open(coordinatesfilename, "wb"))
 
@@ -102,6 +101,7 @@ def workflow_render_sat_alongside_truth(place=None):
 
 
 def workflow_render_sat_gps_truth(place=None, gps=True, sat=True, truth=True):
+    print("Render sat, gps, and or truth graph.")
 
     graphs = []
     
@@ -111,16 +111,17 @@ def workflow_render_sat_gps_truth(place=None, gps=True, sat=True, truth=True):
     
     if gps:
         gps = read_graph(place=place, graphset="roadster") 
-        graphs.append((gps, {"color": (0.7,0,0.7,1)})) # gps is purple
+        graphs.append((gps, {"color": (0.7,0.1,0.9,1), "linewidth": 3})) # gps is purple
     
     if truth:
         truth = read_graph(place=place, graphset="openstreetmaps")
-        graphs.append((truth, {"color": (0,0,0,1)})) # truth is black
+        graphs.append((truth, {"color": (0.3,0.3,0.3,1), "linestyle": ":"})) # truth is black
 
     plot_without_projection(graphs, []) 
 
 
 def workflow_inferred_satellite_image_neighborhood_to_graph(place=None): 
+    print("Convert pixelwise neighborhood data to latlon-based graph.")
 
     neighborhood = pickle.load(open(f"data/inferred satellite neighborhoods/{place}.pkl", "rb"))
     pixel_locations = pickle.load(open(f"data/satellite images and the pixel coordinates/{place}.pkl", "rb"))
@@ -137,7 +138,7 @@ def workflow_inferred_satellite_image_neighborhood_to_graph(place=None):
     nid = 1
     for element in neighborhood.keys():
         (y, x) = element # Image pixel offsets.
-        lat, lon = pixel_locations[y // 2][x // 2] # Half x and y coordinate since we use satellite image scale of 2.
+        lat, lon = pixel_locations[y][x] # Half x and y coordinate since we use satellite image scale of 2.
         G.add_node(nid, x=lon, y=lat)
         nids[element] = nid
         nid += 1
@@ -166,6 +167,7 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
 
     return results
 
+
 def workflow_report_apls_and_prime(place=None):
 
     sat_vs_osm = workflow_apply_apls(place=place, truth_graphset="openstreetmaps", proposed_graphset="sat2graph")
@@ -183,6 +185,7 @@ def workflow_report_apls_and_prime(place=None):
     print("sat vs gps:")
     print("APLS : ", sat_vs_gps[0])
     print("APLS+: ", sat_vs_gps[1])
+
 
 ##################################################################################
 def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset=None):
@@ -231,8 +234,80 @@ def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago
     left = read_graph(place="chicago", graphset=links[left])
     right = read_graph(place="chicago", graphset=links[right])
 
-    for curr in range(10, 100):
+    for curr in range(10, 100, 10):
         subleft = subgraph_by_coverage_thresholds(left, left_vs_right, max_threshold=curr)
         result = apls(truth=graph_prepare_apls(right), proposed=graph_prepare_apls(subleft))
         print(f"threshold up to {curr}: ", result)
         # plot_graphs([subleft])
+
+
+# workflow_construct_image_and_pixelcoordinates(place="berlin")
+# workflow_inferred_satellite_image_neighborhood_to_graph(place="berlin")
+# workflow_render_sat_gps_truth(place="berlin", gps=False)
+def workflow_construct_image_and_pixelcoordinates(place=None):
+    print("Constructing image and pixel coordinates.")
+    region = roi[place]
+    latlon0 = array((region['north'], region['west']))
+    latlon1 = array((region['south'], region['east']))
+    lat_reference = (0.5 * (latlon0 + latlon1))[0]  # Reference latitude.
+
+    scale  = 2  # Scale perceptive field of satellite visual cognition part, higher quality/detail.
+    gsd_goal  = 0.5
+    deviation = 0.25
+    zoom = gmaps.derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
+    gsd  = gmaps.compute_gsd(lat_reference, zoom, scale)
+
+    p0 = array(gmaps.latlon_to_pixelcoord(lat=region["north"], lon=region["west"], zoom=zoom))
+    p1 = array(gmaps.latlon_to_pixelcoord(lat=region["south"], lon=region["east"], zoom=zoom))
+
+    p0[0] -= int(100 / scale) 
+    p0[1] -= int(100 / scale)
+    p1[0] += int(100 / scale)
+    p1[1] += int(100 / scale)
+
+    # Ensure multiple of stride.
+    stride     = 88        # Step after each inferrence (half the inferrence window size).
+    height     = p1[0] - p0[0]
+    width      = p1[1] - p0[1]
+    cut_height = height % stride
+    cut_width  = width  % stride
+
+    p0[0] += cut_height // 2 + cut_height % 2
+    p1[0] -= cut_height // 2
+    p0[1] += cut_width  // 2 + cut_width % 2
+    p1[1] -= cut_width  // 2 
+
+    height     = p1[0] - p0[0]
+    width      = p1[1] - p0[1]
+    assert height % stride == 0
+    assert width % stride == 0
+
+    north, west = gmaps.pixelcoord_to_latlon_secure(p0[0], p0[1], zoom)
+    south, east = gmaps.pixelcoord_to_latlon_secure(p1[0], p1[1], zoom)
+
+    # Double check width and height correctness.
+    print("p0:", p0)
+    p0 = array(gmaps.latlon_to_pixelcoord(lat=north, lon=west, zoom=zoom))
+    print("p0:", p0)
+    print("p1:", p1)
+    p1 = array(gmaps.latlon_to_pixelcoord(lat=south, lon=east, zoom=zoom))
+    print("p1:", p1)
+
+    height     = p1[0] - p0[0]
+    width      = p1[1] - p0[1]
+    assert height % stride == 0
+    assert width % stride == 0
+
+    # print("height:", height)
+    # print("width:", width)
+    # return
+
+    api_key = gmaps.read_api_key()
+    image, coordinates = gmaps.construct_image(north=north, south=south, east=east, west=west, scale=2, zoom=zoom, api_key=api_key, verbose=True)
+    # print(image.shape[0], image.shape[1])
+    # print(coordinates.shape)
+    assert(image.shape[0] == coordinates.shape[0])
+    assert(image.shape[1] == coordinates.shape[1])
+
+    gmaps.write_image(image, f"data/satellite images and the pixel coordinates/{place}.png")
+    pickle.dump(coordinates, open(f"data/satellite images and the pixel coordinates/{place}.pkl", "wb"))
