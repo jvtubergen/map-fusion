@@ -205,6 +205,60 @@ def workflow_report_apls_and_prime(place=None):
     print("APLS+: ", sat_vs_gps[1])
 
 
+def workflow_table_basic():
+    t0 = time()
+
+    # Berlin.
+    gps = read_graph(place="berlin", graphset=links["gps"])
+    osm = read_graph(place="berlin", graphset=links["osm"])
+    sat = read_graph(place="berlin", graphset=links["sat"])
+
+    osm = graph_prepare_apls(osm)
+    sat = graph_prepare_apls(sat)
+    gps = graph_prepare_apls(gps)
+
+    result = []
+
+    # Berlin sat.
+    _, _, _, precision, recall, f1 = topo(osm, sat)
+    result.extend([precision, recall, f1])
+    result.append(apls(osm, sat))
+
+    # Berlin gps.
+    _, _, _, precision, recall, f1 = topo(osm, gps)
+    result.extend([precision, recall, f1])
+    result.append(apls(osm, gps))
+
+    # Chicago.
+    gps = read_graph(place="chicago", graphset=links["gps"])
+    osm = read_graph(place="chicago", graphset=links["osm"])
+    sat = read_graph(place="chicago", graphset=links["sat"])
+
+    osm = graph_prepare_apls(osm)
+    sat = graph_prepare_apls(sat)
+    gps = graph_prepare_apls(gps)
+
+    # Chicago sat.
+    _, _, _, precision, recall, f1 = topo(osm, sat)
+    result.extend([precision, recall, f1])
+    result.append(apls(osm, sat))
+
+    # Chicago gps.
+    _, _, _, precision, recall, f1 = topo(osm, gps)
+    result.extend([precision, recall, f1])
+    result.append(apls(osm, gps))
+
+    # Print results.
+    string = ""
+    for i, value in enumerate(result):
+        if i % 4 == 0 and i > 0:
+            string += "\n"
+        string += f"[{value:.3f}],"
+
+    print("Time run:", time() - t0)
+    print(string)
+
+
 ##################################################################################
 def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset=None):
 
