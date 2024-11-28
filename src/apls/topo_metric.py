@@ -693,7 +693,7 @@ def compute_single_topo(G_sub_gt_, G_sub_p_,
 ###############################################################################
 def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
                  n_measurement_nodes=20, x_coord='x', y_coord='y',
-                 allow_multi_hole=False,
+                 allow_multi_hole=False, prime=False,
                  make_plots=False, verbose=False):
     '''Compute topo metric
      subgraph_radius = radius for topo computation
@@ -715,11 +715,27 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
     true_pos_count_l, false_pos_count_l, false_neg_count_l = [], [], []
     # precision_l, recall_l, f1_l = [], [], []
 
-    # make sure we don't pick more nodes than exist in the graph
+    if not prime: # In case of normal we can deal with missing start or end nodes.
+        origin_nodes = G_gt_.nodes()
+    else: # In case of prime, we prefilter origin nodes which have a proposed node nearby.
+        origin_nodes = []
+        
+        for node in G_gt_.nodes():
+
+            n_props = G_gt_.nodes[node]
+            x0, y0 = n_props[x_coord], n_props[y_coord]
+            origin_point = [x0, y0]
+
+            node_names_p, idxs_refine_p, dists_m_refine_p = apls_utils._query_kd_ball(
+                kdtree_p, kd_idx_dic_p, origin_point, hole_size)
+
+            if len(node_names_p) > 0:
+                origin_nodes.append(node)
+    
+    # Make sure we don't pick more nodes than exist in the graph
     n_pick = min(n_measurement_nodes, len(G_gt_.nodes()))
-    # pick a random node  to start
-    origin_nodes = np.random.choice(G_gt_.nodes(), n_pick)
-    # origin_nodes = [10030]
+    # Picking nodes.
+    origin_nodes = np.random.choice(origin_nodes, n_pick)
 
     for i, origin_node in enumerate(origin_nodes):
 

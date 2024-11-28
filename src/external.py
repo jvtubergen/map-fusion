@@ -27,6 +27,7 @@ import subprocess
 # Utils
 from operator import itemgetter
 import traceback
+from time import time
 
 # Shortcuts
 cos  = math.cos
@@ -50,3 +51,7 @@ floor = math.floor
 norm = np.linalg.norm
 array = np.array
 dataframe = gpd.GeoDataFrame
+
+
+# Configurations.
+ox.settings.log_console = True # Log debug actions of OSMnx to stdout.

@@ -350,7 +350,7 @@ def annotate_edge_curvature_as_array(G):
             # print(list(linestring.coords))
             # Flip lonlat to latlon.
             ps = np.array([(lat,lon) for (lon, lat) in list(linestring.coords)])
-            assert len(ps) >= 3 # We expect at least one point in between start and end node.
+            # assert len(ps) >= 3 # We expect at least one point in between start and end node.
             edge_attrs[(a, b, k)] = {"curvature": ps}
     
     nx.set_edge_attributes(G, edge_attrs)
@@ -740,3 +740,28 @@ def graph_utm_info(G):
     lat, lon = node['y'], node['x']
     _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
     return {"zone_number": zone_number, "zone_letter": zone_letter}
+
+
+#######################################
+### Task specific graph preprocessing
+#######################################
+
+# Preparing graph for APLS usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
+def graph_prepare_apls(G):
+    G = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(G)))
+    G = graph_annotate_edge_length(G)
+    G = graph_add_geometry_to_straight_edges(G) # Add geometry for straight line segments (edges with no curvature).
+    # G.graph['crs'] = "EPSG:4326" # Set EPSG might be necessary for plotting results within APLS logic.
+    return G
+
+
+# Preparing graph for TOPO usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
+def graph_prepare_topo(graph):
+    t0 = time()
+    graph = simplify_graph(graph)
+    graph = graph.to_directed(graph)
+    graph = nx.MultiGraph(graph)
+    graph = graph_add_geometry_to_straight_edges(graph)
+    graph = graph_annotate_edge_length(graph)
+    verbose_print(f"Simplified graph in {int(time() - t0)} seconds.")
+    return graph

@@ -168,6 +168,24 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
     return results
 
 
+# results = workflow_apply_topo(place="chicago", truth_graphset="openstreetmaps", proposed_graphset="roadster")
+def workflow_apply_topo(place=None, truth_graphset=None, proposed_graphset=None):
+
+    truth = read_graph(place=place, graphset=truth_graphset)
+    proposed = read_graph(place=place, graphset=proposed_graphset)
+    result = topo(graph_prepare_apls(truth), graph_prepare_apls(proposed))
+    # tp, fp, fn, precision, recall, f1 = result
+    return result
+
+
+def workflow_apply_topo_prime():
+    truth = read_graph(place=place, graphset=truth_graphset)
+    proposed = read_graph(place=place, graphset=proposed_graphset)
+    result = topo_prime(graph_prepare_apls(truth), graph_prepare_apls(proposed))
+    # tp, fp, fn, precision, recall, f1 = result
+    return result
+
+
 def workflow_report_apls_and_prime(place=None):
 
     sat_vs_osm = workflow_apply_apls(place=place, truth_graphset="openstreetmaps", proposed_graphset="sat2graph")
