@@ -332,7 +332,7 @@ def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago
 # workflow_construct_image_and_pixelcoordinates(place="berlin")
 # workflow_inferred_satellite_image_neighborhood_to_graph(place="berlin")
 # workflow_render_sat_gps_truth(place="berlin", gps=False)
-def workflow_construct_image_and_pixelcoordinates(place=None):
+def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, deviation=0.2):
     print("Constructing image and pixel coordinates.")
     region = roi[place]
     latlon0 = array((region['north'], region['west']))
@@ -340,8 +340,6 @@ def workflow_construct_image_and_pixelcoordinates(place=None):
     lat_reference = (0.5 * (latlon0 + latlon1))[0]  # Reference latitude.
 
     scale  = 2  # Scale perceptive field of satellite visual cognition part, higher quality/detail.
-    gsd_goal  = 0.5
-    deviation = 0.25
     zoom = gmaps.derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
     gsd  = gmaps.compute_gsd(lat_reference, zoom, scale)
 
