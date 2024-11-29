@@ -224,10 +224,18 @@ def workflow_table_basic():
     result.extend([precision, recall, f1])
     result.append(apls(osm, sat))
 
+    _, _, _, precision, recall, f1 = topo_prime(osm, sat)
+    result.extend([precision, recall, f1])
+    result.append(apls_prime(osm, sat))
+
     # Berlin gps.
     _, _, _, precision, recall, f1 = topo(osm, gps)
     result.extend([precision, recall, f1])
     result.append(apls(osm, gps))
+
+    _, _, _, precision, recall, f1 = topo_prime(osm, gps)
+    result.extend([precision, recall, f1])
+    result.append(apls_prime(osm, gps))
 
     # Chicago.
     gps = read_graph(place="chicago", graphset=links["gps"])
@@ -242,16 +250,24 @@ def workflow_table_basic():
     _, _, _, precision, recall, f1 = topo(osm, sat)
     result.extend([precision, recall, f1])
     result.append(apls(osm, sat))
+    
+    _, _, _, precision, recall, f1 = topo_prime(osm, sat)
+    result.extend([precision, recall, f1])
+    result.append(apls_prime(osm, sat))
 
     # Chicago gps.
     _, _, _, precision, recall, f1 = topo(osm, gps)
     result.extend([precision, recall, f1])
     result.append(apls(osm, gps))
 
+    _, _, _, precision, recall, f1 = topo_prime(osm, gps)
+    result.extend([precision, recall, f1])
+    result.append(apls_prime(osm, gps))
+
     # Print results.
     string = ""
     for i, value in enumerate(result):
-        if i % 4 == 0 and i > 0:
+        if i % 8 == 0 and i > 0:
             string += "\n"
         string += f"[{value:.3f}],"
 
