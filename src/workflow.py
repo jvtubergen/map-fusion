@@ -394,6 +394,34 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
     # print(coordinates.shape)
     assert(image.shape[0] == coordinates.shape[0])
     assert(image.shape[1] == coordinates.shape[1])
+    assert(image.shape[0] % stride == 0)
+    assert(image.shape[1] % stride == 0)
 
     gmaps.write_image(image, f"data/satellite images and the pixel coordinates/{place}.png")
     pickle.dump(coordinates, open(f"data/satellite images and the pixel coordinates/{place}.pkl", "wb"))
+
+
+
+# Generating network variants (Benchmarking your algorithms).
+# Variants:
+# * a. Coverage of sat edges by gps.
+# * b. Extend sat with gps edges algorithm 1.
+# * c. Extend sat with gps edges algorithm 2.
+# * d. Extend sat with gps edges algorithm 3.
+def workflow_network_variants(place=None):
+    sat = read_graph(place=place, graphset=links["sat"])
+    gps = read_graph(place=place, graphset=links["gps"])
+    osm = read_graph(place=place, graphset=links["osm"])
+
+    # Intersection.
+    # * Start with satellite graph and per edge check coverage by GPS.
+    sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+    pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
+    sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
+    graph_intersect = prune_coverage_graph(sat_vs_gps, prune_threshold=20)
+
+    # Write graph.
+    write_graph(graph_intersect, place=place, graphset="intersection")
+
+    # Plot graph.
+    plot_graphs([simplify_graph(graph_intersect)])

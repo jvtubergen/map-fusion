@@ -119,6 +119,39 @@ def edge_wise_coverage_threshold(S, T, max_threshold=None):
     return edge_results, edges_todo
 
 
+# Extract subgraph covered below given threshold (feed in coverage data).
+def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
+
+    edges = []
+    thresholds = []
+    for edge in coverage_data[0].keys():
+        threshold = coverage_data[0][edge]["threshold"]
+        edges.append(edge)
+        thresholds.append(threshold)
+
+    # Set threshold above 100 to inf.
+    for edge in coverage_data[1]:
+        threshold = inf
+        edges.append(edge)
+        thresholds.append(threshold)
+
+    # Transform to array masking to easily filter out thresholds below or above certain value.
+    edges = array(edges)
+    thresholds = array(thresholds)
+    valids = edges[np.where(thresholds <= max_threshold)]
+    invalids = edges[np.where(thresholds > max_threshold)]
+
+    # Extract subgraph on valid edges.
+    valid_edges = set()
+    [valid_edges.add((edge[0], edge[1])) for edge in valids.tolist()]
+    subgraph = graph.edge_subgraph(valid_edges)
+
+    # Extract largest connected component.
+    subgraph = ox.utils_graph.get_largest_component(subgraph.to_directed()).to_undirected()
+
+    return subgraph
+
+
 # Obtain threshold per simplified edge of S.
 def edge_graph_coverage(S, T, max_threshold=None):
     assert type(S) == nx.Graph
@@ -177,40 +210,23 @@ def edge_graph_coverage(S, T, max_threshold=None):
         lam += 1 # Increment lambda
     
     for uv in leftS:
-        thresholds[uv] = {"threshold": None}
+        thresholds[uv] = {"threshold": inf}
     
     nx.set_edge_attributes(G, thresholds)
+    G.graph['max_threshold'] = max_threshold
     return G
 
 
-# Extract subgraph covered below given threshold (feed in coverage data).
-def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
+# Prune graph with threshold-annotated edges.
+def prune_coverage_graph(G, prune_threshold=10):
+    assert G.graph['max_threshold'] > 0 # Make sure thresholds are set.
+    assert prune_threshold <= G.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
 
-    edges = []
-    thresholds = []
-    for edge in coverage_data[0].keys():
-        threshold = coverage_data[0][edge]["threshold"]
-        edges.append(edge)
-        thresholds.append(threshold)
-
-    # Set threshold above 100 to inf.
-    for edge in coverage_data[1]:
-        threshold = inf
-        edges.append(edge)
-        thresholds.append(threshold)
-
-    # Transform to array masking to easily filter out thresholds below or above certain value.
-    edges = array(edges)
-    thresholds = array(thresholds)
-    valids = edges[np.where(thresholds <= 10)]
-    invalids = edges[np.where(thresholds > 10)]
-
-    # Extract subgraph on valid edges.
-    valid_edges = set()
-    [valid_edges.add((edge[0], edge[1])) for edge in valids.tolist()]
-    subgraph = graph.edge_subgraph(valid_edges)
-
-    # Extract largest connected component.
-    subgraph = ox.utils_graph.get_largest_component(subgraph.to_directed()).to_undirected()
-
-    return subgraph
+    retain = []
+    for (a, b, attrs) in G.edges(data=True):
+        # Iterate each edge and drop it if its threshold exceeds prune_threshold.
+        if attrs["threshold"] <= prune_threshold:
+            # Retain edge
+            retain.append((a, b))
+    G = G.edge_subgraph(retain)
+    return G

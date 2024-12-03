@@ -340,3 +340,4 @@ def plot_with_weight_without_projection(S, T, max_threshold):
 
 
 def plot_graphs(graphs):
+    plot_without_projection(graphs, [])

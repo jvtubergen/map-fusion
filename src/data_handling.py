@@ -2,12 +2,11 @@ from external import *
 from coordinates import *
 
 # Valid graph sets to work with. GPS: Roadster, Sat: Sat2Graph, Truth: OpenStreetMaps. Extend with techniques as you see fit.
-graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction"]
+graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merging_A", "merging_B", "merging_C"]
 places    = ["athens", "berlin", "chicago"]
 
 
 ### Reading graph information.
-
 
 def get_graph_path(graphset=None, place=None):
     assert graphset in graphsets
@@ -22,7 +21,6 @@ def get_graph_path(graphset=None, place=None):
 def read_graph(graphset=None, place=None, use_utm=False):
 
     folder = get_graph_path(graphset=graphset, place=place)
-
     edges_file_path    = folder + "/edges.txt"
     vertices_file_path = folder + "/vertices.txt"
 
@@ -61,11 +59,12 @@ def read_graph(graphset=None, place=None, use_utm=False):
 def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
     assert graphset in graphsets
     assert place in places
-    graph_path = folder = get_graph_path(graphset=graphset, place=place)
+    graph_path = get_graph_path(graphset=graphset, place=place)
     if Path(graph_path).exists() and not overwrite:
         raise Exception(f"Did not save graph: Not allowed to overwrite existing file at {graph_path}.")
     if not Path(graph_path).exists():
-        os.mkdir(graph_path)
+        path = Path(graph_path)
+        path.mkdir(parents=True)
     # Expect a vectorized undirected graph.
     assert type(G) == nx.Graph
     assert not G.graph.get("simplified")
