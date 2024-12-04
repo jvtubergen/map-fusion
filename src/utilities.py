@@ -91,6 +91,72 @@ def curve_cut(ps, percentage):
             return (left, right)
         current = upcoming
 
+# Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
+def curve_cut_pieces(ps, amount=10):
+
+    assert len(ps) >= 2
+    steps = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
+    length = sum(steps)
+    assert length > 0 # Expect non-zero length.
+
+    qss = []
+    percentage = 1. / amount
+    current_step = 0
+    current_interval = 0 # Interval element to obtain (skips the startpoint).
+    current_distance = 0
+    current_subcurve = [ps[0]]
+    while True:
+        target_length = (current_interval + 1) * percentage * length # Distance at which next cut has to be made.
+        next_distance = current_distance + steps[current_step] # Distance we are at after walking the current line segment.
+        if abs(target_length - next_distance) < 0.0001: # Cutpoint lies on curvature vertex.
+            # Add curvature vertex to current subcurve.
+            current_subcurve.append(ps[current_step + 1])
+            qss.append(current_subcurve) # Commit subcurve.
+            if len(qss) == amount:
+                return array(qss)
+            # Reset for next subcurve.
+            current_subcurve = [ps[current_step + 1]]
+            current_interval += 1
+            # Move to next line segment.
+            current_distance = next_distance
+            current_step += 1
+        elif target_length < next_distance: # Next cutpoint lies in current linesegment. 
+            # Find cutpoint in line segment.
+            segment_percentage = (target_length - current_distance) / steps[current_step]
+            p = segment_percentage * ps[current_step + 1] + (1 - segment_percentage) * ps[current_step]
+            # Add point to current subcurve.
+            current_subcurve.append(p)
+            qss.append(current_subcurve) # Commit subcurve.
+            # Reset for next subcurve.
+            current_subcurve = [p]
+            current_interval += 1
+        elif next_distance < target_length: # Next cutpoint lies beyond current linesegment. 
+            # Add curvature vertex to current subcurve.
+            current_subcurve.append(ps[current_step + 1])
+            # Move to next line segment.
+            current_distance = next_distance
+            current_step += 1
+
+# Test curve cutting into pieces (basic test).
+def test_curve_cut_pieces():
+    curve = array([(0., i) for i in range(11)])
+    qss = curve_cut_pieces(curve, amount=10)
+    assert len(qss) == 10
+    assert all([abs(curve_length(qs) - 1) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=5)
+    assert len(qss) == 5
+    assert all([abs(curve_length(qs) - 2) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=2)
+    assert len(qss) == 2
+    assert all([abs(curve_length(qs) - 5) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=3)
+    assert len(qss) == 3
+    assert all([abs(curve_length(qs) - 3.333333) < 0.0001 for qs in qss])
+
+
 # Cut curve in half.
 curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
 
