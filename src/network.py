@@ -438,6 +438,64 @@ def multi_edge_conserving(G):
     return G
 
 
+# Split each edge into `amount` equidistant pieces.
+def graph_split_edges(G, amount=10):
+
+    assert type(G) == nx.Graph
+    assert not G.graph.get("simplified") # Vectorized.
+    G = G.copy() # Transform to local coordinate system.
+    G = graph_transform_latlon_to_utm(G)
+    G = simplify_graph(G)
+
+    nid = max(G.nodes()) + 1
+
+    edges_to_add = [] # Store edges to insert afterwards (otherwise we have edge iteration change issue).
+    nodes_to_add = [] # Same for nodes.
+    edges_to_delete = []
+    
+    for edge in G.edges(data=True):
+        (a, b, attrs) = edge
+        print(edge)
+        try:
+            ps = path_nodes_to_curve(G, [a, b]) # Convert edge to curve.
+        except Exception as e:
+            print(e)
+        qss = curve_cut_pieces(ps, amount=10) # Cut into 10 pieces. (Which results in 11 nodes.)
+        edges_to_delete.append((a, b)) # Delete original edge.
+        # G.remove_edge(a, b) # Delete original edge.
+
+        # Insert new edges (thus nodes, then edge with curvature).
+        for i, qs in enumerate(qss):
+            if i != len(qss) - 1: # Final segment already both nodes there.
+                # Add node.
+                q = qs[-1] 
+                nodes_to_add.append((nid, {"x": q[0], "y": q[1]})) # HELP: which is x and y coordinate? (And are we in UTM or latlon?..) I switched it, thereby has become consistent with other existing nodes..
+                # G.add_node(nid, **{"x": q[1], "y": q[0]}) 
+
+            curvature = qs
+            geometry = to_linestring(curvature)
+
+            # Add edge.
+            if i == 0:
+                edges_to_add.append((a, nid, {"geometry": geometry, "curvature": curvature}))
+                # G.add_edge(a, nid, **{"geometry": geometry, "curvature": curvature})
+            elif i == len(qss) - 1:
+                edges_to_add.append((nid, b, {"geometry": geometry, "curvature": curvature}))
+                # G.add_edge(nid, b, **{"geometry": geometry, "curvature": curvature})
+            else:
+                edges_to_add.append((nid - 1, nid, {"geometry": geometry, "curvature": curvature}))
+                # G.add_edge(nid - 1, nid, **{"geometry": geometry, "curvature": curvature})
+
+            # Increment node identifier for next step.
+            nid += 1
+    
+    G.remove_edges_from(edges_to_delete)
+    G.add_nodes_from(nodes_to_add)
+    G.add_edges_from(edges_to_add)
+
+    return G    
+
+
 ###################################
 ###  Deduplication functionality
 ###################################

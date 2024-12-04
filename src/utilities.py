@@ -113,7 +113,7 @@ def curve_cut_pieces(ps, amount=10):
             current_subcurve.append(ps[current_step + 1])
             qss.append(current_subcurve) # Commit subcurve.
             if len(qss) == amount:
-                return array(qss)
+                return qss # We cannot return a numpy array since subcurves point sequence length is inhomogeneous (can differ from one nother.)
             # Reset for next subcurve.
             current_subcurve = [ps[current_step + 1]]
             current_interval += 1

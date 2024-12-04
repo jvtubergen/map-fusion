@@ -409,13 +409,13 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
 # * c. Extend sat with gps edges algorithm 2.
 # * d. Extend sat with gps edges algorithm 3.
 def workflow_network_variants(place=None):
-    plot = True
+    plot = False
 
     sat = read_graph(place=place, graphset=links["sat"])
     gps = read_graph(place=place, graphset=links["gps"])
     osm = read_graph(place=place, graphset=links["osm"])
 
-    # # Intersection.
+    #### Intersection.
     # # * Start with satellite graph and per edge check coverage by GPS.
     try:
         sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
@@ -423,7 +423,7 @@ def workflow_network_variants(place=None):
         sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=50) # Filters out dangling nodes (not dangling edges).
         pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
 
-    intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=20)
+    intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=20) # Extract edges of sat which are covered by gps.
 
     # # Write graph.
     try:
@@ -435,7 +435,7 @@ def workflow_network_variants(place=None):
     if plot:
         plot_graphs([simplify_graph(intersection)])
 
-    # Naive merging.
+    #### Naive merging.
     # * We pick the edges from gps vs sat.
     try:
         gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
@@ -450,8 +450,10 @@ def workflow_network_variants(place=None):
         pickle.dump(gps_vs_intersection, open("gps_vs_intersection.pkl", "wb"))
 
     # * Each edge which has a threshold above 20m is inserted into sat.
-    pruned = prune_coverage_graph(gps_vs_sat, prune_threshold=20, invert=True)
-    merge_a = merge_graphs(sat, pruned)
+    # pruned = prune_coverage_graph(gps_vs_sat, prune_threshold=20, invert=True)
+    # merge_a = merge_graphs(sat, pruned)
+    pruned = prune_coverage_graph(gps_vs_intersection, prune_threshold=20, invert=True)
+    merge_a = merge_graphs(intersection, pruned)
     try:
         write_graph(merge_a, place=place, graphset="merge_A")
     except Exception as e:
@@ -459,4 +461,25 @@ def workflow_network_variants(place=None):
         
     if plot:
         plot_graphs([simplify_graph(merge_a)])
+
+    #### Splitpoint merging.
+    merge_b = None
+
+    # * Split each edge of gps into 10 small pieces.
+    gps_splitted = graph_split_edges(gps, amount=10)
+    splitted_vs_intersection = edge_graph_coverage(gps_splitted, intersection, max_threshold=20, expect_simplified=False)
+    pruned = prune_coverage_graph(splitted_vs_intersection, prune_threshold=20, invert=True)
+    merge_b = merge_graphs(intersection, pruned)
+    breakpoint()
+
+    plot_graphs(gps_splitted)
+    # * Insert each missing piece.
+
+    try:
+        write_graph(merge_b, place=place, graphset="merge_B")
+    except Exception as e:
+        print(e)
+        
+    if plot:
+        plot_graphs([simplify_graph(merge_b)])
     
