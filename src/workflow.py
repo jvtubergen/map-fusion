@@ -409,19 +409,54 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
 # * c. Extend sat with gps edges algorithm 2.
 # * d. Extend sat with gps edges algorithm 3.
 def workflow_network_variants(place=None):
+    plot = True
+
     sat = read_graph(place=place, graphset=links["sat"])
     gps = read_graph(place=place, graphset=links["gps"])
     osm = read_graph(place=place, graphset=links["osm"])
 
-    # Intersection.
-    # * Start with satellite graph and per edge check coverage by GPS.
-    sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=50) # Filters out dangling nodes (not dangling edges).
-    pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
-    sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
-    graph_intersect = prune_coverage_graph(sat_vs_gps, prune_threshold=20)
+    # # Intersection.
+    # # * Start with satellite graph and per edge check coverage by GPS.
+    try:
+        sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
+    except:
+        sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+        pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
 
-    # Write graph.
-    write_graph(graph_intersect, place=place, graphset="intersection")
+    intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=20)
 
-    # Plot graph.
-    plot_graphs([simplify_graph(graph_intersect)])
+    # # Write graph.
+    try:
+        write_graph(intersection, place=place, graphset="intersection")
+    except Exception as e:
+        print(e)
+
+    # # Plot graph.
+    if plot:
+        plot_graphs([simplify_graph(intersection)])
+
+    # Naive merging.
+    # * We pick the edges from gps vs sat.
+    try:
+        gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
+    except Exception as e:
+        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+        pickle.dump(gps_vs_sat, open("gps_vs_sat.pkl", "wb"))
+
+    try:
+        gps_vs_intersection = pickle.load(open("gps_vs_intersection.pkl", "rb"))
+    except Exception as e:
+        gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+        pickle.dump(gps_vs_intersection, open("gps_vs_intersection.pkl", "wb"))
+
+    # * Each edge which has a threshold above 20m is inserted into sat.
+    pruned = prune_coverage_graph(gps_vs_sat, prune_threshold=20, invert=True)
+    merge_a = merge_graphs(sat, pruned)
+    try:
+        write_graph(merge_a, place=place, graphset="merge_A")
+    except Exception as e:
+        print(e)
+        
+    if plot:
+        plot_graphs([simplify_graph(merge_a)])
+    

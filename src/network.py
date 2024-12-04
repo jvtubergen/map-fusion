@@ -185,15 +185,6 @@ def graph_annotate_edge_length(G):
     return G
 
 
-# Preparing graph for APLS usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
-def graph_prepare_apls(G):
-    G = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(G)))
-    G = graph_annotate_edge_length(G)
-    G = graph_add_geometry_to_straight_edges(G) # Add geometry for straight line segments (edges with no curvature).
-    # G.graph['crs'] = "EPSG:4326" # Set EPSG might be necessary for plotting results within APLS logic.
-    return G
-
-
 ###############################################
 ###  Graph vectorization and simplification ###
 ###############################################
@@ -639,6 +630,63 @@ def cut_out_ROI(G, p1, p2):
     
     # Filtering out nodes in ROI.
     return G.subgraph(to_keep)
+
+
+# Merge two networks by adding edges from additional into current. 
+# (Strategy is a dummy parameter at this moment.)
+def merge_graphs(current, additional, strategy="nearest_node"):
+
+    # strategy nearest_node is the default.
+    current = current.copy()
+
+    strategies = [
+        "nearest_node",
+        "nearest_edge"
+    ]
+
+    if strategy == "nearest_node":
+
+        # * Construct rtree on nodes in current.
+        nodetree = graphnodes_to_rtree(current)
+
+        # Relabel additional to prevent node id overlap.
+        nid=max(current.nodes())+1
+        relabel_mapping = {}
+        for nidH in additional.nodes():
+            relabel_mapping[nidH] = nid
+            nid += 1
+        additional = nx.relabel_nodes(additional, relabel_mapping)
+
+        # Iterate edges of additional.
+        # Place each edge into current.
+        for edge in additional.edges(data=True):
+            (a, b, attrs) = edge
+
+            x, y = additional._node[a]['x'], additional._node[a]['y']
+            node_a = (x, y, x, y)
+
+            x, y = additional._node[b]['x'], additional._node[b]['y']
+            node_b = (x, y, x, y)
+
+            # Add node_a and node_b to graph.
+            current.add_node(a, **additional._node[a])
+            current.add_node(b, **additional._node[b])
+            current.add_edge(a, b) # And draw edge between them.
+
+            # Draw edge to nearest node.
+            hit = list(nodetree.nearest(node_a))[0] # Seek nearest node.
+            current.add_edge(hit, a)
+            hit = list(nodetree.nearest(node_b))[0] # Seek nearest node.
+            current.add_edge(hit, b)
+
+
+    elif strategy == "nearest_edge":
+        raise Exception("todo.")
+    
+    else:
+        raise Exception(f"Invalid merging strategy '{strategy}'.")
+    
+    return current
 
 
 #######################################
