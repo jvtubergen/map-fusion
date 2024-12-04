@@ -679,6 +679,9 @@ def merge_graphs(current, additional, strategy="nearest_node"):
             hit = list(nodetree.nearest(node_b))[0] # Seek nearest node.
             current.add_edge(hit, b)
 
+            # Insert just added edge endpoints for finding nearest neighbor (for subsequent iterations).
+            nodetree.insert(a, node_a)
+            nodetree.insert(b, node_b)
 
     elif strategy == "nearest_edge":
         raise Exception("todo.")
