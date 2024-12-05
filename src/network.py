@@ -794,6 +794,7 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
 def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
     G = G.copy()
+    assert G.graph["coordinates"] == "utm"
 
     if letter == None or number == None:
         letter, number = zone_letters[place], zone_numbers[place]
@@ -810,6 +811,7 @@ def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
     nx.set_node_attributes(G, relabel_mapping)
 
+    G.graph["coordinates"] = "latlon"
     return G
 
 
@@ -817,6 +819,7 @@ def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 def graph_transform_latlon_to_utm(G):
 
     G = G.copy()
+    assert G.graph["coordinates"] == "latlon"
 
     def transformer(row): 
         lat, lon = row["y"], row["x"]
@@ -828,6 +831,7 @@ def graph_transform_latlon_to_utm(G):
         relabel_mapping[nid] = transformer(data)
 
     nx.set_node_attributes(G, relabel_mapping)
+    G.graph["coordinates"] == "utm"
     return G
 
 
