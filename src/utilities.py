@@ -91,6 +91,9 @@ def curve_cut(ps, percentage):
             return (left, right)
         current = upcoming
 
+# Cut curve in half.
+curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
+
 # Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
 def curve_cut_pieces(ps, amount=10):
 
@@ -156,9 +159,51 @@ def test_curve_cut_pieces():
     assert len(qss) == 3
     assert all([abs(curve_length(qs) - 3.333333) < 0.0001 for qs in qss])
 
+# Insert vertices in curve in such that that maximal distance between vertices is lower than `max_distance`.
+def curve_insert_vertices_max_distance(ps, max_distance=10):
+    assert len(ps) >= 2
+    steps = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
+    length = sum(steps)
+    assert length > 0 # Expect non-zero length.
 
-# Cut curve in half.
-curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
+    qs = []
+    for i in range(len(steps)):
+        qs.append(ps[i])
+        step_length = norm(ps[i+1] - ps[i])
+        if step_length > max_distance + 0.0001: # Inject nodes.
+            amount, _ = divmod(step_length, max_distance + 0.0001)
+            amount = int(amount)
+            for j in range(amount):
+                percentage = ((j + 1) / (amount + 1))
+                p = percentage * ps[i + 1] + (1 - percentage) * ps[i]
+                qs.append(p)
+
+    qs.append(ps[-1])
+
+    return array(qs)
+
+# Test (basic test).
+def test_curve_insert_vertices_max_distance():
+
+    # Within range.
+    curve = array([(0., i) for i in range(11)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=10)
+    assert len(qs) == len(curve)
+    assert (curve == qs).all()
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+
+    # Double range.
+    curve = array([(0., 2*i) for i in range(11)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
+    assert len(qs) - 1 == 2 * (len(curve) - 1)
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
+
+    # Incomplete.
+    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
 
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
