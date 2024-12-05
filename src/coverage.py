@@ -7,8 +7,8 @@ from network import *
 # Convert 2d numpy array into a list of Vectors used by the partial curve matching algorithm.
 def curve_to_vector_list(ps):
     result = []
-    for [x,y] in ps:
-        result.append(Vector(x,y))
+    for [y, x] in ps:
+        result.append(Vector(y, x))
     return result
 
 
@@ -21,7 +21,7 @@ def graph_to_rust_graph(G):
     def extract_nodes_list(G):
         l = []
         for nid, data in G.nodes(data = True):
-            l.append((nid, Vector(data['x'], data['y'])))
+            l.append((nid, Vector(data['y'], data['x'])))
         return l
 
     # Extract vertices as Vec<(NID, Vector)>.

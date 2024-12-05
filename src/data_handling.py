@@ -35,10 +35,10 @@ def read_graph(graphset=None, place=None, use_utm=False):
     for node in vertices_df.iterrows():
         if use_utm:
             i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
-            G.add_node(int(i), x=x, y=y)
+            G.add_node(int(i), y=y, x=x)
         else:
             i, lat, lon = itemgetter('id', 'lat', 'lon')(node[1]) 
-            G.add_node(int(i), x=lon, y=lat)
+            G.add_node(int(i), y=lat, x=lon)
 
     for edge in edges_df.iterrows():
         u, v = itemgetter('u', 'v')(edge[1]) 
@@ -48,6 +48,7 @@ def read_graph(graphset=None, place=None, use_utm=False):
     # G = ox.simplify_graph(G)
     # G.graph['crs'] = "EPSG:4326"
     # Generate undirected, vectorized graph.
+    G.graph["coordinates"] = "latlon"
     return G
 
 
@@ -73,6 +74,7 @@ def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
     vertices = pd.DataFrame.from_records(list(vertices), columns=['id', 'attrs'])
     vertices = pd.concat([vertices[['id']], vertices['attrs'].apply(pd.Series)], axis=1)
     if use_utm:
+        raise Exception("Should only store latlon graphs to prevent data issues.")
         vertices.to_csv(f"{graph_path}/vertices.txt", index=False, columns=["id", "x", "y"])    
     else:
         vertices = vertices.rename(columns={"x": "lon", "y": "lat"})

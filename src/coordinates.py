@@ -35,11 +35,11 @@ zone_letters = {
 
 # Convert a local coordinate into a latlon.
 def coord_to_latlon_by_place(coordinate, place):
+    y, x = coordinate
     zone_number = zone_numbers[place]
     zone_letter = zone_letters[place]
     
     _, _, zone_number, zone_letter = utm.conversion.from_latlon(*centrums[place])
-    x, y = coordinate
     latlon = utm.conversion.to_latlon(x, y, zone_number, zone_letter=zone_letter)
     return latlon
 
@@ -47,7 +47,7 @@ def coord_to_latlon_by_place(coordinate, place):
 def latlon_to_coord(latlon):
     lat, lon = latlon
     x, y, _, _ = utm.conversion.from_latlon(lat, lon)
-    return (x, y)
+    return (y, x)
 
 # Update latlon by translating it in meters (uses UTM projection for this).
 def translate_latlon_by_meters(lat=None, lon=None, west=None, north=None, east=None, south=None):

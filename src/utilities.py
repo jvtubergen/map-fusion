@@ -13,11 +13,11 @@ def graphedges_to_rtree(G):
         elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
 
     for (eid, curvature) in elements:
-            minx = min(curvature[:,0])
-            maxx = max(curvature[:,0])
-            miny = min(curvature[:,1])
-            maxy = max(curvature[:,1])
-            edgetree.insert(eid, (minx, miny, maxx, maxy))
+            miny = min(curvature[:,0])
+            maxy = max(curvature[:,0])
+            minx = min(curvature[:,1])
+            maxx = max(curvature[:,1])
+            edgetree.insert(eid, (miny, minx, maxy, maxx))
     
     return edgetree
 
@@ -25,8 +25,8 @@ def graphedges_to_rtree(G):
 def graphnodes_to_rtree(G):
     idx = rtree.index.Index()
     for node, data in G.nodes(data = True):
-        x, y = data['x'], data['y']
-        idx.insert(node, (x, y, x, y))
+        y, x = data['y'], data['x']
+        idx.insert(node, (y, x, y, x))
     return idx
 
 
@@ -43,11 +43,11 @@ def graphedges_to_bboxs(G):
         elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
     
     for (eid, curvature) in elements:
-        minx = min(curvature[:,0])
-        maxx = max(curvature[:,0])
-        miny = min(curvature[:,1])
-        maxy = max(curvature[:,1])
-        bbox = array([(minx, miny), (maxx, maxy)])
+        miny = min(curvature[:,0])
+        maxy = max(curvature[:,0])
+        minx = min(curvature[:,1])
+        maxx = max(curvature[:,1])
+        bbox = array([(miny, minx), (maxy, maxx)])
         bboxs[eid] = bbox
 
     return bboxs
@@ -168,4 +168,4 @@ def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
 
 ### Linestrings
 
-to_linestring = lambda ps: LineString([Point(x, y) for x, y in ps])
+to_linestring = lambda ps: LineString([Point(y, x) for y, x in ps])

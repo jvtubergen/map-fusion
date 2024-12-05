@@ -276,7 +276,7 @@ def edge_curvature(G, u, v, k = None):
     if not "geometry" in data:
         p1 = G.nodes()[u]
         p2 = G.nodes()[v]
-        ps = array([(p1["x"], p1["y"]), (p2["x"], p2["y"])])
+        ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
         return ps
     else:
         linestring = data["geometry"]
@@ -290,14 +290,14 @@ def path_nodes_to_curve(G, path):
     assert G.graph["simplified"]
     assert type(G) == nx.Graph # We reconstruct edges out of node pairs, if G would be a MultiGraph then information is lost.
     assert len(path) >= 2
-    qs = array([(G.nodes()[path[0]]["x"], G.nodes()[path[0]]["y"])])
+    qs = array([(G.nodes()[path[0]]["y"], G.nodes()[path[0]]["x"])])
     for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
         qs = np.append(qs, edge_curvature(G, a, b, k=0)[1:], axis=0) # Ignore first point when adding.
     return qs
 
 
 # Convert an array into a LineString consisting of Points.
-to_linestring = lambda ps: LineString([Point(x, y) for x, y in ps])
+to_linestring = lambda ps: LineString([Point(y, x) for y, x in ps])
 
 
 # Extract subgraph by a point and a radius (using a square rather than circle for distance measure though).
@@ -340,7 +340,7 @@ def annotate_edge_curvature_as_array(G):
             linestring = attrs["geometry"]
             # print(list(linestring.coords))
             # Flip lonlat to latlon.
-            ps = np.array([(lat,lon) for (lon, lat) in list(linestring.coords)])
+            ps = np.array([(lat,lon) for (lat, lon) in list(linestring.coords)])
             # assert len(ps) >= 3 # We expect at least one point in between start and end node.
             edge_attrs[(a, b, k)] = {"curvature": ps}
     
@@ -469,8 +469,7 @@ def graph_split_edges(G, amount=10):
             if i != len(qss) - 1: # Final segment already both nodes there.
                 # Add node.
                 q = qs[-1] 
-                nodes_to_add.append((nid, {"x": q[0], "y": q[1]})) # HELP: which is x and y coordinate? (And are we in UTM or latlon?..) I switched it, thereby has become consistent with other existing nodes..
-                # G.add_node(nid, **{"x": q[1], "y": q[0]}) 
+                nodes_to_add.append((nid, {"y": q[0], "x": q[0]}))
 
             curvature = qs
             geometry = to_linestring(curvature)
@@ -478,13 +477,10 @@ def graph_split_edges(G, amount=10):
             # Add edge.
             if i == 0:
                 edges_to_add.append((a, nid, {"geometry": geometry, "curvature": curvature}))
-                # G.add_edge(a, nid, **{"geometry": geometry, "curvature": curvature})
             elif i == len(qss) - 1:
                 edges_to_add.append((nid, b, {"geometry": geometry, "curvature": curvature}))
-                # G.add_edge(nid, b, **{"geometry": geometry, "curvature": curvature})
             else:
                 edges_to_add.append((nid - 1, nid, {"geometry": geometry, "curvature": curvature}))
-                # G.add_edge(nid - 1, nid, **{"geometry": geometry, "curvature": curvature})
 
             # Increment node identifier for next step.
             nid += 1
@@ -492,6 +488,9 @@ def graph_split_edges(G, amount=10):
     G.remove_edges_from(edges_to_delete)
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
+
+    G = graph_transform_utm_to_latlon(G, "", **utm_info)
+    G = vectorize_graph(G)
 
     return G    
 
@@ -505,7 +504,7 @@ def graph_split_edges(G, amount=10):
 def duplicated_nodes(G):
     # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
     nodes = G.nodes()
-    coordinates = np.array([[info["x"], info["y"]] for node, info in G.nodes(data=True)])
+    coordinates = np.array([[info["y"], info["x"]] for node, info in G.nodes(data=True)])
     uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
     duplicated = []
     for node_id, index_to_unique in zip(nodes, inverses):
@@ -518,7 +517,7 @@ def duplicated_nodes(G):
 def duplicated_nodes_grouped(G):
     # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
     node_ids = G.nodes()
-    coordinates = np.array([[info["x"], info["y"]] for node, info in G.nodes(data=True)])
+    coordinates = np.array([[info["y"], info["x"]] for node, info in G.nodes(data=True)])
     uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
     # Construct dictionary.
     duplicated = {}
@@ -556,7 +555,7 @@ def duplicated_edges(G):
         y1 = G.nodes[a]["y"]
         x2 = G.nodes[b]["x"]
         y2 = G.nodes[b]["y"]
-        coordinates.append([x1,y1,x2,y2])
+        coordinates.append([y1,x1,y2,x2])
     coordinates = np.array(coordinates)
 
     # Extract duplications
@@ -588,7 +587,7 @@ def duplicated_edges_grouped(G):
         y1 = G.nodes[a]["y"]
         x2 = G.nodes[b]["x"]
         y2 = G.nodes[b]["y"]
-        coordinates.append([x1,y1,x2,y2])
+        coordinates.append([y1,x1,y2,x2])
     coordinates = np.array(coordinates)
 
     # Construct dictionary.
@@ -681,7 +680,7 @@ def cut_out_ROI(G, p1, p2):
     # We have to iterate graph nodes only once to check bounding box.
     for nid, data in G.nodes(data = True):
         y, x = data['y'], data['x']
-        if contains(bb, [x, y]):
+        if contains(bb, [y, x]):
             to_keep.append(nid)
         else:
             to_drop.append(nid)
@@ -720,11 +719,11 @@ def merge_graphs(current, additional, strategy="nearest_node"):
         for edge in additional.edges(data=True):
             (a, b, attrs) = edge
 
-            x, y = additional._node[a]['x'], additional._node[a]['y']
-            node_a = (x, y, x, y)
+            y, x = additional._node[a]['y'], additional._node[a]['x'],
+            node_a = (y, x, y, x)
 
-            x, y = additional._node[b]['x'], additional._node[b]['y']
-            node_b = (x, y, x, y)
+            y, x = additional._node[b]['y'], additional._node[b]['x'],
+            node_b = (y, x, y, x)
 
             # Add node_a and node_b to graph.
             current.add_node(a, **additional._node[a])
@@ -780,7 +779,7 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     def latlon_to_relative_pixelcoord(row): 
         lat, lon = row["y"], row["x"]
         y, x = latlon_to_pixelcoord(lat, lon, zoom)
-        return {'x': gsd * x, 'y': maxy - gsd * y }
+        return {'y': maxy - gsd * y, 'x': gsd * x }
     # Construct relabel mapping and transform node coordinates to relative scaled pixel position.
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
@@ -792,21 +791,25 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     
 
 # Transform graphnodes UTM coordinate system into latitude-longitude coordinates.
-def graph_transform_utm_to_latlon(G, place):
+def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
     G = G.copy()
-    letter, number = zone_letters[place], zone_numbers[place]
+
+    if letter == None or number == None:
+        letter, number = zone_letters[place], zone_numbers[place]
+    utm_info = {"number": number, "letter": letter}
 
     def transformer(row): 
         x, y = row["x"], row["y"]
-        lat, lon = coord_to_latlon_by_place((x, y), place)
-        return {'x': lon, 'y': lat }
+        lat, lon = coord_to_latlon_by_utm_info((y, x), **utm_info)
+        return {'y': lat, 'x': lon}
 
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
         relabel_mapping[nid] = transformer(data)
 
     nx.set_node_attributes(G, relabel_mapping)
+
     return G
 
 
@@ -817,8 +820,8 @@ def graph_transform_latlon_to_utm(G):
 
     def transformer(row): 
         lat, lon = row["y"], row["x"]
-        x, y = latlon_to_coord((lat, lon))
-        return {'x': x, 'y': y }
+        y, x = latlon_to_coord((lat, lon))
+        return {'y': y, 'x': x}
         
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
@@ -828,16 +831,16 @@ def graph_transform_latlon_to_utm(G):
     return G
 
 
-# Transform graphnodes x,y coordinates by custom function.
+# Transform graphnodes y, x coordinates by custom function.
 def graph_transform_coordinates(G, transformer):
 
     G = G.copy()
 
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
-        x, y = data["x"], data["y"]
-        x, y = transformer(x, y)
-        relabel_mapping[nid] = {"x": x, "y": y}
+        y, x = data["y"], data["x"]
+        y, x = transformer(y, x)
+        relabel_mapping[nid] = {"y": y, "x": x}
 
     nx.set_node_attributes(G, relabel_mapping)
     return G
