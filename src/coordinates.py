@@ -49,6 +49,21 @@ def latlon_to_coord(latlon):
     x, y, _, _ = utm.conversion.from_latlon(lat, lon)
     return (y, x)
 
+# Convert utm to latlon by zone and number information.
+def coord_to_latlon_by_utm_info(coordinate, number=None, letter=None):
+    y, x = coordinate
+    latlon = utm.conversion.to_latlon(x, y, number, zone_letter=letter)
+    return latlon
+
+# Obtain UTM information from a graph by looking at a random latlon coordinate of a node in that graph.
+def get_utm_info_from_graph(G):
+    randomnid = list(G.nodes())[0]
+    lat = G.nodes(data=True)[randomnid]['y']
+    lon = G.nodes(data=True)[randomnid]['x']
+    _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
+    info = {"number": zone_number, "letter": zone_letter}
+    return info
+
 # Update latlon by translating it in meters (uses UTM projection for this).
 def translate_latlon_by_meters(lat=None, lon=None, west=None, north=None, east=None, south=None):
 
