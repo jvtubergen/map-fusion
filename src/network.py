@@ -444,6 +444,8 @@ def graph_split_edges(G, amount=10):
     assert type(G) == nx.Graph
     assert not G.graph.get("simplified") # Vectorized.
     G = G.copy() # Transform to local coordinate system.
+
+    utm_info = get_utm_info_from_graph(G)
     G = graph_transform_latlon_to_utm(G)
     G = simplify_graph(G)
 
@@ -460,37 +462,20 @@ def graph_split_edges(G, amount=10):
             ps = path_nodes_to_curve(G, [a, b]) # Convert edge to curve.
         except Exception as e:
             print(e)
-        qss = curve_cut_pieces(ps, amount=10) # Cut into 10 pieces. (Which results in 11 nodes.)
+        qs = curve_insert_vertices_max_distance(ps, max_distance=10) # Cut into 10 pieces. (Which results in 11 nodes.)
         edges_to_delete.append((a, b)) # Delete original edge.
-        # G.remove_edge(a, b) # Delete original edge.
 
-        # Insert new edges (thus nodes, then edge with curvature).
-        for i, qs in enumerate(qss):
-            if i != len(qss) - 1: # Final segment already both nodes there.
-                # Add node.
-                q = qs[-1] 
-                nodes_to_add.append((nid, {"y": q[0], "x": q[0]}))
+        curvature = qs
+        geometry = to_linestring(curvature)
+        edges_to_add.append((a, b, {"geometry": geometry, "curvature": curvature}))
 
-            curvature = qs
-            geometry = to_linestring(curvature)
-
-            # Add edge.
-            if i == 0:
-                edges_to_add.append((a, nid, {"geometry": geometry, "curvature": curvature}))
-            elif i == len(qss) - 1:
-                edges_to_add.append((nid, b, {"geometry": geometry, "curvature": curvature}))
-            else:
-                edges_to_add.append((nid - 1, nid, {"geometry": geometry, "curvature": curvature}))
-
-            # Increment node identifier for next step.
-            nid += 1
-    
     G.remove_edges_from(edges_to_delete)
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
     G = graph_transform_utm_to_latlon(G, "", **utm_info)
     G = vectorize_graph(G)
+    G = graph_transform_utm_to_latlon()
 
     return G    
 
