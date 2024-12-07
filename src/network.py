@@ -81,7 +81,7 @@ def convert_paths_into_graph(pss, nid=1, gid=1):
         # Add nodes to graph.
         for p in ps:
             # Add random noise so its not overlapped in render
-            G.add_node(nid, x=p[0] + 0.0001 * random.random(), y=p[1] + 0.0001 * random.random(), gid=gid)
+            G.add_node(nid, y=p[0] + 0.0001 * random.random(), x=p[1] + 0.0001 * random.random(), gid=gid)
             nid += 1
         # Add edges between nodes to graph.
         while i < nid - 1:
@@ -97,20 +97,20 @@ def convert_paths_into_graph(pss, nid=1, gid=1):
 
 # Extract nodes from a graph into the format `(id, nparray(x,y))`.
 def extract_nodes(G):
-    return [( node, np.asarray([data['x'], data['y']], dtype=np.float64, order='c') ) for node, data in G.nodes(data = True)]
+    return [( node, np.asarray([data['y'], data['x']], dtype=np.float64, order='c') ) for node, data in G.nodes(data = True)]
 
 
 # Extract nodes from a graph as a dictionary `{nid: nparray([x,y])}`.
 def extract_nodes_dict(G):
     d = {}
     for node, data in G.nodes(data = True):
-        d[node] = [data['x'], data['y']]
+        d[node] = [data['y'], data['x']]
     return d
 
 
 # Extract node positions, ignoring node ids.
 def extract_node_positions(G):
-    return np.asarray([[data['x'], data['y']] for node, data in G.nodes(data = True)], dtype=np.float64, order='c')
+    return np.asarray([[data['y'], data['x']] for node, data in G.nodes(data = True)], dtype=np.float64, order='c')
 
 
 # Seek nearest vertex in graph of a specific coordinate of interest.
@@ -232,7 +232,7 @@ def vectorize_graph(G):
 
             # Add curvature as separate nodes/edges.
             linestring = attrs["geometry"]
-            ps = list(linestring.coords)
+            ps = array([(y,x) for (x, y) in list(linestring.coords)])
 
             # Sanity checks. 
             assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a])) # Geometry starts at first node coordinate.
@@ -252,7 +252,7 @@ def vectorize_graph(G):
             newnodeid += len(ps) # Increment id appropriately.
 
             for node, coord in zip(pathids, pathcoords):
-                G.add_node(node, x=coord[0], y=coord[1])
+                G.add_node(node, y=coord[0], x=coord[1])
 
             pathids = [a] + pathids + [b]
             for a,b in zip(pathids, pathids[1:]):
@@ -280,7 +280,7 @@ def edge_curvature(G, u, v, k = None):
         return ps
     else:
         linestring = data["geometry"]
-        ps = array(list(linestring.coords))
+        ps = array([(y,x) for (x, y) in list(linestring.coords)])
         assert len(ps) >= 2 # Expect start and end position.
         return ps
 
@@ -338,9 +338,8 @@ def annotate_edge_curvature_as_array(G):
             edge_attrs[(a, b, k)] = {"curvature": np.array([latlon1, latlon2])}
         else:
             linestring = attrs["geometry"]
-            # print(list(linestring.coords))
-            # Flip lonlat to latlon.
-            ps = np.array([(lat,lon) for (lat, lon) in list(linestring.coords)])
+            ps = arrray([(y,x) for (x, y) in list(linestring.coords)])
+            # print(ps)
             # assert len(ps) >= 3 # We expect at least one point in between start and end node.
             edge_attrs[(a, b, k)] = {"curvature": ps}
     
