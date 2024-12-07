@@ -54,4 +54,4 @@ dataframe = gpd.GeoDataFrame
 
 
 # Configurations.
-ox.settings.log_console = True # Log debug actions of OSMnx to stdout.
+ox.settings.log_console = False # Whether to log debug actions of OSMnx to stdout.

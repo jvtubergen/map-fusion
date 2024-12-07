@@ -4,9 +4,6 @@ from data_handling import *
 from coordinates import * 
 from utilities import *
 
-# Log debug actions of OSMnx to stdout.
-ox.settings.log_console = True
-
 # Utility function for convenience to extract graph by name.
 #   Either construction from raw data in folder or reading from graphml file.
 #   Expect folders with raw data to exist at "data/maps", further with properties described by `construct_graph`.
