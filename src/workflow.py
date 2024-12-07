@@ -482,4 +482,18 @@ def workflow_network_variants(place=None):
         
     if plot:
         plot_graphs([simplify_graph(merge_b)])
+
     
+# Sanity check various graph conversion functions.
+def workflow_sanity_check_graph_conversion_functions():
+    osm = read_graph(graphset=links['osm'], place='chicago')
+    graph_sanity_check(osm)
+    utm_info = get_utm_info_from_graph(osm) # UTM information necessary to revert back to latlon later on.
+    osm = graph_transform_latlon_to_utm(osm)
+    graph_sanity_check(osm)
+    osm = simplify_graph(osm)
+    graph_sanity_check(osm)
+    osm = vectorize_graph(osm)
+    graph_sanity_check(osm)
+    osm = graph_transform_utm_to_latlon(osm, "", **utm_info)
+    graph_sanity_check(osm)
