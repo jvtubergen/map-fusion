@@ -57,6 +57,7 @@ def coord_to_latlon_by_utm_info(coordinate, number=None, letter=None):
 
 # Obtain UTM information from a graph by looking at a random latlon coordinate of a node in that graph.
 def get_utm_info_from_graph(G):
+    assert G.graph["coordinates"] == "latlon"
     randomnid = list(G.nodes())[0]
     lat = G.nodes(data=True)[randomnid]['y']
     lon = G.nodes(data=True)[randomnid]['x']

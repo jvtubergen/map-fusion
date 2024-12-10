@@ -49,6 +49,7 @@ def read_graph(graphset=None, place=None, use_utm=False):
     # G.graph['crs'] = "EPSG:4326"
     # Generate undirected, vectorized graph.
     G.graph["coordinates"] = "latlon"
+    G.graph["simplified"] = False
     return G
 
 

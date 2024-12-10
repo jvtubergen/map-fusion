@@ -188,7 +188,10 @@ def graph_annotate_edge_length(G):
 
 # Wrapping the OSMnx graph simplification logic, and being consistent in MultiGraph convention by converting between directed and undirected.
 def simplify_graph(G):
-    return ox.simplify_graph(G.to_directed()).to_undirected()
+    assert not G.graph["simplified"] 
+    G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
+    G.graph["simplified"] = True
+    return G
 
 # Vectorize a network
 # BUG: Somehow duplicated edge with G.edges(data=True)
@@ -256,6 +259,7 @@ def vectorize_graph(G):
                 G.add_edge(a, b, k) # Key can be zero because nodes in curvature implies a single path between nodes.
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
+    G = nx.Graph(G)
 
     return G
 
@@ -371,7 +375,7 @@ def multi_edge_conserving(G):
             is_unique = True # Consider true unless proven otherwise.
             ps = edge_curvature(G, u, v, k=k) # Curvature of this element to check.
             for qs in map(lambda x: x[3], unique_curves): # Curvature of currently unique multi-edges.
-                if is_partial_curve_undirected(ps, qs, 1, convert=True): # Check for being a partial curve.
+                if partial_curve_undirected(ps, qs, 1, convert=True): # Check for being a partial curve.
                     is_unique = False # Its to similar to existing curvature.
             if is_unique: # Add to list.
                 unique_curves.append((u, v, k, ps))
@@ -812,7 +816,7 @@ def graph_transform_latlon_to_utm(G):
         relabel_mapping[nid] = transformer(data)
 
     nx.set_node_attributes(G, relabel_mapping)
-    G.graph["coordinates"] == "utm"
+    G.graph["coordinates"] = "utm"
     return G
 
 
