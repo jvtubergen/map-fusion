@@ -214,3 +214,50 @@ def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
 ### Linestrings
 
 to_linestring = lambda ps: LineString([Point(y, x) for y, x in ps])
+
+
+### Partial curve matching logic
+
+# Convert 2d numpy array into a list of Vectors used by the partial curve matching algorithm.
+def curve_to_vector_list(ps):
+    result = []
+    for [y, x] in ps:
+        result.append(Vector(y, x))
+    return result
+
+
+# Convert a nx.T2 into a graph structure used by the partial curve matching algorithm.
+def graph_to_rust_graph(G):
+
+    assert type(G) == nx.Graph
+
+    # Extract node data as Vectors from the graph.
+    def extract_nodes_list(G):
+        l = []
+        for nid, data in G.nodes(data = True):
+            l.append((nid, Vector(data['y'], data['x'])))
+        return l
+
+    # Extract vertices as Vec<(NID, Vector)>.
+    vertices = extract_nodes_list(G)
+    # Extract edges as Vec<(NID, NID)>.
+    edges = G.edges()
+    return make_graph(vertices, edges)
+
+# Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
+# If convert is true automatically convert input curves into vector lists.
+def is_partial_curve_undirected(ps, qs, eps, convert=False):
+    if convert:
+        ps = curve_to_vector_list(ps)
+        qs = curve_to_vector_list(qs)
+    assert type(ps[0]) == Vector
+    assert type(qs[0]) == Vector
+    try:
+        return partial_curve(ps, qs, eps) != None or partial_curve(ps[::-1], qs, eps)
+    except Exception as e:
+        print("Failed partial curve: ", e)
+        print("Parameters:")
+        print("  ps : ", ps)
+        print("  qs : ", qs)
+        print("  eps: ", eps)
+
