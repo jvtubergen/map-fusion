@@ -312,25 +312,41 @@ def correctify_edge_curvature(G):
 
 
 # Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
-def path_nodes_to_curve(G, path=[], start_node=None, end_node=None):
-    assert len(path) >= 2
-    qs = array([(G.nodes()[start_node]["y"], G.nodes()[start_node]["x"])])
+def path_to_curve(G, path=[], start_node=None, end_node=None):
+    assert len(path) >= 1 # We traverse at least one edge.
 
-    if G.graph["simplified"]:
-        for a, b, k in path: # Expect key on each edge.
-            ps = edge_curvature(G, a, b, k=k)
-            assert ps[-1] == qs[-1] or ps[0] == qs[-1] # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
-            if ps[-1] == qs[-1]: # We might have to flip the curvature as the _undirected_ may have stored curvature into the opposite direction.
-                ps = ps[::-1]
-            np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
+    # Collect subcurves.
+    pss = [] 
+    current = start_node # Node we are currently at as we are walking along the path.
+
+    def _get_curvature(G, path):
+        if G.graph["simplified"]:
+            for a, b, k in path: # Expect key on each edge.
+                ps = edge_curvature(G, a, b, k=k)
+                yield a, b, ps
+        else: # Graph is vectorized.
+            for a, b in path:
+                ps = edge_curvature(G, a, b)
+                yield a, b, ps
     
-    else: # Graph is vectorized.
-        for a, b in path: # Expect key on each edge.
-            ps = edge_curvature(G, a, b)
-            assert ps[-1] == qs[-1] or ps[0] == qs[-1] # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
-            if ps[-1] == qs[-1]: # We might have to flip the curvature as the _undirected_ may have stored curvature into the opposite direction.
-                ps = ps[::-1]
-            np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
+    for (a, b, ps) in _get_curvature(G, path):
+        # Reverse curvature in case we move from b to a.
+        if current == b: 
+            ps = ps[::-1]
+        # Move current pointer to next node.
+        if current == a:
+            current = b
+        else:
+            current = a
+        pss.append(ps)
+    
+    qs = array([(G.nodes()[start_node]["y"], G.nodes()[start_node]["x"])])
+    assert np.all(pss[0][0] == qs[0]) # Expect curvature to begin at coordinates of the startnode.
+    assert len(pss) >= 1
+    for ps in pss:
+        assert np.all(ps[0] == qs[-1]) # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
+        assert len(ps) >= 2
+        qs = np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
 
     return qs
 
@@ -494,11 +510,11 @@ def graph_split_edges(G, max_distance=10):
     nodes_to_add = [] # Same for nodes.
     edges_to_delete = []
     
-    for edge in G.edges(data=True):
-        (a, b, attrs) = edge
+    for edge in G.edges(data=True, keys=True):
         print(edge)
+        (a, b, k, attrs) = edge
         try:
-            ps = path_nodes_to_curve(G, [a, b]) # Convert edge to curve.
+            ps = path_to_curve(G, start_node=a, end_node=b, path=[(a, b, k)]) # Convert edge to curve.
         except Exception as e:
             print(e)
         qs = curve_insert_vertices_max_distance(ps, max_distance=10) # Cut into 10 pieces. (Which results in 11 nodes.)
