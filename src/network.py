@@ -289,6 +289,27 @@ def edge_curvature(G, u, v, k = None):
         return ps
 
 
+# Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
+def correctify_edge_curvature(G):
+    assert type(G) == nx.MultiGraph
+    assert G.graph["simplified"]
+    G = G.copy()
+    nodes = extract_nodes_dict(G)
+    for (u, v, k, attrs) in G.edges(keys=True, data=True):
+        if "geometry" in attrs.keys(): # If no geometry there is nothing to check.
+            linestring = attrs["geometry"]
+            ps = array([(y,x) for (x, y) in list(linestring.coords)])
+            a = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
+            b = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
+            if b: # Convert around
+                # print("flip around geometry", (u, v, k))
+                ps = array(ps)
+                ps = ps[::-1]
+                geometry = to_linestring(ps)
+                nx.set_edge_attributes(G, {(u, v, k): {"geometry": geometry, "curvature": ps}}) # Update geometry.
+    return G
+
+
 # Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
 def path_nodes_to_curve(G, path=[], start_node=None, end_node=None):
     assert len(path) >= 2
@@ -947,10 +968,20 @@ def graph_sanity_check(G):
         raise Exception("Expect node y, x coordinate consistency.") 
     
     # Edges.
-    if G.graph["simplified"]: # Expect reasonable curvature length.
+    nodes = extract_nodes_dict(G)
+    if G.graph["simplified"]: 
         for (a, b, k, _) in G.edges(data=True, keys=True):
             ps = edge_curvature(G, a, b, k)
             if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
                 ps = array([latlon_to_coord(lat, lon) for [lat, lon] in ps])
-            if curve_length(ps) > 1000:
+            if curve_length(ps) > 1000: # Expect reasonable curvature length.
                 raise Exception("Expect edge length less than 1000 meters. Probably some y, x coordinate in edge curvature got flipped.")
+            ps = edge_curvature(G, a, b, k) # Expect startpoint matches curvature.
+            try:
+                if (not np.all(ps[0] == nodes[a])) and (not np.all(ps[-1] != nodes[b])):
+                    raise Exception("Expect curvature have same directionality as edge start and end edge.")
+            except Exception as e:
+                print(traceback.format_exc())
+                print(e)
+                breakpoint()
+        

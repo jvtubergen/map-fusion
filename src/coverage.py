@@ -194,12 +194,8 @@ def edge_graph_coverage(S, T, max_threshold=None):
                     annotate = annotate + edge_info["merged_edges"]
 
                 # Add reverse.
-                to_add = []
-                for uv in annotate:
-                    u, v = uv
-                    uv = (v, u)
-                    to_add += [uv]
-                annotate += to_add
+                for (u, v) in annotate:
+                    annotate += [(v, u)]
 
                 # Annotate S with result information.
                 for uv in annotate:
