@@ -201,6 +201,7 @@ def simplify_graph(G):
 # BUG: Selfloops are incorrectly reduced when undirectionalized.
 # SOLUTION: Build some function yourself to detect and remove duplicates
 def vectorize_graph(G):
+    assert G.graph["simplified"] 
 
     G = G.copy()
 
@@ -217,18 +218,16 @@ def vectorize_graph(G):
     edges = np.array(list(G.edges(data=True, keys=True)))
 
     # Obtain unique (incremental) node ID to use.
-    # newnodeid = np.max(np.array(nodes)[:,0]) + 1 # Move beyond highest node ID to ensure uniqueness.
     newnodeid = max(G.nodes()) + 1 # Move beyond highest node ID to ensure uniqueness.
 
-    # Edges contain curvature information, extract.
     for (a, b, k, attrs) in edges:
 
-        # If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.
+        # We only have to perform work if an edge contains curvature. (If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.)
         if "geometry" in attrs.keys():
 
             # Delete this edge from network.
             G.remove_edge(a,b,k)
-            print("Removing edge ", a, b, k)
+            # print("Removing edge ", a, b, k)
 
             # Add curvature as separate nodes/edges.
             linestring = attrs["geometry"]
@@ -256,7 +255,7 @@ def vectorize_graph(G):
 
             pathids = [a] + pathids + [b]
             for a,b in zip(pathids, pathids[1:]):
-                G.add_edge(a, b, k) # Key can be zero because nodes in curvature implies a single path between nodes.
+                G.add_edge(a, b, 0) # Key can be zero because nodes in curvature implies a single path between nodes.
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
     G = nx.Graph(G)
@@ -266,6 +265,9 @@ def vectorize_graph(G):
 
 # Extract curvature (stored potentially as a LineString under geometry) from an edge as an array.
 def edge_curvature(G, u, v, k = None):
+
+    # We expect a key in case of a simplified graph, and not otherwise.
+    assert G.graph["simplified"] == (k != None)
     
     # Obtain edge data.
     if k == None:
@@ -280,6 +282,7 @@ def edge_curvature(G, u, v, k = None):
         ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
         return ps
     else:
+        assert G.graph["simplified"] # We do not accept geometry on a vectorized graph, because the curvature is implicit.
         linestring = data["geometry"]
         ps = array([(y,x) for (x, y) in list(linestring.coords)])
         assert len(ps) >= 2 # Expect start and end position.
@@ -287,13 +290,26 @@ def edge_curvature(G, u, v, k = None):
 
 
 # Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
-def path_nodes_to_curve(G, path):
-    assert G.graph["simplified"]
-    assert type(G) == nx.Graph # We reconstruct edges out of node pairs, if G would be a MultiGraph then information is lost.
+def path_nodes_to_curve(G, path=[], start_node=None, end_node=None):
     assert len(path) >= 2
-    qs = array([(G.nodes()[path[0]]["y"], G.nodes()[path[0]]["x"])])
-    for a, b in zip(path, path[1:]): # BUG: Conversion from nodes to path results in loss of information at possible multipaths.
-        qs = np.append(qs, edge_curvature(G, a, b, k=0)[1:], axis=0) # Ignore first point when adding.
+    qs = array([(G.nodes()[start_node]["y"], G.nodes()[start_node]["x"])])
+
+    if G.graph["simplified"]:
+        for a, b, k in path: # Expect key on each edge.
+            ps = edge_curvature(G, a, b, k=k)
+            assert ps[-1] == qs[-1] or ps[0] == qs[-1] # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
+            if ps[-1] == qs[-1]: # We might have to flip the curvature as the _undirected_ may have stored curvature into the opposite direction.
+                ps = ps[::-1]
+            np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
+    
+    else: # Graph is vectorized.
+        for a, b in path: # Expect key on each edge.
+            ps = edge_curvature(G, a, b)
+            assert ps[-1] == qs[-1] or ps[0] == qs[-1] # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
+            if ps[-1] == qs[-1]: # We might have to flip the curvature as the _undirected_ may have stored curvature into the opposite direction.
+                ps = ps[::-1]
+            np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
+
     return qs
 
 
@@ -352,6 +368,7 @@ def annotate_edge_curvature_as_array(G):
 def multi_edge_conserving(G):
 
     assert type(G) == nx.MultiGraph
+    assert G.graph["simplified"]
     G = G.copy()
 
     # Extract multi-edges from graph.
@@ -438,8 +455,8 @@ def multi_edge_conserving(G):
     return G
 
 
-# Split each edge into `amount` equidistant pieces.
-def graph_split_edges(G, amount=10):
+# Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.
+def graph_split_edges(G, max_distance=10):
 
     assert type(G) == nx.Graph
     assert not G.graph.get("simplified") # Vectorized.
@@ -678,6 +695,8 @@ def cut_out_ROI(G, p1, p2):
 # (Strategy is a dummy parameter at this moment.)
 def merge_graphs(current, additional, strategy="nearest_node"):
 
+    assert type(current) == type(additional)
+
     # strategy nearest_node is the default.
     current = current.copy()
 
@@ -740,6 +759,7 @@ def merge_graphs(current, additional, strategy="nearest_node"):
 
 # Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
 def middle_latitute(G):
+    assert G.graph["coordinates"] == "latlon"
     uvk, data = zip(*G.nodes(data=True))
     df = gpd.GeoDataFrame(data, index=uvk)
     alat, alon = df["y"].mean(), df["x"].mean()
@@ -751,6 +771,7 @@ def middle_latitute(G):
 # Note: Flip y-axis by subtracting from minimal latitude value (-max_lat) to maintain directionality.
 # todo: Rely on UTM conversion instead of your hacky solution.
 def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
+    assert G.graph["coordinates"] == "latlon"
     # 0. GSD on average latitude and reference pixel positions.
     zoom = 24 # Sufficiently accurate.
     gsd = compute_gsd(reflat, zoom, 1)
@@ -780,6 +801,7 @@ def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
     G = G.copy()
     assert G.graph["coordinates"] == "utm"
+    assert G.graph["simplified"] == False # The edge curvature becomes invalid if we act on a simplified graph.
 
     if letter == None or number == None:
         letter, number = zone_letters[place], zone_numbers[place]
@@ -805,6 +827,7 @@ def graph_transform_latlon_to_utm(G):
 
     G = G.copy()
     assert G.graph["coordinates"] == "latlon"
+    assert G.graph["simplified"] == False # The edge curvature becomes invalid if we act on a simplified graph.
 
     def transformer(row): 
         lat, lon = row["y"], row["x"]
@@ -837,6 +860,7 @@ def graph_transform_coordinates(G, transformer):
 
 # Derive UTM zone number and zone letter of a graph by taking arbitrary latlon coordinate from graph.
 def graph_utm_info(G):
+    assert G.graph["coordinates"] == "latlon"
     node = G._node[list(G.nodes())[0]]
     lat, lon = node['y'], node['x']
     _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
@@ -849,7 +873,7 @@ def graph_utm_info(G):
 
 # Preparing graph for APLS usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
 def graph_prepare_apls(G):
-    G = nx.MultiGraph(simplify_graph(graph_transform_latlon_to_utm(G)))
+    G = simplify_graph(graph_transform_latlon_to_utm(G))
     G = graph_annotate_edge_length(G)
     G = graph_add_geometry_to_straight_edges(G) # Add geometry for straight line segments (edges with no curvature).
     # G.graph['crs'] = "EPSG:4326" # Set EPSG might be necessary for plotting results within APLS logic.
@@ -858,13 +882,13 @@ def graph_prepare_apls(G):
 
 # Preparing graph for TOPO usage (simplified, multi-edge, all edges have geometry property, all edges have an edge length property).
 def graph_prepare_topo(graph):
-    t0 = time()
+    # t0 = time()
     graph = simplify_graph(graph)
     graph = graph.to_directed(graph)
     graph = nx.MultiGraph(graph)
     graph = graph_add_geometry_to_straight_edges(graph)
     graph = graph_annotate_edge_length(graph)
-    verbose_print(f"Simplified graph in {int(time() - t0)} seconds.")
+    # verbose_print(f"Simplified graph in {int(time() - t0)} seconds.")
     return graph
 
 
