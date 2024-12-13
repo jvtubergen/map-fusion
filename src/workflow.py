@@ -493,6 +493,7 @@ def workflow_sanity_check_graph_conversion_functions():
     graph_sanity_check(osm)
     osm = simplify_graph(osm)
     graph_sanity_check(osm)
+    # osm = multi_edge_conserving(osm)
     osm = vectorize_graph(osm)
     graph_sanity_check(osm)
     osm = graph_transform_utm_to_latlon(osm, "", **utm_info)

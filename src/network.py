@@ -101,7 +101,7 @@ def extract_nodes(G):
 def extract_nodes_dict(G):
     d = {}
     for node, data in G.nodes(data = True):
-        d[node] = [data['y'], data['x']]
+        d[node] = np.asarray([data['y'], data['x']], dtype=np.float64, order='c')
     return d
 
 
@@ -190,6 +190,7 @@ def graph_annotate_edge_length(G):
 def simplify_graph(G):
     assert not G.graph["simplified"] 
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
+    G = correctify_edge_curvature(G)
     G.graph["simplified"] = True
     return G
 
@@ -231,7 +232,7 @@ def vectorize_graph(G):
 
             # Add curvature as separate nodes/edges.
             linestring = attrs["geometry"]
-            ps = array([(y,x) for (x, y) in list(linestring.coords)])
+            ps = array([(y, x) for (x, y) in list(linestring.coords)])
 
             # Sanity checks. 
             assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a])) # Geometry starts at first node coordinate.
@@ -284,7 +285,7 @@ def edge_curvature(G, u, v, k = None):
     else:
         assert G.graph["simplified"] # We do not accept geometry on a vectorized graph, because the curvature is implicit.
         linestring = data["geometry"]
-        ps = array([(y,x) for (x, y) in list(linestring.coords)])
+        ps = array([(y, x) for (x, y) in list(linestring.coords)])
         assert len(ps) >= 2 # Expect start and end position.
         return ps
 
@@ -298,7 +299,7 @@ def correctify_edge_curvature(G):
     for (u, v, k, attrs) in G.edges(keys=True, data=True):
         if "geometry" in attrs.keys(): # If no geometry there is nothing to check.
             linestring = attrs["geometry"]
-            ps = array([(y,x) for (x, y) in list(linestring.coords)])
+            ps = array([(y, x) for (x, y) in list(linestring.coords)])
             a = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
             b = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
             if b: # Convert around
@@ -335,7 +336,7 @@ def path_nodes_to_curve(G, path=[], start_node=None, end_node=None):
 
 
 # Convert an array into a LineString consisting of Points.
-to_linestring = lambda ps: LineString([Point(y, x) for y, x in ps])
+to_linestring = lambda ps: LineString([Point(x, y) for y, x in ps]) # its quite trash, curvature positions are x,y instead of y,x
 
 
 # Extract subgraph by a point and a radius (using a square rather than circle for distance measure though).
@@ -376,7 +377,7 @@ def annotate_edge_curvature_as_array(G):
             edge_attrs[(a, b, k)] = {"curvature": np.array([latlon1, latlon2])}
         else:
             linestring = attrs["geometry"]
-            ps = arrray([(y,x) for (x, y) in list(linestring.coords)])
+            ps = arrray([(y, x) for (x, y) in list(linestring.coords)])
             # print(ps)
             # assert len(ps) >= 3 # We expect at least one point in between start and end node.
             edge_attrs[(a, b, k)] = {"curvature": ps}
@@ -386,94 +387,94 @@ def annotate_edge_curvature_as_array(G):
 
 
 # Conserving multi-edge curvature when converting from a MultiGraph into a Graph.
-def multi_edge_conserving(G):
+# def multi_edge_conserving(G):
 
-    assert type(G) == nx.MultiGraph
-    assert G.graph["simplified"]
-    G = G.copy()
+#     assert type(G) == nx.MultiGraph
+#     assert G.graph["simplified"]
+#     G = G.copy()
 
-    # Extract multi-edges from graph.
-    multiedge_groups = set()
-    for u, v, k in G.edges(keys=True):
-        if k > 0:
-            multiedge_groups.add((u, v)) # u <= v by the G.edges() function.
+#     # Extract multi-edges from graph.
+#     multiedge_groups = set()
+#     for u, v, k in G.edges(keys=True):
+#         if k > 0:
+#             multiedge_groups.add((u, v)) # u <= v by the G.edges() function.
 
-    # Per multi-edge set, check the curvature differs (PCM threshold is larger than zero).
-    edges = [(u, v, k) for u, v, k in G.edges(keys=True)]
-    nodes = extract_nodes_dict(G)
-    for u,v in multiedge_groups:
-        multiedges = list(filter(lambda x: x[0] == u and x[1] == v, edges))
-        assert multiedges[0] == (u, v, 0)
-        unique_curves = [] # Store uvk alongside curvature (which is sufficiently unique).
-        unique_curves.append((u, v, 0, edge_curvature(G, u, v, k=0))) # Start with unique in first.
-        edges_to_delete = []
+#     # Per multi-edge set, check the curvature differs (PCM threshold is larger than zero).
+#     edges = [(u, v, k) for u, v, k in G.edges(keys=True)]
+#     nodes = extract_nodes_dict(G)
+#     for u,v in multiedge_groups:
+#         multiedges = list(filter(lambda x: x[0] == u and x[1] == v, edges))
+#         assert multiedges[0] == (u, v, 0)
+#         unique_curves = [] # Store uvk alongside curvature (which is sufficiently unique).
+#         unique_curves.append((u, v, 0, edge_curvature(G, u, v, k=0))) # Start with unique in first.
+#         edges_to_delete = []
 
-        # Extract multi-edge ids with unique curvature.
-        for k in range(1, len(multiedges)): # Check every subsequent element.
-            is_unique = True # Consider true unless proven otherwise.
-            ps = edge_curvature(G, u, v, k=k) # Curvature of this element to check.
-            for qs in map(lambda x: x[3], unique_curves): # Curvature of currently unique multi-edges.
-                if partial_curve_undirected(ps, qs, 1, convert=True): # Check for being a partial curve.
-                    is_unique = False # Its to similar to existing curvature.
-            if is_unique: # Add to list.
-                unique_curves.append((u, v, k, ps))
-            else:
-                edges_to_delete.append((u, v, k))
+#         # Extract multi-edge ids with unique curvature.
+#         for k in range(1, len(multiedges)): # Check every subsequent element.
+#             is_unique = True # Consider true unless proven otherwise.
+#             ps = edge_curvature(G, u, v, k=k) # Curvature of this element to check.
+#             for qs in map(lambda x: x[3], unique_curves): # Curvature of currently unique multi-edges.
+#                 if is_partial_curve_undirected(ps, qs, 1, convert=True): # Check for being a partial curve.
+#                     is_unique = False # Its to similar to existing curvature.
+#             if is_unique: # Add to list.
+#                 unique_curves.append((u, v, k, ps))
+#             else:
+#                 edges_to_delete.append((u, v, k))
 
-        # For all unique curves, filter out those with a curvature of at least three elements (otherwise we cannot introduce nodes).
-        # And then add those as new nodes to the graph and cut the initial edge into two pieces.
-        nidmax = max(G.nodes()) + 1 # Maximal node ID to prevent overwriting existing node IDs in the graph.
-        for (u, v, k, ps) in unique_curves:
-            if u == v: # In case of self-loop we have to add two edges in between
-                if len(ps) > 3: # At least 2 vertices for curvature (Besides start and end node).
-                    i = floor(len(ps)/3) # Index to cut curve at.
-                    j = floor(2*len(ps)/3) # Index to cut curve at.
-                    x0, y0 = ps[i]
-                    G.add_node(nidmax, x=x0, y=y0)
-                    x1, y1 = ps[j]
-                    G.add_node(nidmax+1, x=x1, y=y1)
-                    G.add_edge(u, nidmax, 0, geometry=to_linestring(ps[0:i+1]))
-                    G.add_edge(nidmax, nidmax+1, 0, geometry=to_linestring(ps[i:j+1]))
-                    G.add_edge(nidmax+1, v, 0, geometry=to_linestring(ps[j:]))
-                    edges_to_delete.append((u, v, k))
-                    nidmax += 2
+#         # For all unique curves, filter out those with a curvature of at least three elements (otherwise we cannot introduce nodes).
+#         # And then add those as new nodes to the graph and cut the initial edge into two pieces.
+#         nidmax = max(G.nodes()) + 1 # Maximal node ID to prevent overwriting existing node IDs in the graph.
+#         for (u, v, k, ps) in unique_curves:
+#             if u == v: # In case of self-loop we have to add two edges in between
+#                 if len(ps) > 3: # At least 2 vertices for curvature (Besides start and end node).
+#                     i = floor(len(ps)/3) # Index to cut curve at.
+#                     j = floor(2*len(ps)/3) # Index to cut curve at.
+#                     x0, y0 = ps[i]
+#                     G.add_node(nidmax, x=x0, y=y0)
+#                     x1, y1 = ps[j]
+#                     G.add_node(nidmax+1, x=x1, y=y1)
+#                     G.add_edge(u, nidmax, 0, geometry=to_linestring(ps[0:i+1]))
+#                     G.add_edge(nidmax, nidmax+1, 0, geometry=to_linestring(ps[i:j+1]))
+#                     G.add_edge(nidmax+1, v, 0, geometry=to_linestring(ps[j:]))
+#                     edges_to_delete.append((u, v, k))
+#                     nidmax += 2
 
-            else:
-                if len(ps) > 2: # Add node in between.
-                    # a. Add node with nidmax and x,y position ps[floor(len(ps)/2)]
-                    i = floor(len(ps)/2) # Index to cut curve at.
-                    x, y = ps[i]
-                    G.add_node(nidmax, x=x, y=y)
-                    nodes[nidmax] = ps[i]
-                    # b. Add two edges to the graph with u-nidmax and nidmax-v.
-                    #    Make sure to extract geometry and ad 
-                    # print("total edge curvature:\n", ps)
-                    # print(f"Adding edge {u, nidmax} with geometry: \n", ps[0:i+1])
-                    curvature = ps[0:i+1]
-                    G.add_edge(u, nidmax, 0, geometry=to_linestring(curvature))
-                    # Sanity check: Start and end node of curvature match with node position.
-                    if not (np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u]))):
-                        breakpoint()
-                    assert np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u])) # Geometry starts at first node coordinate.
-                    if not (np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax]))):
-                        breakpoint()
-                    assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry ends at last node coordinate.
+#             else:
+#                 if len(ps) > 2: # Add node in between.
+#                     # a. Add node with nidmax and x,y position ps[floor(len(ps)/2)]
+#                     i = floor(len(ps)/2) # Index to cut curve at.
+#                     x, y = ps[i]
+#                     G.add_node(nidmax, x=x, y=y)
+#                     nodes[nidmax] = ps[i]
+#                     # b. Add two edges to the graph with u-nidmax and nidmax-v.
+#                     #    Make sure to extract geometry and ad 
+#                     # print("total edge curvature:\n", ps)
+#                     # print(f"Adding edge {u, nidmax} with geometry: \n", ps[0:i+1])
+#                     curvature = ps[0:i+1]
+#                     G.add_edge(u, nidmax, 0, geometry=to_linestring(curvature))
+#                     # Sanity check: Start and end node of curvature match with node position.
+#                     if not (np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u]))):
+#                         breakpoint()
+#                     assert np.all(array(curvature[0]) == array(nodes[u])) or np.all(array(curvature[-1]) == array(nodes[u])) # Geometry starts at first node coordinate.
+#                     if not (np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax]))):
+#                         breakpoint()
+#                     assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry ends at last node coordinate.
                     
-                    # print(f"Adding edge {nidmax, v} with geometry: \n", ps[i:])
-                    curvature = ps[i:]
-                    G.add_edge(nidmax, v, 0, geometry=to_linestring(curvature))
-                    # Sanity check: Start and end node of curvature match with node position.
-                    assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry starts at first node coordinate.
-                    assert np.all(array(curvature[0]) == array(nodes[v])) or np.all(array(curvature[-1]) == array(nodes[v])) # Geometry ends at last node coordinate.
-                    # c. Mark the edge for deletion.
-                    edges_to_delete.append((u, v, k))
-                    # d. Increment nidmax for subsequent element.
-                    nidmax += 1
+#                     # print(f"Adding edge {nidmax, v} with geometry: \n", ps[i:])
+#                     curvature = ps[i:]
+#                     G.add_edge(nidmax, v, 0, geometry=to_linestring(curvature))
+#                     # Sanity check: Start and end node of curvature match with node position.
+#                     assert np.all(array(curvature[0]) == array(nodes[nidmax])) or np.all(array(curvature[-1]) == array(nodes[nidmax])) # Geometry starts at first node coordinate.
+#                     assert np.all(array(curvature[0]) == array(nodes[v])) or np.all(array(curvature[-1]) == array(nodes[v])) # Geometry ends at last node coordinate.
+#                     # c. Mark the edge for deletion.
+#                     edges_to_delete.append((u, v, k))
+#                     # d. Increment nidmax for subsequent element.
+#                     nidmax += 1
         
-        print("Deleting edges ", edges_to_delete)
-        G.remove_edges_from(edges_to_delete)
+#         print("Deleting edges ", edges_to_delete)
+#         G.remove_edges_from(edges_to_delete)
     
-    return G
+#     return G
 
 
 # Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.
