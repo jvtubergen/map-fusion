@@ -114,7 +114,7 @@ def curve_cut_pieces(ps, amount=10):
         if abs(target_length - next_distance) < 0.0001: # Cutpoint lies on curvature vertex.
             # Add curvature vertex to current subcurve.
             current_subcurve.append(ps[current_step + 1])
-            qss.append(current_subcurve) # Commit subcurve.
+            qss.append(array(current_subcurve)) # Commit subcurve.
             if len(qss) == amount:
                 return qss # We cannot return a numpy array since subcurves point sequence length is inhomogeneous (can differ from one nother.)
             # Reset for next subcurve.
@@ -204,6 +204,39 @@ def test_curve_insert_vertices_max_distance():
     qs = curve_insert_vertices_max_distance(curve, max_distance=1)
     assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
     assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
+
+
+# Cut curve into subcurves each with less than max distance length, thus returning muliple subcurves.
+def curve_cut_max_distance(ps, max_distance=10):
+    assert len(ps) >= 2
+    step_lengths = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
+    total_length = sum(step_lengths)
+    assert total_length > 0 # Expect non-zero length.
+    pieces = ceil(total_length / max_distance)
+    return curve_cut_pieces(ps, amount=pieces)
+
+
+def test_curve_cut_max_distance():
+    # Within range.
+    curve = array([(0., i) for i in range(11)])
+    qs = curve_cut_max_distance(curve, max_distance=10)
+    assert len(qs) == 1 # The entire curve is within 10 meter, so no need to cut.
+    assert (qs[0] == curve).all() # Expect the curve to be the first entry.
+
+    # Double range.
+    curve = array([(0., 2*i) for i in range(11)])
+    qs = curve_cut_max_distance(curve, max_distance=1)
+    assert len(qs) == 20 # Expect 20 subcurves.
+    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
+    qs = array(qs) # We can do this here since we expect every subcurve to consist of exactly two coordinates.
+    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1 + 0.0001 # Expect each subcurve to be a length of 1.
+
+    # Incomplete.
+    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
+    qs = curve_cut_max_distance(curve, max_distance=1.4)
+    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
+    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
+
 
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
