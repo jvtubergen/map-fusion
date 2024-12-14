@@ -105,21 +105,22 @@ def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
     return subgraph
 
 
-# Obtain threshold per simplified edge of S.
-def edge_graph_coverage(S, T, max_threshold=None):
-    assert type(S) == nx.Graph
-    assert type(T) == nx.Graph
-    assert not S.graph.get("simplified") # Vectorized.
-    assert not T.graph.get("simplified") # Vectorized.
+# Obtain threshold per simplified edge of S in comparison to T.
+def edge_graph_coverage(S, T, max_threshold=None): # We should always act on simplified graph S.
+    S = S.copy()
 
-    G = S.copy()
+    # Sanity checks.
+    assert type(S) == nx.Graph and S.graph["vectorized"] and S.graph["coordinates"] == "latlon"
+    assert type(T) == nx.Graph and T.graph["vectorized"] and S.graph["coordinates"] == "latlon"
+    for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
+        assert "threshold" not in attrs
 
     # Transform to local coordinate system.
     S = graph_transform_latlon_to_utm(S)
     T = graph_transform_latlon_to_utm(T)
 
-    # We need a multi-graph because there can be multiple roads 
-    S2 = ox.simplify_graph(nx.MultiGraph(S).to_directed(), track_merged=True).to_undirected()
+    # Prepare graphs.
+    S2 = simplify_graph(S)
     T2 = graph_to_rust_graph(T)
     
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
@@ -146,9 +147,11 @@ def edge_graph_coverage(S, T, max_threshold=None):
                 if "merged_edges" in edge_info:
                     annotate = annotate + edge_info["merged_edges"]
 
-                # Add reverse.
-                for (u, v) in annotate:
-                    annotate += [(v, u)]
+                # No need to add reverse, we consider undirected graphs only. Library fixes the edge node identifiers order.
+                for i in range(len(annotate)): # Do have uprunning sequence for our own administration.
+                    (u, v) = annotate[i]
+                    if v < u:
+                        annotate[i] = (v, u)
 
                 # Annotate S with result information.
                 for uv in annotate:
@@ -161,8 +164,16 @@ def edge_graph_coverage(S, T, max_threshold=None):
     for uv in leftS:
         thresholds[uv] = {"threshold": inf}
     
-    nx.set_edge_attributes(G, thresholds)
-    G.graph['max_threshold'] = max_threshold
+    S = vectorize_graph(S) # Vectorize again.
+    nx.set_edge_attributes(S, thresholds) # Set thresholds for each edge.
+    S.graph['max_threshold'] = max_threshold # Mention till what threshold we have searched.
+    S = graph_transform_utm_to_latlon(S) # Convert back into latlon.
+
+    # Sanity checks.
+    assert type(S) == nx.Graph and S.graph["vectorized"] and S.graph["coordinates"] == "latlon"
+    for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
+        assert "threshold" in attrs
+
     return G
 
 
