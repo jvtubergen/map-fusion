@@ -107,22 +107,24 @@ def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
 
 # Obtain threshold per simplified edge of S in comparison to T.
 # * `vectorized`: Whether input graph is vectorized (and thereby whether we have to annotate vectorized or simplified edges).
-def edge_graph_coverage(S, T, max_threshold=None, vectorized=True): 
+def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_utm=True): 
 
     S = S.copy()
 
     # Sanity checks.
+    assert (convert_to_utm and vectorized) or (not convert_to_utm) # We can only convert a vectorized graph to UTM coordinates.
     assert vectorized == (not S.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
     assert vectorized == (not T.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
-    assert S.graph["coordinates"] == "latlon"
-    assert T.graph["coordinates"] == "latlon"
+    assert convert_to_utm == (S.graph["coordinates"] == "latlon") # Expect to convert to utm iff graph is in latlon.
+    assert convert_to_utm == (T.graph["coordinates"] == "latlon") # Expect to convert to utm iff graph is in latlon.
     for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
         assert "threshold" not in attrs
 
     # Transform to local coordinate system.
-    utm_info = get_utm_info_from_graph(S)
-    S = graph_transform_latlon_to_utm(S)
-    T = graph_transform_latlon_to_utm(T)
+    if convert_to_utm:
+        utm_info = get_utm_info_from_graph(S)
+        S = graph_transform_latlon_to_utm(S)
+        T = graph_transform_latlon_to_utm(T)
 
     # Prepare graphs.
     if vectorized:
@@ -218,7 +220,8 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True):
     # Restore graph to input state.
     if vectorized:
         S = O
-    S = graph_transform_utm_to_latlon(S, "", **utm_info) # Convert back into latlon.
+    if convert_to_utm:
+        S = graph_transform_utm_to_latlon(S, "", **utm_info) # Convert back into latlon.
 
     # Apply threshold annotation.
     nx.set_edge_attributes(S, attributes) # Set thresholds for each edge.
@@ -241,7 +244,7 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True):
 
     # Sanity checks.
     assert vectorized == (not S.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
-    assert S.graph["coordinates"] == "latlon"
+    assert convert_to_utm == (S.graph["coordinates"] == "latlon") # Expect to convert to utm iff graph is in latlon.
     for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
         assert "threshold" in attrs
 
