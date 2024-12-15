@@ -106,16 +106,15 @@ def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
 
 
 # Obtain threshold per simplified edge of S in comparison to T.
-def edge_graph_coverage(S, T, max_threshold=None): # We should always act on simplified graph S.
+# * `vectorized`: Whether input graph is vectorized (and thereby whether we have to annotate vectorized or simplified edges).
+def edge_graph_coverage(S, T, max_threshold=None, vectorized=True): 
 
     S = S.copy()
 
     # Sanity checks.
-    assert type(S) == nx.Graph 
-    assert not S.graph["simplified"]
+    assert vectorized == (not S.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
+    assert vectorized == (not T.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
     assert S.graph["coordinates"] == "latlon"
-    assert type(T) == nx.Graph 
-    assert not T.graph["simplified"] 
     assert T.graph["coordinates"] == "latlon"
     for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
         assert "threshold" not in attrs
@@ -126,8 +125,16 @@ def edge_graph_coverage(S, T, max_threshold=None): # We should always act on sim
     T = graph_transform_latlon_to_utm(T)
 
     # Prepare graphs.
-    O = S # Store source under O, we apply changes to O after finding thresholds on the simplified edges.
-    S = simplify_graph(S)
+    if vectorized:
+        O = S # Store source under O, we apply changes to O after finding thresholds on the simplified edges.
+        S = simplify_graph(S)
+    else: 
+        T = vectorize_graph(T)
+
+    # Sanity check no duplicated nodes or edges.
+    assert len(duplicated_edges(S)) + len(duplicated_nodes(S)) == 0
+    assert len(duplicated_edges(T)) + len(duplicated_nodes(T)) == 0
+
     T = graph_to_rust_graph(T)
 
     # Iteration variables.
@@ -162,42 +169,46 @@ def edge_graph_coverage(S, T, max_threshold=None): # We should always act on sim
         lam += 1 # Increment lambda.
 
     # Set processed edges to found threshold (vectorized edges from annotated simplified edges).
-    uvk_thresholds = thresholds
-    thresholds = {}
-    for (u, v, k) in uvk_thresholds:
+    if vectorized:
+        # Convert threshold annotations of simplified edges (u, v, k) to vectorized edges (u, v).
+        uvk_thresholds = thresholds
+        thresholds = {}
+        for (u, v, k) in uvk_thresholds:
 
-        # Obtain vectorized edges concerning this simplified edge.
-        edge_info = S.get_edge_data(u, v, k)
+            # Obtain vectorized edges concerning this simplified edge.
+            edge_info = S.get_edge_data(u, v, k)
 
-        # Depending on whether a edge contains curvature.
-        annotate = [(u, v)]
-        if "merged_edges" in edge_info:
-            annotate += edge_info["merged_edges"]
-        else:
-            assert len(edge_curvature(S, u, v, k=k)) == 2
-            # print((u,v))
+            # Depending on whether a edge contains curvature.
             annotate = [(u, v)]
+            if "merged_edges" in edge_info:
+                annotate += edge_info["merged_edges"]
+            else:
+                assert len(edge_curvature(S, u, v, k=k)) == 2
+                # print((u,v))
+                annotate = [(u, v)]
 
-        # Set same threshold for each line segment of the simplified edge.
-        for uv in annotate:
-            thresholds[uv] = uvk_thresholds[(u, v, k)]
-
+            # Set same threshold for each line segment of the simplified edge.
+            for uv in annotate:
+                thresholds[uv] = uvk_thresholds[(u, v, k)]
+    
     # Set unprocessed edges to have infinite threshold.
     for (u, v, k) in leftS:
+        if vectorized:
+            # Obtain vectorized edges concerning this simplified edge.
+            edge_info = S.get_edge_data(u, v, k)
 
-        # Obtain vectorized edges concerning this simplified edge.
-        edge_info = S.get_edge_data(u, v, k)
+            # Depending on whether a edge contains curvature.
+            if "merged_edges" in edge_info:
+                to_drop = edge_info["merged_edges"]
+            else:
+                print((u,v))
+                to_drop = [(u, v)]
 
-        # Depending on whether a edge contains curvature.
-        if "merged_edges" in edge_info:
-            to_drop = edge_info["merged_edges"]
+            # Set same threshold for each line segment of the simplified edge.
+            for uv in to_drop:
+                thresholds[uv] = inf
         else:
-            print((u,v))
-            to_drop = [(u, v)]
-
-        # Set same threshold for each line segment of the simplified edge.
-        for uv in to_drop:
-            thresholds[uv] = inf
+            thresholds[(u, v, k)] = inf
 
     # Convert thresholds into dictionary elements processable by the `set_edge_attributes` function.
     attributes = {}
@@ -205,7 +216,8 @@ def edge_graph_coverage(S, T, max_threshold=None): # We should always act on sim
         attributes[uv_k] = {"threshold": thresholds[uv_k]}
 
     # Restore graph to input state.
-    S = O
+    if vectorized:
+        S = O
     S = graph_transform_utm_to_latlon(S, "", **utm_info) # Convert back into latlon.
 
     # Apply threshold annotation.
@@ -214,17 +226,21 @@ def edge_graph_coverage(S, T, max_threshold=None): # We should always act on sim
 
     # Account for missing edges (this is a bug, somehow edges got skipped. Possibly an error in the OSMnx library simplify function.?)
     thresholds = {}
-    for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
-        if not "threshold" in attrs:
-            thresholds[(u, v)] = inf
+    if vectorized:
+        for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
+            if not "threshold" in attrs:
+                thresholds[(u, v)] = inf
+    else:
+        for (u, v, k, attrs) in S.edges(data=True, keys=True): # Check each edge has a threshold set.
+            if not "threshold" in attrs:
+                thresholds[(u, v, k)] = inf
     attributes = {}
     for uv_k in thresholds:
         attributes[uv_k] = {"threshold": thresholds[uv_k]}
     nx.set_edge_attributes(S, attributes) # Set thresholds for each edge.
 
     # Sanity checks.
-    assert type(S) == nx.Graph 
-    assert not S.graph["simplified"]
+    assert vectorized == (not S.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
     assert S.graph["coordinates"] == "latlon"
     for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
         assert "threshold" in attrs
