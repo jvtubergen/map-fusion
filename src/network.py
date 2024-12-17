@@ -732,7 +732,7 @@ def cut_out_ROI(G, p1, p2):
 # Merges graph A into graph C.
 # * Injects uncovered edges of graph A into graph C. 
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
-def merge_graphs(C, A, prune_threshold=20):
+def merge_graphs(C=None, A=None, prune_threshold=20):
 
     assert not A.graph["simplified"]
     assert not C.graph["simplified"]
@@ -741,7 +741,7 @@ def merge_graphs(C, A, prune_threshold=20):
     assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
 
     # Relabel additional to prevent node id overlap. / # Adjust nids of A to ensure uniqueness once added to C.
-    nid = max(current.nodes()) + 1
+    nid = max(C.nodes()) + 1
     relabel_mapping = {}
     for nidH in A.nodes():
         relabel_mapping[nidH] = nid
@@ -749,8 +749,8 @@ def merge_graphs(C, A, prune_threshold=20):
     additional = nx.relabel_nodes(A, relabel_mapping)
 
     # Edges above and below the prune threshold. We retain edges below the prune threshold.
-    drop   = above = above_threshold = [attrs["threshold"] <= prune_threshold for _, _, attrs in A.edges(data=True)]
-    retain = below = below_threshold = [attrs["threshold"] >  prune_threshold for _, _, attrs in A.edges(data=True)]
+    drop   = above = above_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] <= prune_threshold]
+    retain = below = below_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] >  prune_threshold]
 
     B = A.edge_subgraph(retain)
     C = C.copy()
