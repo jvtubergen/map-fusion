@@ -472,6 +472,44 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
     if overwrite:
         write_graph(merge_a, place=place, graphset="merge_A", overwrite=True)
         
+    # Sanity check each node and edge has the render attribute.
+    for nid, attributes in merge_a.nodes(data=True):
+        assert "render" in attributes
+    for u, v, attributes in merge_a.edges(data=True):
+        assert "render" in attributes
+    
+    # Map each "render" attribute to a "color" and 
+    def color_mapper(render):
+        match render:
+            case "injected":
+                return (1, 0, 0, 1) # red
+            case "connection":
+                return (0, 0.8, 1, 1) # aqua
+            case "original":
+                return (0, 0, 0, 1) # black
+    def linestyle_mapper(render):
+        match render:
+            case "injected":
+                return "-" 
+            case "connection":
+                return ":"
+            case "original":
+                return "-"
+    def linewidth_mapper(render):
+        match render:
+            case "injected":
+                return 2 
+            case "connection":
+                return 2 
+            case "original":
+                return 1
+    for nid, attributes in merge_a.nodes(data=True):
+        attributes["color"] = color_mapper(attributes["render"])
+    for u, v, attributes in merge_a.edges(data=True):
+        attributes["color"] = color_mapper(attributes["render"])
+        attributes["linestyle"] = linestyle_mapper(attributes["render"])
+        attributes["linewidth"] = linewidth_mapper(attributes["render"])
+
     if plot:
         plot_graphs([merge_a])
 
