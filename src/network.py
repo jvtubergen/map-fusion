@@ -648,6 +648,39 @@ def duplicated_edges_grouped(G):
     return result
 
 
+# Deduplicates a vectorized graph. Reconnects edges of removed nodes (if any). 
+def deduplicate(G):
+
+    assert not G.graph["simplified"]
+
+    G = G.copy()
+
+    # Trash edges of duplicated nodes (we can do so since it is vectorized).
+    nodes_to_delete = []
+    edges_to_delete = []
+    edges_to_insert = []
+    for node_group in duplicated_nodes(G):
+        assert len(node_group) > 1
+        first = node_group[0]
+        for nid in node_group[1:]:
+
+            nodes_to_delete.append(nid)
+
+            # Obtain edges to delete.
+            old_edges = G.edges(nid)
+            edges_to_delete.extend(old_edges)
+
+            # Convert edge endpoint to `first` node identifier.
+            new_edges = [(first, edge[1]) for edge in list(old_edges)]
+            edges_to_insert.extend(new_edges)
+        
+    G.remove_edges_from(edges_to_delete)
+    G.add_edges_from(edges_to_insert)
+    G.remove_nodes_from(nodes_to_delete)
+
+    return G
+
+
 # Remove duplicated nodes and edges from vectorized graph.
 # NOTE: Since a vectorized only stores directly
 #       No need to 
