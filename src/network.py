@@ -539,26 +539,14 @@ def graph_split_edges(G, max_distance=10):
 ###  Deduplication functionality
 ###################################
 
-# Return node IDs which are duplicated (exact same coordinate).
-# TODO: Group togeter node-IDs that are duplicates of one another as tuples.
-def duplicated_nodes(G):
-    # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
-    nodes = G.nodes()
-    coordinates = np.array([[info["y"], info["x"]] for node, info in G.nodes(data=True)])
-    uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
-    duplicated = []
-    for node_id, index_to_unique in zip(nodes, inverses):
-        if counts[index_to_unique] > 1:
-            duplicated.append(node_id)
-    return duplicated
-
-
 # Group duplicated nodes.
-def duplicated_nodes_grouped(G):
+def duplicated_nodes(G):
+
     # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
     node_ids = G.nodes()
     coordinates = np.array([[info["y"], info["x"]] for node, info in G.nodes(data=True)])
     uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
+
     # Construct dictionary.
     duplicated = {}
     for node_id, index_to_unique in zip(node_ids, inverses):
@@ -567,78 +555,6 @@ def duplicated_nodes_grouped(G):
                 duplicated[index_to_unique].append(node_id)
             else:
                 duplicated[index_to_unique] = [node_id]
-    # Convert dictionary into a list.
-    result = []
-    for v in duplicated:
-        result.append(duplicated[v])
-    return result
-
-
-# Return edge IDs which are duplicated (exact same coordinates).
-# NOTE: Expects vectorized graph.
-def duplicated_edges(G):
-
-    G = G.copy()
-
-    if type(G) != nx.MultiGraph:
-        raise BaseException("Expect to call duplicated_edge_grouped on an MultiGraph.")
-
-    if G.graph["simplified"]:
-        raise BaseException("Duplicated edges function is supposed to be called on a vectorized graph.")
-
-    # Construct edges coordinates in the format of `[x1,y1,x2,y2]`.
-    # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
-    edges = G.edges(keys=True)
-    coordinates = []
-    for (a, b, k, attrs) in G.edges(keys=True, data=True):
-        x1 = G.nodes[a]["x"]
-        y1 = G.nodes[a]["y"]
-        x2 = G.nodes[b]["x"]
-        y2 = G.nodes[b]["y"]
-        coordinates.append([y1,x1,y2,x2])
-    coordinates = np.array(coordinates)
-
-    # Extract duplications
-    uniques, inverses, counts = np.unique(coordinates, return_inverse=True, axis=0, return_counts=True)
-    duplicated = []
-    for edge_id, index_to_unique in zip(edges, inverses):
-        if counts[index_to_unique] > 1:
-            duplicated.append(edge_id)
-    return duplicated
-
-
-# Group together edge-IDs that are duplicates of one another as tuples.
-# NOTE: Expects vectorized graph.
-def duplicated_edges_grouped(G):
-
-    G = G.copy()
-
-    if type(G) != nx.MultiGraph:
-        raise BaseException("Expect to call duplicated_edge_grouped on an nx.MultiGraph.")
-
-    if G.graph["simplified"]:
-        raise BaseException("Duplicated edges function is supposed to be called on a vectorized graph (thus not simplified).")
-
-    # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
-    edge_ids = G.edges(keys=True)
-    coordinates = []
-    for (a, b, k, attrs) in G.edges(keys=True, data=True):
-        x1 = G.nodes[a]["x"]
-        y1 = G.nodes[a]["y"]
-        x2 = G.nodes[b]["x"]
-        y2 = G.nodes[b]["y"]
-        coordinates.append([y1,x1,y2,x2])
-    coordinates = np.array(coordinates)
-
-    # Construct dictionary.
-    uniques, inverses, counts = np.unique(coordinates, return_inverse=True, axis=0, return_counts=True)
-    duplicated = {}
-    for edge_id, index_to_unique in zip(edge_ids, inverses):
-        if counts[index_to_unique] > 1:
-            if index_to_unique in duplicated.keys():
-                duplicated[index_to_unique].append(edge_id)
-            else:
-                duplicated[index_to_unique] = [edge_id]
 
     # Convert dictionary into a list.
     result = []
