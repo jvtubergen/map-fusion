@@ -729,66 +729,61 @@ def cut_out_ROI(G, p1, p2):
     return G.subgraph(to_keep)
 
 
-# Merge two networks by adding edges from additional into current. 
-# (Strategy is a dummy parameter at this moment.)
-def merge_graphs(current, additional, strategy="nearest_node"):
+# Merges graph A into graph C.
+# * Injects uncovered edges of graph A into graph C. 
+# * Graph A has got its edges annotated with coverage threshold in relation to graph C.
+def merge_graphs(C, A, prune_threshold=20):
 
-    assert type(current) == type(additional)
+    assert not A.graph["simplified"]
+    assert not C.graph["simplified"]
 
-    # strategy nearest_node is the default.
-    current = current.copy()
+    assert A.graph['max_threshold'] > 0 # Make sure thresholds are set.
+    assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
 
-    strategies = [
-        "nearest_node",
-        "nearest_edge"
-    ]
+    # Relabel additional to prevent node id overlap. / # Adjust nids of A to ensure uniqueness once added to C.
+    nid = max(current.nodes()) + 1
+    relabel_mapping = {}
+    for nidH in A.nodes():
+        relabel_mapping[nidH] = nid
+        nid += 1
+    additional = nx.relabel_nodes(A, relabel_mapping)
 
-    if strategy == "nearest_node":
+    # Edges above and below the prune threshold. We retain edges below the prune threshold.
+    drop   = above = above_threshold = [attrs["threshold"] <= prune_threshold for _, _, attrs in A.edges(data=True)]
+    retain = below = below_threshold = [attrs["threshold"] >  prune_threshold for _, _, attrs in A.edges(data=True)]
 
-        # * Construct rtree on nodes in current.
-        nodetree = graphnodes_to_rtree(current)
+    B = A.edge_subgraph(retain)
+    C = C.copy()
 
-        # Relabel additional to prevent node id overlap.
-        nid=max(current.nodes())+1
-        relabel_mapping = {}
-        for nidH in additional.nodes():
-            relabel_mapping[nidH] = nid
-            nid += 1
-        additional = nx.relabel_nodes(additional, relabel_mapping)
+    # (Assume `nearest_node` strategy: Only have to list what nodes of B should get connected to C.)
+    # List nodes of B to connect with C.
+    connect_nodes = []
+    for nid in B.nodes():
+        # This logic checks every node whether it is connected to both a covered (below threshold) and uncovered (above threshold) edge.
+        # With the `nearest_node` strategy, exactly these nodes (of B) have to be connected with C.
+        if array(below).any() and array(above).any():
+            connect_nodes.append(nid)
 
-        # Iterate edges of additional.
-        # Place each edge into current.
-        for edge in additional.edges(data=True):
-            (a, b, attrs) = edge
+    # Construct rtree on nodes in C.
+    nodetree = graphnodes_to_rtree(C)
 
-            y, x = additional._node[a]['y'], additional._node[a]['x'],
-            node_a = (y, x, y, x)
+    # Register edge connections for A to C.
+    connections = [] 
+    for nid in connect_nodes: # In case of `nearest_node` strategy we only care for node, ignore edge.
 
-            y, x = additional._node[b]['y'], additional._node[b]['x'],
-            node_b = (y, x, y, x)
-
-            # Add node_a and node_b to graph.
-            current.add_node(a, **additional._node[a])
-            current.add_node(b, **additional._node[b])
-            current.add_edge(a, b) # And draw edge between them.
-
-            # Draw edge to nearest node.
-            hit = list(nodetree.nearest(node_a))[0] # Seek nearest node.
-            current.add_edge(hit, a)
-            hit = list(nodetree.nearest(node_b))[0] # Seek nearest node.
-            current.add_edge(hit, b)
-
-            # Insert just added edge endpoints for finding nearest neighbor (for subsequent iterations).
-            nodetree.insert(a, node_a)
-            nodetree.insert(b, node_b)
-
-    elif strategy == "nearest_edge":
-        raise Exception("todo.")
+        # Draw edge between nearest node in C and edge endpoint at w in B.
+        y, x = A._node[nid]['y'], A._node[nid]['x'],
+        hit = list(nodetree.nearest((y, x, y, x)))[0] # Seek nearest node.
+        connections.append((hit, nid))
     
-    else:
-        raise Exception(f"Invalid merging strategy '{strategy}'.")
+    # Inject B into C.
+    C.add_nodes_from(B.nodes(data=True))
+    C.add_edges_from(B.edges(data=True))
     
-    return current
+    # Add edge connections between B and C.
+    C.add_edges_from(connections)
+
+    return C
 
 
 #######################################
