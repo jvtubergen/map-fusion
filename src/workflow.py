@@ -408,59 +408,72 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
 # * b. Extend sat with gps edges algorithm 1.
 # * c. Extend sat with gps edges algorithm 2.
 # * d. Extend sat with gps edges algorithm 3.
-def workflow_network_variants(place=None):
-    plot = False
+def workflow_network_variants(place=None, use_storage=True, overwrite=False, plot=False):
 
-    sat = read_graph(place=place, graphset=links["sat"])
-    gps = read_graph(place=place, graphset=links["gps"])
-    osm = read_graph(place=place, graphset=links["osm"])
+    sat = deduplicate(read_graph(place=place, graphset=links["sat"]))
+    gps = deduplicate(read_graph(place=place, graphset=links["gps"]))
+    osm = deduplicate(read_graph(place=place, graphset=links["osm"]))
 
     #### Intersection.
+    print("Intersection.")
     # # * Start with satellite graph and per edge check coverage by GPS.
-    try:
-        sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
-    except:
-        sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+    if use_storage:
+        try:
+            sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
+        except:
+            sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    else:
+        sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    if overwrite:
         pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
 
     intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=20) # Extract edges of sat which are covered by gps.
 
     # # Write graph.
-    try:
-        write_graph(intersection, place=place, graphset="intersection")
-    except Exception as e:
-        print(e)
+    if overwrite:
+        write_graph(intersection, place=place, graphset="intersection", overwrite=True)
 
     # # Plot graph.
     if plot:
-        plot_graphs([simplify_graph(intersection)])
+        plot_graphs([intersection])
 
     #### Naive merging.
+    print("Naive Merging.")
     # * We pick the edges from gps vs sat.
-    try:
-        gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
-    except Exception as e:
-        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+    if use_storage:
+        try:
+            gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
+        except Exception as e:
+            gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    else:
+        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    if overwrite:
         pickle.dump(gps_vs_sat, open("gps_vs_sat.pkl", "wb"))
 
-    try:
-        gps_vs_intersection = pickle.load(open("gps_vs_intersection.pkl", "rb"))
-    except Exception as e:
-        gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=50) # Filters out dangling nodes (not dangling edges).
+    if use_storage:
+        try:
+            gps_vs_intersection = pickle.load(open("gps_vs_intersection.pkl", "rb"))
+        except Exception as e:
+            gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    else:
+        gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+    if overwrite:
         pickle.dump(gps_vs_intersection, open("gps_vs_intersection.pkl", "wb"))
 
     # * Each edge which has a threshold above 20m is inserted into sat.
-    # pruned = prune_coverage_graph(gps_vs_sat, prune_threshold=20, invert=True)
-    # merge_a = merge_graphs(sat, pruned)
-    pruned = prune_coverage_graph(gps_vs_intersection, prune_threshold=20, invert=True)
-    merge_a = merge_graphs(intersection, pruned)
-    try:
-        write_graph(merge_a, place=place, graphset="merge_A")
-    except Exception as e:
-        print(e)
+    # Fix: merge graph cannot simply take out pruned graph and connect all endpoints. This should only be done to edges with adjacent covered edges.
+    if use_storage:
+        try:
+            merge_a = read_graph(place=place, graphset="merge_A")
+        except Exception as e:
+            merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=20)
+    else:
+        merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=20)
+    if overwrite:
+        write_graph(merge_a, place=place, graphset="merge_A", overwrite=True)
         
     if plot:
-        plot_graphs([simplify_graph(merge_a)])
+        plot_graphs([merge_a])
 
     #### Splitpoint merging.
     merge_b = None
