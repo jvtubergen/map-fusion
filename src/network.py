@@ -701,8 +701,15 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
     drop   = above = above_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] <= prune_threshold]
     retain = below = below_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] >  prune_threshold]
 
+    # Sanity check that retain and drop are disjoint.
+    assert len(set(drop) & set(retain)) == 0
+
     B = A.edge_subgraph(retain)
     C = C.copy()
+
+    # Extract nids which are above and below.
+    nodes_above = set([nid for el in above for nid in el]) 
+    nodes_below = set([nid for el in below for nid in el]) 
 
     # (Assume `nearest_node` strategy: Only have to list what nodes of B should get connected to C.)
     # List nodes of B to connect with C.
@@ -710,7 +717,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
     for nid in B.nodes():
         # This logic checks every node whether it is connected to both a covered (below threshold) and uncovered (above threshold) edge.
         # With the `nearest_node` strategy, exactly these nodes (of B) have to be connected with C.
-        if array(below).any() and array(above).any():
+        if nid in nodes_below and nid in nodes_above:
             connect_nodes.append(nid)
             B.nodes[nid]["render"] = "connection" # Annotate as connection point.
         else:
