@@ -763,6 +763,16 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
         # With the `nearest_node` strategy, exactly these nodes (of B) have to be connected with C.
         if array(below).any() and array(above).any():
             connect_nodes.append(nid)
+            B.nodes[nid]["render"] = "connection" # Annotate as connection point.
+        else:
+            B.nodes[nid]["render"] = "injected"
+    
+    for u, v, attributes in B.edges(data=True):
+        attributes["render"] = "injected"
+    for nid, attributes in C.nodes(data=True):
+        attributes["render"] = "original"
+    for u, v, attributes in C.edges(data=True):
+        attributes["render"] = "original"
 
     # Construct rtree on nodes in C.
     nodetree = graphnodes_to_rtree(C)
@@ -774,7 +784,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
         # Draw edge between nearest node in C and edge endpoint at w in B.
         y, x = A._node[nid]['y'], A._node[nid]['x'],
         hit = list(nodetree.nearest((y, x, y, x)))[0] # Seek nearest node.
-        connections.append((hit, nid))
+        connections.append((hit, nid, {"render": "connection"}))
     
     # Inject B into C.
     C.add_nodes_from(B.nodes(data=True))
