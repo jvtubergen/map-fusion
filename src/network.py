@@ -494,17 +494,19 @@ def consolidate_edge_geometry_and_curvature(G):
 # Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.
 def graph_split_edges(G, max_distance=10):
 
-    assert type(G) == nx.Graph
-    assert not G.graph.get("simplified") # Vectorized.
+    assert not G.graph["simplified"]
+
     G = G.copy() # Transform to local coordinate system.
 
+    # Convert coordinates into UTM.
     utm_info = get_utm_info_from_graph(G)
     G = graph_transform_latlon_to_utm(G)
+
+    # Simplify since we want to cut in curvature.
     G = simplify_graph(G)
 
-    nid = max(G.nodes()) + 1
+    nid   = max(G.nodes()) + 1 # NID value for injected nodes at cut subcurves.
     nodes = extract_nodes_dict(G)
-
     edges_to_add = [] # Store edges to insert afterwards (otherwise we have edge iteration change issue).
     nodes_to_add = [] # Same for nodes.
     edges_to_delete = []
@@ -554,9 +556,10 @@ def graph_split_edges(G, max_distance=10):
             else:
                 nid += 1
                 v = nid 
-            
+                nodes_to_add.append((nid, {"y": subcurve[-1][0], "x": subcurve[-1][1]}))
+                
             geometry = to_linestring(subcurve)
-            edges_to_add.append((u, v, {"geometry": geometry, "curvature": subcurve}))
+            edges_to_add.append((u, v, {**attrs, "geometry": geometry, "curvature": subcurve}))
 
     G.remove_edges_from(edges_to_delete)
     G.add_nodes_from(nodes_to_add)
