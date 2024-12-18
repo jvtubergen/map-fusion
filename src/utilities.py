@@ -109,6 +109,9 @@ def curve_cut_pieces(ps, amount=10):
     current_distance = 0
     current_subcurve = [ps[0]]
     while True:
+
+        assert(current_step < len(steps))
+
         target_length = (current_interval + 1) * percentage * length # Distance at which next cut has to be made.
         next_distance = current_distance + steps[current_step] # Distance we are at after walking the current line segment.
         if abs(target_length - next_distance) < 0.0001: # Cutpoint lies on curvature vertex.

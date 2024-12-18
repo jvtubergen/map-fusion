@@ -242,14 +242,15 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
 
     if node_properties != None:
         # Render all nodes with same render properties.
-        ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **node_properties)
+        render_attributes = node_properties
     else:
         # Render nodes with their specific render properties (stored under its attributes).
         render_attributes = {}
         for prop in ["color"]: 
             if prop in gdf_nodes.keys():
                 render_attributes["color"] = gdf_nodes["color"]
-        ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **render_attributes)
+
+    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **render_attributes)
     
     print("Plotting edges.")
     # Edges.
@@ -264,21 +265,19 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
 
     if not G.graph["simplified"]:
         u, v, data = zip(*G.edges(data=True))
-    else:
-        u, v, k, data = zip(*G.edges(data=True, keys=True))
-
-    edge_geoms = map(extract_edge_geometry, u, v, data)
-
-    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
-    gdf_edges["u"] = u
-    gdf_edges["v"] = v
-
-    if not G.graph["simplified"]:
+        edge_geoms = map(extract_edge_geometry, u, v, data)
+        gdf_edges  = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
+        gdf_edges["u"] = u
+        gdf_edges["v"] = v
         gdf_edges = gdf_edges.set_index(["u", "v"])
     else:
+        u, v, k, data = zip(*G.edges(data=True, keys=True))
+        gdf_edges  = gpd.GeoDataFrame(data) # Simplified edges already have geometry attribute.
+        gdf_edges["u"] = u
+        gdf_edges["v"] = v
         gdf_edges["k"] = k
         gdf_edges = gdf_edges.set_index(["u", "v", "k"])
-    
+
     if edge_properties != None: 
         # Render all edges with same render properties.
         gdf_edges.plot(ax=ax, **edge_properties) 
