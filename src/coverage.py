@@ -21,90 +21,6 @@ def curve_by_curveset_coverage(ps, qss, lam):
 
 ###  Curve by network coverage
 
-# Compute per (simplified) edge of S (Source graph) the coverage threshold in order to be matched by T (Target graph).
-# Assume S and T are a MultiGraph, simplified, and in appropriate coordinate system to measure distance differences in meter.
-# todo optimize: Have a minimal distance per edge to start evaluation (e.g. some thresholds start at 700 meters).
-def edge_wise_coverage_threshold(S, T, max_threshold=None):
-    
-    assert type(S) == nx.Graph
-    assert type(T) == nx.Graph
-
-    assert not S.graph.get("simplified") # Vectorized.
-    assert not T.graph.get("simplified") # Vectorized.
-
-    # Transform to local coordinate system.
-    S = graph_transform_latlon_to_utm(S)
-    T = graph_transform_latlon_to_utm(T)
-
-    # Source graph should be simplified.
-    S = simplify_graph(S)
-
-    # Construct rust graph for target.
-    graph        = graph_to_rust_graph(T)
-    # edgebboxs  = graphedges_to_bboxs(S) # Have a bounding box per edge so we can quickly pad for intersection test against T.
-    # edgetree   = graphedges_to_rtree(T) # Place graph edges by coordinates in accelerated data structure (R-Tree).
-    edges_todo   = S.edges()
-    nodedict     = extract_nodes_dict(S)
-    edge_results = {}
-
-    # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
-    lam = 1 # Start with a threshold of 1 meter.
-    while len(edges_todo) > 0 and (max_threshold == None or lam <= max_threshold):
-
-        print(f"Lambda: {lam}. Edges: {len(edges_todo)}")
-
-        # Iterate every edge left to do.
-        for uv in edges_todo:
-
-            u, v = uv
-            ps = edge_curvature(S, u, v)
-            curve = curve_to_vector_list(ps)
-            result = partial_curve_graph(graph, curve, lam)
-            if result != None:
-                path = result
-                edges_todo = edges_todo - set([uv]) # Remove edge from edge set.
-                edge_results[uv] = {
-                    "threshold": lam,
-                    "path": path,
-                }
-        lam += 1 # Increment lambda
-
-    return edge_results, edges_todo
-
-
-# Extract subgraph covered below given threshold (feed in coverage data).
-def subgraph_by_coverage_thresholds(graph, coverage_data, max_threshold=10):
-
-    edges = []
-    thresholds = []
-    for edge in coverage_data[0].keys():
-        threshold = coverage_data[0][edge]["threshold"]
-        edges.append(edge)
-        thresholds.append(threshold)
-
-    # Set threshold above 100 to inf.
-    for edge in coverage_data[1]:
-        threshold = inf
-        edges.append(edge)
-        thresholds.append(threshold)
-
-    # Transform to array masking to easily filter out thresholds below or above certain value.
-    edges = array(edges)
-    thresholds = array(thresholds)
-    valids = edges[np.where(thresholds <= max_threshold)]
-    invalids = edges[np.where(thresholds > max_threshold)]
-
-    # Extract subgraph on valid edges.
-    valid_edges = set()
-    [valid_edges.add((edge[0], edge[1])) for edge in valids.tolist()]
-    subgraph = graph.edge_subgraph(valid_edges)
-
-    # Extract largest connected component.
-    subgraph = ox.utils_graph.get_largest_component(subgraph.to_directed()).to_undirected()
-
-    return subgraph
-
-
 # Obtain threshold per simplified edge of S in comparison to T.
 # * `vectorized`: Whether input graph is vectorized (and thereby whether we have to annotate vectorized or simplified edges).
 def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_utm=True): 
@@ -133,9 +49,9 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
     else: 
         T = vectorize_graph(T)
 
-    # Sanity check no duplicated nodes or edges.
-    assert len(duplicated_edges(S)) + len(duplicated_nodes(S)) == 0
-    assert len(duplicated_edges(T)) + len(duplicated_nodes(T)) == 0
+    # Sanity check no duplicated nodes.
+    assert len(duplicated_nodes(S)) == 0
+    assert len(duplicated_nodes(T)) == 0
 
     T = graph_to_rust_graph(T)
 
