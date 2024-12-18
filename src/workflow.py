@@ -541,13 +541,18 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
 def workflow_sanity_check_graph_conversion_functions():
     osm = read_graph(graphset=links['osm'], place='chicago')
     graph_sanity_check(osm)
+
+    # Coordinate changes on vectorized graph.
     utm_info = get_utm_info_from_graph(osm) # UTM information necessary to revert back to latlon later on.
     osm = graph_transform_latlon_to_utm(osm)
     graph_sanity_check(osm)
+    osm = graph_transform_utm_to_latlon(osm, "", **utm_info)
+    graph_sanity_check(osm)
+
+    # Coordinate changes on simplified graph.
     osm = simplify_graph(osm)
     graph_sanity_check(osm)
-    # osm = multi_edge_conserving(osm)
-    osm = vectorize_graph(osm)
+    osm = graph_transform_latlon_to_utm(osm)
     graph_sanity_check(osm)
     osm = graph_transform_utm_to_latlon(osm, "", **utm_info)
     graph_sanity_check(osm)

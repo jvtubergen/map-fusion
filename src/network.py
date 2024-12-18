@@ -910,7 +910,7 @@ def graph_sanity_check(G):
         for (a, b, k, _) in G.edges(data=True, keys=True):
             ps = edge_curvature(G, a, b, k)
             if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
-                ps = array([latlon_to_coord(lat, lon) for [lat, lon] in ps])
+                ps = array([latlon_to_coord(latlon) for latlon in ps])
             if curve_length(ps) > 1000: # Expect reasonable curvature length.
                 raise Exception("Expect edge length less than 1000 meters. Probably some y, x coordinate in edge curvature got flipped.")
             ps = edge_curvature(G, a, b, k) # Expect startpoint matches curvature.
