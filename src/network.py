@@ -562,6 +562,11 @@ def graph_split_edges(G, max_distance=10):
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
+    # Sanity check each edge adheres to `max_distance`.
+    for u, v, k, attrs in G.edges(data=True, keys=True):
+        ps = attrs["curvature"]
+        assert curve_length(ps) <= max_distance + 0.0001
+
     assert G.graph["simplified"]
     assert G.graph["coordinates"] == "utm"
 
