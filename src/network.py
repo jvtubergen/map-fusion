@@ -505,32 +505,67 @@ def graph_split_edges(G, max_distance=10):
     G = simplify_graph(G)
 
     nid = max(G.nodes()) + 1
+    nodes = extract_nodes_dict(G)
 
     edges_to_add = [] # Store edges to insert afterwards (otherwise we have edge iteration change issue).
     nodes_to_add = [] # Same for nodes.
     edges_to_delete = []
     
+    # Cut each edge into smaller pieces if necessary.
     for edge in G.edges(data=True, keys=True):
-        print(edge)
-        (a, b, k, attrs) = edge
-        try:
-            ps = path_to_curve(G, start_node=a, end_node=b, path=[(a, b, k)]) # Convert edge to curve.
-        except Exception as e:
-            print(e)
-        qs = curve_insert_vertices_max_distance(ps, max_distance=10) # Cut into 10 pieces. (Which results in 11 nodes.)
-        edges_to_delete.append((a, b)) # Delete original edge.
 
-        curvature = qs
-        geometry = to_linestring(curvature)
-        edges_to_add.append((a, b, {"geometry": geometry, "curvature": curvature}))
+        (a, b, k, attrs) = edge
+        # print(edge)
+
+        # Convert edge into a curve.
+        try:
+            ps = path_to_curve(G, start_node=a, end_node=b, path=[(a, b, k)]) 
+        except Exception as e:
+            print(traceback.format_exc())
+            print(e)
+            breakpoint()
+
+        # Cut line curvature into multiple edges in such that maximal distance between edges.
+        subcurves = curve_cut_max_distance(ps, max_distance=max_distance) 
+
+        # Various sanity checks.
+        try: 
+            assert np.all(subcurves[0][0] == nodes[a]) # Expect starting point of first subcurve to match with the starting point of the path.
+            assert np.all(subcurves[-1][-1] == nodes[b]) # Expect endpoint of the last subcurve to match with the endpoint of the path.
+            assert abs(curve_length(ps) - sum(map(lambda c: curve_length(c), subcurves))) < 0.001 # Expect the summation of subcurve lengths to be approximately the same as the entire path length.
+            assert len(subcurves) < 1000 # Expect less than a thousand subcurves (thus thereby expect each simplified edge to be max 1 kilometer long).
+        except Exception as e:
+            print(traceback.format_exc())
+            print(e)
+            breakpoint()
+
+        # Schedule original edge for deletion.
+        edges_to_delete.append((a, b, k)) 
+
+        # Generate new edges (one per subcurve) which adhere to max distance.
+        for i, subcurve in enumerate(subcurves):
+            # Start node.
+            if i == 0: # Pick start node identifier.
+                u = a
+            else:
+                u = nid
+            
+            # End node.
+            if i == len(subcurves) - 1: # Pick end node identifier.
+                v = b
+            else:
+                nid += 1
+                v = nid 
+            
+            geometry = to_linestring(subcurve)
+            edges_to_add.append((u, v, {"geometry": geometry, "curvature": subcurve}))
 
     G.remove_edges_from(edges_to_delete)
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    G = graph_transform_utm_to_latlon(G, "", **utm_info)
-    G = vectorize_graph(G)
-    G = graph_transform_utm_to_latlon()
+    assert G.graph["simplified"]
+    assert G.graph["coordinates"] == "utm"
 
     return G    
 
