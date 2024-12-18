@@ -166,19 +166,3 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
 
     return S
 
-
-# Prune graph with threshold-annotated edges.
-def prune_coverage_graph(G, prune_threshold=10, invert=False):
-    assert G.graph['max_threshold'] > 0 # Make sure thresholds are set.
-    assert prune_threshold <= G.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
-
-    retain = []
-    for (a, b, attrs) in G.edges(data=True):
-        # Iterate each edge and drop it if its threshold exceeds prune_threshold.
-        if not invert and attrs["threshold"] <= prune_threshold:
-            # Retain edge
-            retain.append((a, b))
-        elif invert and attrs["threshold"] > prune_threshold:
-            retain.append((a, b))
-    G = G.edge_subgraph(retain)
-    return G

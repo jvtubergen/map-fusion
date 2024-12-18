@@ -13,4 +13,5 @@ from data_handling import *
 from network import *
 from rendering import *
 from coverage import *
+from merging import *
 
