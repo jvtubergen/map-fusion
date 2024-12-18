@@ -689,13 +689,16 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
     assert A.graph['max_threshold'] > 0 # Make sure thresholds are set.
     assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
 
+    A = A.copy()
+    C = C.copy()
+
     # Relabel additional to prevent node id overlap. / # Adjust nids of A to ensure uniqueness once added to C.
     nid = max(C.nodes()) + 1
     relabel_mapping = {}
     for nidH in A.nodes():
         relabel_mapping[nidH] = nid
         nid += 1
-    additional = nx.relabel_nodes(A, relabel_mapping)
+    A = nx.relabel_nodes(A, relabel_mapping)
 
     # Edges above and below the prune threshold. We retain edges below the prune threshold.
     drop   = above = above_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] <= prune_threshold]
@@ -703,11 +706,11 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
 
     # Sanity check that retain and drop are disjoint.
     assert len(set(drop) & set(retain)) == 0
+    assert len(set(drop) ^ set(retain)) == len(A.edges())
 
     B = A.edge_subgraph(retain)
-    C = C.copy()
 
-    # Extract nids which are above and below.
+    # Extract nids which are connected to an edge above and below threshold.
     nodes_above = set([nid for el in above for nid in el]) 
     nodes_below = set([nid for el in below for nid in el]) 
 
