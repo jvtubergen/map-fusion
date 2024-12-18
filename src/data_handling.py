@@ -2,7 +2,7 @@ from external import *
 from coordinates import *
 
 # Valid graph sets to work with. GPS: Roadster, Sat: Sat2Graph, Truth: OpenStreetMaps. Extend with techniques as you see fit.
-graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merging_A", "merging_B", "merging_C"]
+graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merge_A", "merge_B", "merge_C"]
 places    = ["athens", "berlin", "chicago"]
 
 
