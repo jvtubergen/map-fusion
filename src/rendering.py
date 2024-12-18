@@ -231,86 +231,64 @@ def plot_graph_and_curves(G, ps, qs):
 
 
 # Preplot a graph. Can be performed multiple times to render graphs together.
-def preplot_graph(G, ax, **properties):
-    _preplot_graph(G, ax, properties, properties)
+# * Optional to have general node and/or edge rendering properties (thus rendering all nodes/edges the same).
+# * Otherwise each edge and node is checked for rendering properties in its attributes (thus each node and edge is considered uniquely).
+def preplot_graph(G, ax, node_properties=None, edge_properties=None): 
 
-# Preplot a graph with seperate node and edge properties.
-def _preplot_graph(G, ax, node_properties, edge_properties): 
-    
-    if type(G) != nx.Graph:
-        print("Warning: Expecting an nx.Graph to render.")
-    
-    print("Extracting node attributes.")
-    # Nodes.
-    uv, data = zip(*G.nodes(data=True))
-    gdf_nodes = gpd.GeoDataFrame(data, index=uv)
-    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **node_properties)
-
-    # Edges.
-    u, v, data = zip(*G.edges(data=True))
-    x_lookup = nx.get_node_attributes(G, "x")
-    y_lookup = nx.get_node_attributes(G, "y")
-
-    def extract_edge_geometry(u, v, data):
-        if "geometry" in data:
-            return data["geometry"]
-        else:
-            return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
-
-    print("Mapping edge geometry.")
-    edge_geoms = map(extract_edge_geometry, u, v, data)
-    gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
-    gdf_edges["u"] = u
-    gdf_edges["v"] = v
-    gdf_edges = gdf_edges.set_index(["u", "v"])
-
-    # Plot.
-    print("Plotting data.")
-    gdf_edges.plot(ax=ax, **edge_properties)
-
-# Render with rendering properties of nodes and edges.
-def _preplot_graph2(G, ax): 
-    
-    if type(G) != nx.Graph:
-        print("Warning: Expecting an nx.Graph to render.")
-    
-    print("Extracting node attributes.")
+    print("Plotting nodes.")
     # Nodes.
     uv, data = zip(*G.nodes(data=True))
     gdf_nodes = gpd.GeoDataFrame(data, index=uv)
 
-    render_attributes = {}
-    for prop in ["color"]: 
-        if prop in gdf_nodes.keys():
-            render_attributes["color"] = gdf_nodes["color"]
-    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **render_attributes)
-
+    if node_properties != None:
+        # Render all nodes with same render properties.
+        ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **node_properties)
+    else:
+        # Render nodes with their specific render properties (stored under its attributes).
+        render_attributes = {}
+        for prop in ["color"]: 
+            if prop in gdf_nodes.keys():
+                render_attributes["color"] = gdf_nodes["color"]
+        ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **render_attributes)
+    
+    print("Plotting edges.")
     # Edges.
-    u, v, data = zip(*G.edges(data=True))
     x_lookup = nx.get_node_attributes(G, "x")
     y_lookup = nx.get_node_attributes(G, "y")
 
     def extract_edge_geometry(u, v, data):
-        if "geometry" in data:
-            return data["geometry"]
-        else:
+        if not G.graph["simplified"]:
             return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
+        else:
+            return data["geometry"] # Always exists on simplified graph.
 
-    print("Mapping edge geometry.")
+    if not G.graph["simplified"]:
+        u, v, data = zip(*G.edges(data=True))
+    else:
+        u, v, k, data = zip(*G.edges(data=True, keys=True))
+
     edge_geoms = map(extract_edge_geometry, u, v, data)
+
     gdf_edges = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
     gdf_edges["u"] = u
     gdf_edges["v"] = v
-    gdf_edges = gdf_edges.set_index(["u", "v"])
 
-    render_attributes = {}
-    for prop in ["color", "linestyle", "linewidth"]: 
-        if prop in gdf_edges.keys():
-            render_attributes[prop] = gdf_edges[prop]
-
-    # Plot.
-    print("Plotting data.")
-    gdf_edges.plot(ax=ax, **render_attributes)
+    if not G.graph["simplified"]:
+        gdf_edges = gdf_edges.set_index(["u", "v"])
+    else:
+        gdf_edges["k"] = k
+        gdf_edges = gdf_edges.set_index(["u", "v", "k"])
+    
+    if edge_properties != None: 
+        # Render all edges with same render properties.
+        gdf_edges.plot(ax=ax, **edge_properties) 
+    else:
+        # Render edges with their specific render properties (stored under its attributes).
+        render_attributes = {}
+        for prop in ["color", "linestyle", "linewidth"]: 
+            if prop in gdf_edges.keys():
+                render_attributes[prop] = gdf_edges[prop]
+        gdf_edges.plot(ax=ax, **render_attributes)
 
 
 def preplot_curve(ps, ax, **properties):
@@ -332,7 +310,7 @@ def plot_without_projection(Gs, pss):
             preplot_graph(G,  ax, **properties) 
         else:
             G = obj
-            _preplot_graph2(G,  ax) 
+            preplot_graph(G,  ax) 
 
     for i, obj in enumerate(pss):
         print(f"Plotting paths {i}.")
@@ -364,7 +342,7 @@ def plot_with_weight_without_projection(S, T, max_threshold):
     fig, ax = plt.subplots()
 
     # Render target.
-    _preplot_graph(T,  ax, {"color": (0,0,0,0)}, {"color":(0.4,0.4,0.4,1), "linestyle": ":"}) 
+    preplot_graph(T,  ax, node_properties={"color": (0,0,0,0)}, edge_properties={"color":(0.4,0.4,0.4,1), "linestyle": ":"}) 
 
     # Render source.
     thresholds = [S[u][v]['threshold'] for u, v in S.edges()]
@@ -374,7 +352,7 @@ def plot_with_weight_without_projection(S, T, max_threshold):
     u, v, data = zip(*S.edges(data=True))
     edge_geoms = map(extract_edge_geometry, u, v)
     edge_coloring = [cmap(threshold) for threshold in norm_thresholds]
-    _preplot_graph(S, ax, {"color": (0,0,0,0)}, {"color":edge_coloring, "linewidth": 2})
+    preplot_graph(S, ax, node_properties={"color": (0,0,0,0)}, edge_properties={"color":edge_coloring, "linewidth": 2})
 
     # Plot.
     print("Show plot.")
