@@ -192,6 +192,7 @@ def simplify_graph(G):
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
     G = correctify_edge_curvature(G)
     G.graph["simplified"] = True
+    G = consolidate_edge_geometry_and_curvature(G)
     return G
 
 # Vectorize a network
@@ -224,7 +225,7 @@ def vectorize_graph(G):
     for (a, b, k, attrs) in edges:
 
         # We only have to perform work if an edge contains curvature. (If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.)
-        if "geometry" in attrs.keys():
+        if len(attrs["curvature"]) > 2:
 
             # Delete this edge from network.
             G.remove_edge(a,b,k)
@@ -352,8 +353,8 @@ def path_to_curve(G, path=[], start_node=None, end_node=None):
 
 
 # Convert an array into a LineString consisting of Points.
-to_linestring = lambda ps: LineString([Point(x, y) for y, x in ps]) # its quite trash, curvature positions are x,y instead of y,x
-
+to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvature]) # Coordinates are flipped.
+from_linestring = lambda geometry : array([(y, x) for x, y in geometry.coords]) # Coordinates are flipped.
 
 # Extract subgraph by a point and a radius (using a square rather than circle for distance measure though).
 def extract_subgraph(G, ps, lam):
@@ -364,41 +365,38 @@ def extract_subgraph(G, ps, lam):
     return subG
 
 
-# For a simplified graph, annotate edges with its curvature as a numpy array rather than the encoded shapely string.
-def annotate_edge_curvature_as_array(G):
+def consolidate_edge_geometry_and_curvature(G):
+
+    assert G.graph["simplified"]
 
     G = G.copy()
 
-    if not G.graph.get("simplified"):
-        msg = "Graph has to be simplified in order to annotate curvature as an array."
-        raise BaseException(msg)
-    
-    if not type(G) == nx.MultiGraph:
-        msg = "Graph has to be MultiGraph (undirected but potentially multiple connections) for data extraction and annotation to work."
-        raise BaseException(msg)
-
-    edges = np.array(list(G.edges(data=True, keys=True)))
-
+    # Edges contain curvature information.
     edge_attrs = {}
+    for (a, b, k, attrs) in G.edges(data=True, keys=True):
+        # print(a, b, attrs)
 
-    # Edges contain curvature information, extract.
-    for (a, b, k, attrs) in edges:
-        # print(a, b, attr)
-
-        if not "geometry" in attrs.keys():
+        # Obtain "geometry" and "curvature" attribute.
+        if "geometry" in attrs.keys():
+            geometry = attrs["geometry"]
+            curvature = from_linestring(geometry)
+        else:
+            # No curvature in edge, thus a straight line segment.
             p1 = G.nodes()[a]
             p2 = G.nodes()[b]
             latlon1 = p1["y"], p1["x"]
             latlon2 = p2["y"], p2["x"]
-            edge_attrs[(a, b, k)] = {"curvature": np.array([latlon1, latlon2])}
-        else:
-            linestring = attrs["geometry"]
-            ps = arrray([(y, x) for (x, y) in list(linestring.coords)])
-            # print(ps)
-            # assert len(ps) >= 3 # We expect at least one point in between start and end node.
-            edge_attrs[(a, b, k)] = {"curvature": ps}
+            curvature = array([latlon1, latlon2])
+            geometry = to_linestring(curvature)
+        
+        # Sanity check to always have sensible curvature.
+        assert len(curvature) >= 2
+        
+        # Add both attributes to the edge.
+        edge_attrs[(a, b, k)] = {**attrs, "curvature": curvature, "geometry": geometry}
     
     nx.set_edge_attributes(G, edge_attrs)
+
     return G
 
 
