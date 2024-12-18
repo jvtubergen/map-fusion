@@ -410,6 +410,13 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
 # * d. Extend sat with gps edges algorithm 3.
 def workflow_network_variants(place=None, use_storage=True, overwrite=False, plot=False):
 
+    threshold_computations = 50
+    prune_thresholds = 30
+
+    do_merge_a = True
+    do_merge_b = True
+    do_merge_c = True
+
     sat = deduplicate(read_graph(place=place, graphset=links["sat"]))
     gps = deduplicate(read_graph(place=place, graphset=links["gps"]))
     osm = deduplicate(read_graph(place=place, graphset=links["osm"]))
@@ -421,13 +428,13 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
         try:
             sat_vs_gps = pickle.load(open("sat_vs_graph.pkl", "rb"))
         except:
-            sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+            sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
     else:
-        sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=20) # Filters out dangling nodes (not dangling edges).
+        sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
     if overwrite:
         pickle.dump(sat_vs_gps, open("sat_vs_graph.pkl", "wb"))
 
-    intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=20) # Extract edges of sat which are covered by gps.
+    intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=prune_thresholds) # Extract edges of sat which are covered by gps.
 
     # # Write graph.
     if overwrite:
@@ -438,80 +445,75 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
         plot_graphs([intersection])
 
     #### Naive merging.
-    print("Naive Merging.")
-    # * We pick the edges from gps vs sat.
-    if use_storage:
-        try:
-            gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
-        except Exception as e:
-            gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=20) # Filters out dangling nodes (not dangling edges).
-    else:
-        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=20) # Filters out dangling nodes (not dangling edges).
-    if overwrite:
-        pickle.dump(gps_vs_sat, open("gps_vs_sat.pkl", "wb"))
+    if do_merge_a:
 
-    if use_storage:
-        try:
-            gps_vs_intersection = pickle.load(open("gps_vs_intersection.pkl", "rb"))
-        except Exception as e:
-            gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=20) # Filters out dangling nodes (not dangling edges).
-    else:
-        gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=20) # Filters out dangling nodes (not dangling edges).
-    if overwrite:
-        pickle.dump(gps_vs_intersection, open("gps_vs_intersection.pkl", "wb"))
+        print("Naive Merging.")
+        # * We pick the edges from gps vs sat.
+        if use_storage:
+            try:
+                gps_vs_sat = pickle.load(open("gps_vs_sat.pkl", "rb"))
+            except Exception as e:
+                gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
+        else:
+            gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
+        if overwrite:
+            pickle.dump(gps_vs_sat, open("gps_vs_sat.pkl", "wb"))
 
-    # * Each edge which has a threshold above 20m is inserted into sat.
-    # Fix: merge graph cannot simply take out pruned graph and connect all endpoints. This should only be done to edges with adjacent covered edges.
-    if use_storage:
-        try:
-            merge_a = read_graph(place=place, graphset="merge_A")
-        except Exception as e:
-            merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=20)
-    else:
-        merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=20)
-    if overwrite:
-        write_graph(merge_a, place=place, graphset="merge_A", overwrite=True)
+        if use_storage:
+            try:
+                gps_vs_intersection = pickle.load(open("gps_vs_intersection.pkl", "rb"))
+            except Exception as e:
+                gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
+        else:
+            gps_vs_intersection = edge_graph_coverage(gps, intersection, max_threshold=threshold_computations) # Filters out dangling nodes (not dangling edges).
+        if overwrite:
+            pickle.dump(gps_vs_intersection, open("gps_vs_intersection.pkl", "wb"))
+
+        # * Each edge which has a threshold above 20m is inserted into sat.
+        merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
+            
+        # Sanity check each node and edge has the render attribute.
+        for nid, attributes in merge_a.nodes(data=True):
+            assert "render" in attributes
+        for u, v, attributes in merge_a.edges(data=True):
+            assert "render" in attributes
         
-    # Sanity check each node and edge has the render attribute.
-    for nid, attributes in merge_a.nodes(data=True):
-        assert "render" in attributes
-    for u, v, attributes in merge_a.edges(data=True):
-        assert "render" in attributes
-    
-    # Map each "render" attribute to a "color" and 
-    def color_mapper(render):
-        match render:
-            case "injected":
-                return (1, 0, 0, 1) # red
-            case "connection":
-                return (0, 0.8, 1, 1) # aqua
-            case "original":
-                return (0, 0, 0, 1) # black
-    def linestyle_mapper(render):
-        match render:
-            case "injected":
-                return "-" 
-            case "connection":
-                return ":"
-            case "original":
-                return "-"
-    def linewidth_mapper(render):
-        match render:
-            case "injected":
-                return 2 
-            case "connection":
-                return 2 
-            case "original":
-                return 1
-    for nid, attributes in merge_a.nodes(data=True):
-        attributes["color"] = color_mapper(attributes["render"])
-    for u, v, attributes in merge_a.edges(data=True):
-        attributes["color"] = color_mapper(attributes["render"])
-        attributes["linestyle"] = linestyle_mapper(attributes["render"])
-        attributes["linewidth"] = linewidth_mapper(attributes["render"])
+        # Map each "render" attribute to a "color" and 
+        def color_mapper(render):
+            match render:
+                case "injected":
+                    return (1, 0, 0, 1) # red
+                case "connection":
+                    return (0, 0.8, 1, 1) # aqua
+                case "original":
+                    return (0, 0, 0, 1) # black
+        def linestyle_mapper(render):
+            match render:
+                case "injected":
+                    return "-" 
+                case "connection":
+                    return ":"
+                case "original":
+                    return "-"
+        def linewidth_mapper(render):
+            match render:
+                case "injected":
+                    return 2 
+                case "connection":
+                    return 2 
+                case "original":
+                    return 1
+        for nid, attributes in merge_a.nodes(data=True):
+            attributes["color"] = color_mapper(attributes["render"])
+        for u, v, attributes in merge_a.edges(data=True):
+            attributes["color"] = color_mapper(attributes["render"])
+            attributes["linestyle"] = linestyle_mapper(attributes["render"])
+            attributes["linewidth"] = linewidth_mapper(attributes["render"])
 
-    if plot:
-        plot_graphs([merge_a])
+        if plot:
+            print("Plot merge A")
+            plot_graphs([graph_transform_latlon_to_utm(merge_a)])
+
 
     #### Splitpoint merging.
     merge_b = None
