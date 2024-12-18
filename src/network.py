@@ -787,7 +787,7 @@ def transform_geographic_coordinates_into_scaled_pixel_positioning(G, reflat):
     def latlon_to_relative_pixelcoord(row): 
         lat, lon = row["y"], row["x"]
         y, x = latlon_to_pixelcoord(lat, lon, zoom)
-        return {'y': maxy - gsd * y, 'x': gsd * x }
+        return {**row, 'y': maxy - gsd * y, 'x': gsd * x }
     # Construct relabel mapping and transform node coordinates to relative scaled pixel position.
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
@@ -812,7 +812,7 @@ def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
     def transformer(row): 
         x, y = row["x"], row["y"]
         lat, lon = coord_to_latlon_by_utm_info((y, x), **utm_info)
-        return {'y': lat, 'x': lon}
+        return {**row, 'y': lat, 'x': lon}
 
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
@@ -834,7 +834,7 @@ def graph_transform_latlon_to_utm(G):
     def transformer(row): 
         lat, lon = row["y"], row["x"]
         y, x = latlon_to_coord((lat, lon))
-        return {'y': y, 'x': x}
+        return {**row, 'y': y, 'x': x}
         
     relabel_mapping = {}
     for nid, data in G.nodes(data=True):
@@ -854,7 +854,7 @@ def graph_transform_coordinates(G, transformer):
     for nid, data in G.nodes(data=True):
         y, x = data["y"], data["x"]
         y, x = transformer(y, x)
-        relabel_mapping[nid] = {"y": y, "x": x}
+        relabel_mapping[nid] = {**data, "y": y, "x": x}
 
     nx.set_node_attributes(G, relabel_mapping)
     return G
