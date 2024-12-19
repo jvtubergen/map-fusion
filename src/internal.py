@@ -11,6 +11,7 @@ from coordinates import *
 from utilities import *
 from data_handling import *
 from node_extraction import *
+from simplifying import *
 from network import *
 from deduplicating import *
 from rendering import *
