@@ -16,6 +16,7 @@ from network import *
 from subgraphing import *
 from deduplicating import *
 from graph_coordinates import *
+from graph_curvature import *
 from rendering import *
 from coverage import *
 from merging import *
