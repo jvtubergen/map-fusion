@@ -3,6 +3,7 @@ from external import *
 from data_handling import *
 from coordinates import * 
 from utilities import *
+from deduplicating import *
 from node_extraction import *
 from simplifying import *
 from graph_curvature import *

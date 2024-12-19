@@ -10,14 +10,19 @@ def topo_prime(truth, proposed, **kwargs):
 from coordinates import *
 from utilities import *
 from data_handling import *
+
+# Network submodules.
 from node_extraction import *
 from simplifying import *
-from network import *
 from subgraphing import *
 from deduplicating import *
 from graph_coordinates import *
 from graph_curvature import *
-from rendering import *
+from network import *
+
+# Coverage and merging.
 from coverage import *
 from merging import *
 
+# Rendering.
+from rendering import *

@@ -1,6 +1,7 @@
 from external import *
 from utilities import *
 from network import *
+from graph_coordinates import *
 
 ###  Curve by curve coverage
 
@@ -38,7 +39,7 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
 
     # Transform to local coordinate system.
     if convert_to_utm:
-        utm_info = get_utm_info_from_graph(S)
+        utm_info = graph_utm_info(S)
         S = graph_transform_latlon_to_utm(S)
         T = graph_transform_latlon_to_utm(T)
 
