@@ -250,7 +250,7 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
             if prop in gdf_nodes.keys():
                 render_attributes["color"] = gdf_nodes["color"]
 
-    ax.scatter(x=gdf_nodes["x"], y=gdf_nodes["y"], **render_attributes)
+    ax.scatter(**render_attributes, x=gdf_nodes["x"], y=gdf_nodes["y"])
     
     print("Plotting edges.")
     # Edges.
@@ -280,14 +280,15 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
 
     if edge_properties != None: 
         # Render all edges with same render properties.
-        gdf_edges.plot(ax=ax, **edge_properties) 
+        render_attributes = edge_properties
     else:
         # Render edges with their specific render properties (stored under its attributes).
         render_attributes = {}
         for prop in ["color", "linestyle", "linewidth"]: 
             if prop in gdf_edges.keys():
                 render_attributes[prop] = gdf_edges[prop]
-        gdf_edges.plot(ax=ax, **render_attributes)
+
+    gdf_edges.plot(ax=ax, **render_attributes)
 
 
 def preplot_curve(ps, ax, **properties):

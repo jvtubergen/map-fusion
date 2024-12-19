@@ -400,6 +400,32 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
     gmaps.write_image(image, f"data/satellite images and the pixel coordinates/{place}.png")
     pickle.dump(coordinates, open(f"data/satellite images and the pixel coordinates/{place}.pkl", "wb"))
 
+# Map each "render" attribute to a "color" and 
+def color_mapper(render):
+    match render:
+        case "injected":
+            return (1, 0, 0, 1) # red
+        case "connection":
+            return (0, 0.8, 1, 1) # aqua
+        case "original":
+            return (0, 0, 0, 1) # black
+def linestyle_mapper(render):
+    match render:
+        case "injected":
+            return "-" 
+        case "connection":
+            return ":"
+        case "original":
+            return "-"
+def linewidth_mapper(render):
+    match render:
+        case "injected":
+            return 2 
+        case "connection":
+            return 2 
+        case "original":
+            return 1
+
 
 
 # Generating network variants (Benchmarking your algorithms).
@@ -413,7 +439,8 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
     threshold_computations = 50
     prune_thresholds = 30
 
-    do_merge_a = True
+    do_intersect = False
+    do_merge_a = False
     do_merge_b = True
     do_merge_c = True
 
@@ -441,8 +468,9 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
         write_graph(intersection, place=place, graphset="intersection", overwrite=True)
 
     # # Plot graph.
-    if plot:
-        plot_graphs([intersection])
+    if do_intersect:
+        if plot:
+            plot_graphs([intersection])
 
     #### Naive merging.
     if do_merge_a:
@@ -478,31 +506,6 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
         for u, v, attributes in merge_a.edges(data=True):
             assert "render" in attributes
         
-        # Map each "render" attribute to a "color" and 
-        def color_mapper(render):
-            match render:
-                case "injected":
-                    return (1, 0, 0, 1) # red
-                case "connection":
-                    return (0, 0.8, 1, 1) # aqua
-                case "original":
-                    return (0, 0, 0, 1) # black
-        def linestyle_mapper(render):
-            match render:
-                case "injected":
-                    return "-" 
-                case "connection":
-                    return ":"
-                case "original":
-                    return "-"
-        def linewidth_mapper(render):
-            match render:
-                case "injected":
-                    return 2 
-                case "connection":
-                    return 2 
-                case "original":
-                    return 1
         for nid, attributes in merge_a.nodes(data=True):
             attributes["color"] = color_mapper(attributes["render"])
         for u, v, attributes in merge_a.edges(data=True):
@@ -516,25 +519,44 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
 
 
     #### Splitpoint merging.
-    merge_b = None
+    if do_merge_b:
+        print("Splitpoint Merging.")
+        merge_b = None
 
-    # * Split each edge of gps into 10 small pieces.
-    gps_splitted = graph_split_edges(gps, amount=10)
-    splitted_vs_intersection = edge_graph_coverage(gps_splitted, intersection, max_threshold=20, expect_simplified=False)
-    pruned = prune_coverage_graph(splitted_vs_intersection, prune_threshold=20, invert=True)
-    merge_b = merge_graphs(intersection, pruned)
-    breakpoint()
+        # * Split each edge of gps into 10 small pieces.
+        print("Split edges (simplifies and converts to UTM coordinates as well).")
+        assert len(duplicated_nodes(gps)) == 0
+        gps_splitted = graph_split_edges(gps, max_distance=10)
 
-    plot_graphs(gps_splitted)
-    # * Insert each missing piece.
+        print("Compute coverage.")
+        intersection_adjusted = simplify_graph(graph_transform_latlon_to_utm(intersection))
+        splitted_vs_intersection = edge_graph_coverage(gps_splitted, intersection_adjusted, vectorized=False, convert_to_utm=False, max_threshold=threshold_computations)
+        print("Merge.")
+        merge_b = merge_graphs(C=intersection_adjusted, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
 
-    try:
-        write_graph(merge_b, place=place, graphset="merge_B")
-    except Exception as e:
-        print(e)
-        
-    if plot:
-        plot_graphs([simplify_graph(merge_b)])
+        if overwrite:
+            write_graph(merge_b, place=place, graphset="merge_B")
+
+        if plot:
+
+
+            # Sanity check each node and edge has the render attribute.
+            for nid, attributes in merge_b.nodes(data=True):
+                assert "render" in attributes
+            for u, v, k, attributes in merge_b.edges(data=True, keys=True):
+                assert "render" in attributes
+
+            for nid, attributes in merge_b.nodes(data=True):
+                attributes["color"] = color_mapper(attributes["render"])
+            for u, v, k, attributes in merge_b.edges(data=True, keys=True):
+                attributes["color"] = color_mapper(attributes["render"])
+                attributes["linestyle"] = linestyle_mapper(attributes["render"])
+                attributes["linewidth"] = linewidth_mapper(attributes["render"])
+
+            plot_graphs([merge_b])
+            
+
+
 
     
 # Sanity check various graph conversion functions.
