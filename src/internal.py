@@ -13,6 +13,7 @@ from data_handling import *
 from node_extraction import *
 from simplifying import *
 from network import *
+from subgraphing import *
 from deduplicating import *
 from rendering import *
 from coverage import *
