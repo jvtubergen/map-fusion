@@ -1,5 +1,6 @@
 from external import *
 
+from graph_simplifying import *
 from utilities import *
 
 

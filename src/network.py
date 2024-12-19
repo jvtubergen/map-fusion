@@ -127,7 +127,7 @@ def graph_sanity_check(G):
     # Edges.
     nodes = extract_nodes_dict(G)
     if G.graph["simplified"]: 
-        for (a, b, k, _) in G.edges(data=True, keys=True):
+        for (a, b, k, attrs) in G.edges(data=True, keys=True):
             ps = edge_curvature(G, a, b, k)
             if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
                 ps = array([latlon_to_coord(latlon) for latlon in ps])
@@ -141,4 +141,7 @@ def graph_sanity_check(G):
                 print(traceback.format_exc())
                 print(e)
                 breakpoint()
+            
+            assert "geometry" in attrs
+            assert "curvature" in attrs
         
