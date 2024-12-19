@@ -15,6 +15,7 @@ from simplifying import *
 from network import *
 from subgraphing import *
 from deduplicating import *
+from graph_coordinates import *
 from rendering import *
 from coverage import *
 from merging import *
