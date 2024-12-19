@@ -529,10 +529,9 @@ def workflow_network_variants(place=None, use_storage=True, overwrite=False, plo
         gps_splitted = graph_split_edges(gps, max_distance=10)
 
         print("Compute coverage.")
-        intersection_adjusted = simplify_graph(graph_transform_latlon_to_utm(intersection))
-        splitted_vs_intersection = edge_graph_coverage(gps_splitted, intersection_adjusted, vectorized=False, convert_to_utm=False, max_threshold=threshold_computations)
+        splitted_vs_intersection = edge_graph_coverage(gps_splitted, intersection, vectorized=False, convert_to_utm=False, max_threshold=threshold_computations)
         print("Merge.")
-        merge_b = merge_graphs(C=intersection_adjusted, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
+        merge_b = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
 
         if overwrite:
             write_graph(merge_b, place=place, graphset="merge_B")

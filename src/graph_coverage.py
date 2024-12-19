@@ -31,9 +31,7 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
     # Sanity checks.
     assert (convert_to_utm and vectorized) or (not convert_to_utm) # We can only convert a vectorized graph to UTM coordinates.
     assert vectorized == (not S.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
-    assert vectorized == (not T.graph["simplified"]) # Expect vectorized graph if we are supposed to simplify the graphs, otherwise not.
     assert convert_to_utm == (S.graph["coordinates"] == "latlon") # Expect to convert to utm iff graph is in latlon.
-    assert convert_to_utm == (T.graph["coordinates"] == "latlon") # Expect to convert to utm iff graph is in latlon.
     for (u, v, attrs) in S.edges(data=True): # Check each edge has a threshold set.
         assert "threshold" not in attrs
 
@@ -41,14 +39,16 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
     if convert_to_utm:
         utm_info = graph_utm_info(S)
         S = graph_transform_latlon_to_utm(S)
-        T = graph_transform_latlon_to_utm(T)
 
     # Prepare graphs.
     if vectorized:
         O = S # Store source under O, we apply changes to O after finding thresholds on the simplified edges.
         S = simplify_graph(S)
-    else: 
+    
+    if T.graph["simplified"]:
         T = vectorize_graph(T)
+    if T.graph["coordinates"] != "utm":
+        T = graph_transform_latlon_to_utm(T)
 
     # Sanity check no duplicated nodes.
     # Bug: Somehow duplicated nodes occur if S and T are simplified..?
