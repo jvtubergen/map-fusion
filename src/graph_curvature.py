@@ -1,5 +1,5 @@
 from external import *
-from simplifying import *
+from graph_simplifying import *
 from graph_coordinates import *
 from utilities import *
 
@@ -88,7 +88,6 @@ def path_to_curve(G, path=[], start_node=None, end_node=None):
         qs = np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
 
     return qs
-
 
 
 # Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.

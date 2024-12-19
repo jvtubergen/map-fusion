@@ -1,6 +1,6 @@
 from external import *
 
-from node_extraction import *
+from graph_node_extraction import *
 
 # Convert an array into a LineString consisting of Points.
 to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvature]) # Coordinates are flipped.

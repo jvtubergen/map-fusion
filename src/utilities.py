@@ -247,11 +247,6 @@ def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
     return a + (b - a) * ps
 
 
-### Linestrings
-
-to_linestring = lambda ps: LineString([Point(y, x) for y, x in ps])
-
-
 ### Partial curve matching logic
 
 # Convert 2d numpy array into a list of Vectors used by the partial curve matching algorithm.

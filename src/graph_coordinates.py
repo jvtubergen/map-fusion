@@ -1,5 +1,5 @@
 from external import *
-from simplifying import *
+from graph_simplifying import *
 from coordinates import *
 
 

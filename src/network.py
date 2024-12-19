@@ -3,9 +3,9 @@ from external import *
 from data_handling import *
 from coordinates import * 
 from utilities import *
-from deduplicating import *
-from node_extraction import *
-from simplifying import *
+from graph_deduplicating import *
+from graph_node_extraction import *
+from graph_simplifying import *
 from graph_curvature import *
 from graph_coordinates import *
 

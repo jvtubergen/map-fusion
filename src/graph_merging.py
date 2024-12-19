@@ -31,8 +31,6 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
 def merge_graphs(C=None, A=None, prune_threshold=20):
 
-    assert not A.graph["simplified"]
-    assert not C.graph["simplified"]
 
     assert A.graph['max_threshold'] > 0 # Make sure thresholds are set.
     assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.

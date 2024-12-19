@@ -12,17 +12,16 @@ from utilities import *
 from data_handling import *
 
 # Network submodules.
-from node_extraction import *
-from simplifying import *
-from subgraphing import *
-from deduplicating import *
+from graph_node_extraction import *
+from graph_simplifying import *
+from graph_subgraphing import *
+from graph_deduplicating import *
 from graph_coordinates import *
 from graph_curvature import *
-from network import *
+from graph_coverage import *
+from graph_merging import *
 
-# Coverage and merging.
-from coverage import *
-from merging import *
+from network import *
 
 # Rendering.
 from rendering import *
