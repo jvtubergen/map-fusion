@@ -9,69 +9,6 @@ from simplifying import *
 from graph_curvature import *
 from graph_coordinates import *
 
-# Utility function for convenience to extract graph by name.
-#   Either construction from raw data in folder or reading from graphml file.
-#   Expect folders with raw data to exist at "data/maps", further with properties described by `construct_graph`.
-#   Will either read and/or store from "graphs/" data folder.
-def extract_graph(name, reconstruct=False):
-    graphml_path = "graphs/"+name+".graphml"
-
-    if Path(graphml_path).exists() and not reconstruct:
-        G = ox.load_graphml(filepath=graphml_path)
-    else:
-        G = construct_graph("data/maps/" + name)
-        ox.save_graphml(G, filepath=graphml_path)
-    
-    return G
-
-
-# Extract stored graphs from a graph set. 
-# * Optionally only retrieve graphs which exist, otherwise expect to retrieve gps, sat, and truth.
-# * Expect all graphs to be stored as simplified MultiGraphs (thus undirected but potentially parallel edges with unique curvature).
-def extract_graphset(name, optional=False):
-    graphs = {}
-    gps_path = f"graphsets/{name}/gps.graphml"
-    sat_path = f"graphsets/{name}/sat.graphml"
-    truth_path = f"graphsets/{name}/truth.graphml"
-    if optional:
-        if Path(gps_path).exists():
-            graphs["gps"]   = ox.load_graphml(filepath=gps_path)
-        if Path(sat_path).exists():
-            graphs["sat"]   = ox.load_graphml(filepath=sat_path)
-        if Path(truth_path).exists():
-            graphs["truth"]   = ox.load_graphml(filepath=truth_path)
-    else:
-        graphs["gps"]   = ox.load_graphml(filepath=f"graphsets/{name}/gps.graphml")
-        graphs["sat"]   = ox.load_graphml(filepath=f"graphsets/{name}/sat.graphml")
-        graphs["truth"] = ox.load_graphml(filepath=f"graphsets/{name}/truth.graphml")
-    return graphs
-
-
-# Retrieve truth graph with a bounding box.
-def retrieve_graph_truth(graphset, bbox):
-    # First check the graph does not exist.
-    graphml_path=f"graphsets/{graphset}/truth.graphml"
-    if Path(graphml_path).exists():
-        raise BaseException(f"The truth graph already exists at '{graphml_path}'.")
-    # Then retrieve and store graph. (Note: G is already simplified at retrieval.)
-    G = ox.graph_from_bbox(bbox=bbox, network_type="drive_service") 
-    G = G.to_undirected() 
-    ox.save_graphml(G, filepath=graphml_path)
-
-
-# Save a graph to storage as a GraphML format.
-# * Optionally overwrite if the target file already exists.
-# * Writes the file into the graphs folder.
-def save_graph(G, name, overwrite=False):
-    graphml_path = "graphs/"+name+".graphml"
-    G = G.copy()
-    G.graph['crs'] = "EPSG:4326"
-    G = nx.MultiDiGraph(G)
-    if Path(graphml_path).exists() and not overwrite:
-        print("Did not save graph: Not allowed to overwrite existing file.")
-    else:
-        ox.save_graphml(G, filepath=graphml_path)
-
 
 # Construct network out of paths (a list of a list of coordinates)
 def convert_paths_into_graph(pss, nid=1, gid=1):
