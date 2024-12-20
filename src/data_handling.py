@@ -85,3 +85,62 @@ def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
     edges = pd.DataFrame.from_records(list(edges), columns=['u', 'v', ""])
     edges.to_csv(f"{graph_path}/edges.txt", index_label="id", columns=["u", "v"])
 
+
+# Convert graph into dictionary so it can be pickled.
+def graph_to_pickle(G):
+
+    if G.graph["simplified"]:
+        edges = list(G.edges(data=True,keys=True))
+    else:
+        edges = list(G.edges(data=True))
+
+    return {
+        "graph": G.graph,
+        "nodes": list(G.nodes(data=True)),
+        "edges": edges
+    }
+
+
+# Convert dictionary (retrieved from pickled data) into a graph.
+def pickle_to_graph(data):
+
+    if data["graph"]["simplified"]:
+        G = nx.MultiGraph()
+    else:
+        G = nx.Graph()
+
+    G.graph = data["graph"]
+    G.add_nodes_from(data["nodes"])
+    G.add_edges_from(data["edges"])
+
+    return G
+    
+
+# Read and/or write with a specific action to perform in case we failed to read.
+def read_and_or_write(filename, action, use_storage=False, save=False, overwrite=False, is_graph=True):
+
+    result = None
+    has_read = False
+    if use_storage:
+        try:
+            if is_graph:
+                result = pickle_to_graph(pickle.load(open(f"{filename}.pkl", "rb")))
+            else:
+                result = pickle.load(open(f"{filename}.pkl", "rb"))
+            has_read = True
+        except Exception as e:
+            print(traceback.format_exc())
+            print(e)
+            print(f"Failed to read {filename}. Running instead.")
+        
+    if result == None:
+        result = action()
+
+    if save and (overwrite or not has_read):
+        print(f"(Over)writing {filename}")
+        if is_graph:
+            pickle.dump(graph_to_pickle(result), open(f"{filename}.pkl", "wb"))
+        else:
+            pickle.dump(result, open(f"{filename}.pkl", "wb"))
+
+    return result
