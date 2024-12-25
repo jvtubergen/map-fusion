@@ -37,6 +37,9 @@ dependencies = [
   "rtree", # Indexing nodes subgraph extraction by bounding box.
   "pillow", # Image extraction 
   "requests", # gmaps-image dependency for API requests.
+  "pyQt6", # Necessary for plotting on your new laptop.
+#  "apls @ git+https://github.com/jvtubergen/apls@attempt"
+#  "gdal", # Geospatial Data Abstraction Layer
   "opencv-python"
 ]
 
@@ -47,6 +50,9 @@ Source = "https://github.com/jvtubergen/geoalg"
 
 [tool.hatch.version]
 path = "src/geoalg/__about__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true # Necessary to directly link to github releases.
 
 [tool.hatch.envs.types]
 extra-dependencies = [

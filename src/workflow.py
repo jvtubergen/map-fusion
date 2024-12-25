@@ -29,11 +29,11 @@ def workflow_extract_roi_from_graph(place=None, graphset=None):
 
     G = read_graph(place=place, graphset=graphset)
     coordinates = extract_node_positions(G)
-    lonlat0 = np.min(coordinates, axis=0)
-    lonlat1 = np.max(coordinates, axis=0)
+    latlon0 = np.min(coordinates, axis=0)
+    latlon1 = np.max(coordinates, axis=0)
     # print(np.max(coordinates, axis=0) - np.min(coordinates, axis=0))
-    west, south = lonlat0
-    east, north = lonlat1
+    south, west = latlon0
+    north, east = latlon1
     roi = {
         "west":  west,
         "south": south,
@@ -173,10 +173,28 @@ def workflow_apply_topo(place=None, truth_graphset=None, proposed_graphset=None)
 
     truth = read_graph(place=place, graphset=truth_graphset)
     proposed = read_graph(place=place, graphset=proposed_graphset)
-    result = topo(graph_prepare_apls(truth), graph_prepare_apls(proposed))
+    # result = topo(graph_prepare_apls(truth), graph_prepare_apls(proposed))
+
+    subgraph_radius=150
+    interval=30
+    hole_size=5
+    n_measurement_nodes=20
+    x_coord='x'
+    y_coord='y'
+    allow_multi_hole=False,
+    make_plots=False
+    verbose=False
+    topo(truth, proposed,
+                    subgraph_radius=subgraph_radius,
+                    interval=interval, hole_size=hole_size,
+                    n_measurement_nodes=n_measurement_nodes,
+                    x_coord=x_coord, y_coord=y_coord,
+                    allow_multi_hole=allow_multi_hole,
+                    make_plots=False, verbose=False)
+
     # tp, fp, fn, precision, recall, f1 = result
     return result
-
+    
 
 def workflow_apply_topo_prime():
     truth = read_graph(place=place, graphset=truth_graphset)
@@ -208,61 +226,37 @@ def workflow_report_apls_and_prime(place=None):
 def workflow_table_basic():
     t0 = time()
 
-    # Berlin.
-    gps = read_graph(place="berlin", graphset=links["gps"])
-    osm = read_graph(place="berlin", graphset=links["osm"])
-    sat = read_graph(place="berlin", graphset=links["sat"])
-
-    osm = graph_prepare_apls(osm)
-    sat = graph_prepare_apls(sat)
-    gps = graph_prepare_apls(gps)
-
     result = []
 
-    # Berlin sat.
-    _, _, _, precision, recall, f1 = topo(osm, sat)
-    result.extend([precision, recall, f1])
-    result.append(apls(osm, sat))
-
-    _, _, _, precision, recall, f1 = topo_prime(osm, sat)
-    result.extend([precision, recall, f1])
-    result.append(apls_prime(osm, sat))
-
-    # Berlin gps.
-    _, _, _, precision, recall, f1 = topo(osm, gps)
-    result.extend([precision, recall, f1])
-    result.append(apls(osm, gps))
-
-    _, _, _, precision, recall, f1 = topo_prime(osm, gps)
-    result.extend([precision, recall, f1])
-    result.append(apls_prime(osm, gps))
-
-    # Chicago.
-    gps = read_graph(place="chicago", graphset=links["gps"])
-    osm = read_graph(place="chicago", graphset=links["osm"])
-    sat = read_graph(place="chicago", graphset=links["sat"])
-
-    osm = graph_prepare_apls(osm)
-    sat = graph_prepare_apls(sat)
-    gps = graph_prepare_apls(gps)
-
-    # Chicago sat.
-    _, _, _, precision, recall, f1 = topo(osm, sat)
-    result.extend([precision, recall, f1])
-    result.append(apls(osm, sat))
+    for place in ["berlin", "chicago"]:
     
-    _, _, _, precision, recall, f1 = topo_prime(osm, sat)
-    result.extend([precision, recall, f1])
-    result.append(apls_prime(osm, sat))
+        # Place.
+        gps = read_graph(place="berlin", graphset=links["gps"])
+        osm = read_graph(place="berlin", graphset=links["osm"])
+        sat = read_graph(place="berlin", graphset=links["sat"])
 
-    # Chicago gps.
-    _, _, _, precision, recall, f1 = topo(osm, gps)
-    result.extend([precision, recall, f1])
-    result.append(apls(osm, gps))
+        osm = graph_prepare_apls(osm)
+        sat = graph_prepare_apls(sat)
+        gps = graph_prepare_apls(gps)
 
-    _, _, _, precision, recall, f1 = topo_prime(osm, gps)
-    result.extend([precision, recall, f1])
-    result.append(apls_prime(osm, gps))
+
+        # Place sat.
+        _, _, _, precision, recall, f1 = topo(osm, sat)
+        result.extend([precision, recall, f1])
+        result.append(apls(osm, sat))
+
+        _, _, _, precision, recall, f1 = topo_prime(osm, sat)
+        result.extend([precision, recall, f1])
+        result.append(apls_prime(osm, sat))
+
+        # Place gps.
+        _, _, _, precision, recall, f1 = topo(osm, gps)
+        result.extend([precision, recall, f1])
+        result.append(apls(osm, gps))
+
+        _, _, _, precision, recall, f1 = topo_prime(osm, gps)
+        result.extend([precision, recall, f1])
+        result.append(apls_prime(osm, gps))
 
     # Print results.
     string = ""
@@ -275,7 +269,6 @@ def workflow_table_basic():
     print(string)
 
 
-##################################################################################
 def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset=None):
 
     truth = read_graph(place=place, graphset=truth_graphset)
@@ -427,7 +420,6 @@ def linewidth_mapper(render):
             return 1
 
 
-
 # Generating network variants (Benchmarking your algorithms).
 # Variants:
 # * a. Coverage of sat edges by gps.
@@ -448,7 +440,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     gps = deduplicate(read_graph(place=place, graphset=links["gps"]))
     osm = deduplicate(read_graph(place=place, graphset=links["osm"]))
 
-    _read_and_or_write = lambda filename, action: read_and_or_write(filename, action, **storage_props)
+    _read_and_or_write = lambda filename, action: read_and_or_write(f"data/pickled/{filename}", action, **storage_props)
 
 
     #### Intersection.
@@ -486,6 +478,13 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
             attributes["linewidth"] = linewidth_mapper(attributes["render"])
 
         if plot:
+            # Figure out where the erronous edge connection comes from.
+            # print("Plot gps")
+            # plot_graphs([graph_transform_latlon_to_utm(gps)])
+            # print("Plot insersection")
+            # plot_graphs([graph_transform_latlon_to_utm(intersection)])
+            # print("Plot gps_vs_intersection")
+            # plot_graphs([graph_transform_latlon_to_utm(gps_vs_intersection)])
             print("Plot merge A")
             plot_graphs([graph_transform_latlon_to_utm(merge_a)])
 
@@ -499,6 +498,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         print("Split edges (simplifies and converts to UTM coordinates as well).")
         assert len(duplicated_nodes(gps)) == 0
         gps_splitted = graph_split_edges(gps, max_distance=10)
+        # plot_graphs([gps_splitted])
 
         print("Compute coverage.")
         splitted_vs_intersection = _read_and_or_write("splitted_vs_intersection", lambda: edge_graph_coverage(gps_splitted, intersection, vectorized=False, convert_to_utm=False, max_threshold=threshold_computations))
@@ -509,6 +509,8 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         if plot:
 
+            # TODO: When vectorizing add edge properties to each edge which belongs to curvature originally simplified.
+            # merge_b = vectorize_graph(merge_b)
 
             # Sanity check each node and edge has the render attribute.
             for nid, attributes in merge_b.nodes(data=True):
@@ -524,9 +526,6 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
                 attributes["linewidth"] = linewidth_mapper(attributes["render"])
 
             plot_graphs([merge_b])
-            
-
-
 
     
 # Sanity check various graph conversion functions.
@@ -535,7 +534,7 @@ def workflow_sanity_check_graph_conversion_functions():
     graph_sanity_check(osm)
 
     # Coordinate changes on vectorized graph.
-    utm_info = get_utm_info_from_graph(osm) # UTM information necessary to revert back to latlon later on.
+    utm_info = graph_utm_info(osm) # UTM information necessary to revert back to latlon later on.
     osm = graph_transform_latlon_to_utm(osm)
     graph_sanity_check(osm)
     osm = graph_transform_utm_to_latlon(osm, "", **utm_info)

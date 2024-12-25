@@ -1593,7 +1593,7 @@ def path_sim_metric(all_pairs_lengths_gt, all_pairs_lengths_prop,
         verbose_print("\nComputing path_sim_metric()...")
         verbose_print("good_nodes:", good_nodes)
 
-    # iterate overall start nodes
+    # iterate over all start nodes
     # for start_node, paths in all_pairs_lengths.iteritems():
     for start_node in good_nodes:
         if _verbose:
@@ -1922,7 +1922,7 @@ def apls_detailed(truth=None, proposed=None):
     return C, C_gt_onto_prop, C_prop_onto_gt, diffs_gt, diffs_pr
 
 
-def apls(truth=None, proposed=None, verbose=False, plot=False):
+def apls_both(truth=None, proposed=None, verbose=False, plot=False):
 
     global _verbose
     global _plot
@@ -1943,6 +1943,23 @@ def apls(truth=None, proposed=None, verbose=False, plot=False):
     apls_prime_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
 
     return apls_result, apls_prime_result
+
+
+def apls(truth, proposed, verbose=False, plot=False):
+    global _verbose
+    global _plot
+    _verbose = verbose
+    _plot = plot
+
+    results = apls_detailed(truth=truth, proposed=proposed)
+
+    gt = np.array(results[3])
+    pr = np.array(results[4])
+
+    apls_result = scipy.stats.hmean([np.average(1 - gt), np.average(1 - pr)])
+
+    return apls_result
+    
 
 
 def apls_prime(truth=None, proposed=None):

@@ -122,7 +122,7 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
             if "merged_edges" in edge_info:
                 to_drop = edge_info["merged_edges"]
             else:
-                print((u,v))
+                # print((u,v))
                 to_drop = [(u, v)]
 
             # Set same threshold for each line segment of the simplified edge.

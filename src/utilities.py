@@ -292,3 +292,19 @@ def is_partial_curve_undirected(ps, qs, eps, convert=False):
         print("  qs : ", qs)
         print("  eps: ", eps)
 
+
+### Graph related
+
+# Abstract function to iterate edge attributes (works for both simplified and vectorized graphs).
+# Example:
+# ``` 
+#   for attrs in iterate_edge_attributes(G):
+#       attrs["color"] = (random.random(), random.random(), random.random(), 1)
+# ```
+def iterate_edge_attributes(G):
+    if G.graph["simplified"]:
+        for u, v, k, attrs in G.edges(data=True, keys=True):
+            yield attrs
+    else:
+        for u, v, attrs in G.edges(data=True):
+            yield attrs

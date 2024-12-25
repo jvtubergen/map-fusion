@@ -363,3 +363,15 @@ def plot_with_weight_without_projection(S, T, max_threshold):
 
 def plot_graphs(graphs):
     plot_without_projection(graphs, [])
+
+
+# Annotate duplicated nodes as red.
+def annotate_duplicated_nodes(G):
+    duplicated = set([nid for group in duplicated_nodes(G) for nid in group])
+    # print("duplicated:", duplicated)
+    for nid, attrs in G.nodes(data=True):
+        if nid in duplicated:
+            attrs["color"] = (1., 0, 0, 1.) # Make duplicated node red.
+            # print("Found duplicate", nid)
+        else:
+            attrs["color"] = (0, 0, 0, 1)

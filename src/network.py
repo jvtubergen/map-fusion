@@ -133,6 +133,7 @@ def graph_sanity_check(G):
                 ps = array([latlon_to_coord(latlon) for latlon in ps])
             if curve_length(ps) > 1000: # Expect reasonable curvature length.
                 raise Exception("Expect edge length less than 1000 meters. Probably some y, x coordinate in edge curvature got flipped.")
+            # Expect start and endpoint of edge curvature match the node position.
             ps = edge_curvature(G, a, b, k) # Expect startpoint matches curvature.
             try:
                 if (not np.all(ps[0] == nodes[a])) and (not np.all(ps[-1] != nodes[b])):
@@ -144,4 +145,3 @@ def graph_sanity_check(G):
             
             assert "geometry" in attrs
             assert "curvature" in attrs
-        
