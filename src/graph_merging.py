@@ -1,6 +1,7 @@
 from external import *
 
 from graph_simplifying import *
+from graph_coverage import * # Necessary for coverage computing of duplicated sat edges on injected gps edges.
 from utilities import *
 
 
@@ -30,7 +31,8 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
 # Merges graph A into graph C.
 # * Injects uncovered edges of graph A into graph C. 
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
-def merge_graphs(C=None, A=None, prune_threshold=20):
+# * Removal of duplicates is an algorithm extension.
+def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
 
     is_vectorized = not A.graph["simplified"]
 
@@ -105,11 +107,34 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
             curvature = array([(y, x), (y2, x2)])
             geometry = to_linestring(curvature)
             connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature}))
+
+    if remove_duplicates: # (Find edges of C which are covered by B and then remove them.)
+
+        # Part a: Removal of duplicated sat edges. (Remove all edges of C covered by B, since all edges of B will be inserted into C).
+
+        # Compute coverage of C against B. Those covered are the edges to remove.
+        C_covered_by_B = edge_graph_coverage(C, B, max_threshold=prune_threshold)
+        assert C_covered_by_B.graph['max_threshold'] > 0 # Make sure thresholds are set.
+
+        # Obtain edges of C below the threshold.
+        above = [eid for eid, attrs in iterate_edges(C_covered_by_B) if attrs["threshold"] >  prune_threshold]
+        below = [eid for eid, attrs in iterate_edges(C_covered_by_B) if attrs["threshold"] <= prune_threshold]
+        edges_to_be_deleted = below
+
+        # Take all nodes of edges_to_be_deleted, yet without those nodes as well part of uncovered edges.
+        nodes_above = set([nid for el in above for nid in el[0:2]]) 
+        nodes_below = set([nid for el in below for nid in el[0:2]]) 
+        nodes_to_be_deleted = nodes_below - nodes_above
+
     # Inject B into C.
     C.add_nodes_from(B.nodes(data=True))
     C.add_edges_from(graph_edges(B))
     
     # Add edge connections between B and C.
     C.add_edges_from(connections)
+
+    if remove_duplicates:
+        C.remove_edges_from(edges_to_be_deleted)
+        C.remove_nodes_from(nodes_to_be_deleted)
 
     return C
