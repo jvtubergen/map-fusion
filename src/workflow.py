@@ -397,14 +397,18 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
 def color_mapper(render):
     match render:
         case "injected":
-            return (1, 0, 0, 1) # red
+            return (0.3, 1, 0.3, 1) # green
+        case "deleted":
+            return (1, 0.3, 0.3, 1) # red
         case "connection":
-            return (0, 0.8, 1, 1) # aqua
+            return (0.3, 0.3, 1, 1) # blue
         case "original":
             return (0, 0, 0, 1) # black
 def linestyle_mapper(render):
     match render:
         case "injected":
+            return "-" 
+        case "deleted":
             return "-" 
         case "connection":
             return ":"
@@ -414,10 +418,31 @@ def linewidth_mapper(render):
     match render:
         case "injected":
             return 2 
+        case "deleted":
+            return 2
         case "connection":
             return 2 
         case "original":
             return 1
+
+
+def apply_coloring(G):
+
+    # Sanity check each node and edge has the render attribute.
+    for nid, attributes in G.nodes(data=True):
+        assert "render" in attributes
+    for u, v, attributes in G.edges(data=True):
+        assert "render" in attributes
+
+    # Map render type to render styling.
+    for nid, attributes in G.nodes(data=True):
+        attributes["color"] = color_mapper(attributes["render"])
+    for u, v, attributes in G.edges(data=True):
+        attributes["color"] = color_mapper(attributes["render"])
+        attributes["linestyle"] = linestyle_mapper(attributes["render"])
+        attributes["linewidth"] = linewidth_mapper(attributes["render"])
+    
+    return G
 
 
 # Generating network variants (Benchmarking your algorithms).
@@ -453,6 +478,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     # # Plot graph.
     if do_intersect and plot:
         plot_graphs([intersection])
+    
 
     #### Naive merging.
     if do_merge_a:
@@ -463,19 +489,6 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         # * Each edge which has a threshold above 20m is inserted into sat.
         merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
-            
-        # Sanity check each node and edge has the render attribute.
-        for nid, attributes in merge_a.nodes(data=True):
-            assert "render" in attributes
-        for u, v, attributes in merge_a.edges(data=True):
-            assert "render" in attributes
-        
-        for nid, attributes in merge_a.nodes(data=True):
-            attributes["color"] = color_mapper(attributes["render"])
-        for u, v, attributes in merge_a.edges(data=True):
-            attributes["color"] = color_mapper(attributes["render"])
-            attributes["linestyle"] = linestyle_mapper(attributes["render"])
-            attributes["linewidth"] = linewidth_mapper(attributes["render"])
 
         if plot:
             # Figure out where the erronous edge connection comes from.
@@ -486,6 +499,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
             # print("Plot gps_vs_intersection")
             # plot_graphs([graph_transform_latlon_to_utm(gps_vs_intersection)])
             print("Plot merge A")
+            merge_a = apply_coloring(G)
             plot_graphs([graph_transform_latlon_to_utm(merge_a)])
 
 
@@ -508,24 +522,18 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         merge_b = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
 
         if plot:
-
             # TODO: When vectorizing add edge properties to each edge which belongs to curvature originally simplified.
             # merge_b = vectorize_graph(merge_b)
-
-            # Sanity check each node and edge has the render attribute.
-            for nid, attributes in merge_b.nodes(data=True):
-                assert "render" in attributes
-            for u, v, k, attributes in merge_b.edges(data=True, keys=True):
-                assert "render" in attributes
-
-            for nid, attributes in merge_b.nodes(data=True):
-                attributes["color"] = color_mapper(attributes["render"])
-            for u, v, k, attributes in merge_b.edges(data=True, keys=True):
-                attributes["color"] = color_mapper(attributes["render"])
-                attributes["linestyle"] = linestyle_mapper(attributes["render"])
-                attributes["linewidth"] = linewidth_mapper(attributes["render"])
-
+            merge_b = apply_coloring(merge_b)
             plot_graphs([merge_b])
+
+    ### Naive merging with duplicate removal.
+    if do_merge_c:
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
+        merge_c = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
+        if plot:
+            merge_c = apply_coloring(merge_c)
+            plot_graphs([merge_c])
 
     
 # Sanity check various graph conversion functions.

@@ -134,7 +134,18 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
     C.add_edges_from(connections)
 
     if remove_duplicates:
-        C.remove_edges_from(edges_to_be_deleted)
-        C.remove_nodes_from(nodes_to_be_deleted)
+        # Update edges.
+        render_update = {}
+        for eid in edges_to_be_deleted:
+            render_update[eid] = {**C_covered_by_B.edges[eid], "render": "deleted"}
+        nx.set_edge_attributes(C, render_update)
+        # C.remove_edges_from(edges_to_be_deleted)
+
+        # Update nodes.
+        render_update = {}
+        for nid in nodes_to_be_deleted:
+            render_update[nid] = {**C_covered_by_B.nodes[nid], "render": "deleted"}
+        nx.set_node_attributes(C, render_update)
+        # C.remove_nodes_from(nodes_to_be_deleted)
 
     return C
