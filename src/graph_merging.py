@@ -51,26 +51,20 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
     A = nx.relabel_nodes(A, relabel_mapping)
 
     # Edges above and below the prune threshold. We retain edges below the prune threshold.
-    if is_vectorized:
-        drop   = above = above_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] <= prune_threshold]
-        retain = below = below_threshold = [(u, v) for u, v, attrs in A.edges(data=True) if attrs["threshold"] >  prune_threshold]
-    else:
-        drop   = above = above_threshold = [(u, v, k) for u, v, k, attrs in A.edges(data=True, keys=True) if attrs["threshold"] <= prune_threshold]
-        retain = below = below_threshold = [(u, v, k) for u, v, k, attrs in A.edges(data=True, keys=True) if attrs["threshold"] >  prune_threshold]
+    above = [eid for eid, attrs in iterate_edges(A) if attrs["threshold"] >  prune_threshold]
+    below = [eid for eid, attrs in iterate_edges(A) if attrs["threshold"] <= prune_threshold]
 
     # Sanity check that retain and drop are disjoint.
-    assert len(set(drop) & set(retain)) == 0
-    assert len(set(drop) ^ set(retain)) == len(A.edges())
+    # NOTE: Set overlap here is about _edges_, not nodes. Thus therefore we can demand this uniqueness (non-overlapping) constraint.
+    assert len(set(above) & set(below)) == 0
+    assert len(set(above) ^ set(below)) == len(A.edges())
 
-    B = A.edge_subgraph(retain)
+    # Retain edges above the coverage threshold (thus those edges of GPS not being covered by Sat).
+    B = A.edge_subgraph(above)
 
     # Extract nids which are connected to an edge above and below threshold.
-    if is_vectorized:
-        nodes_above = set([nid for el in above for nid in el]) 
-        nodes_below = set([nid for el in below for nid in el]) 
-    else:
-        nodes_above = set([nid for el in above for nid in [el[0], el[1]]]) 
-        nodes_below = set([nid for el in below for nid in [el[0], el[1]]]) 
+    nodes_above = set([nid for el in above for nid in el[0:2]]) 
+    nodes_below = set([nid for el in below for nid in el[0:2]]) 
 
     # (Assume `nearest_node` strategy: Only have to list what nodes of B should get connected to C.)
     # List nodes of B to connect with C.
@@ -84,24 +78,18 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
         else:
             B.nodes[nid]["render"] = "injected"
 
-    for nid, attributes in C.nodes(data=True):
-        attributes["render"] = "original"
-    
-    if is_vectorized:
-        for u, v, attributes in B.edges(data=True):
-            attributes["render"] = "injected"
-        for u, v, attributes in C.edges(data=True):
-            attributes["render"] = "original"
-    else:
-        for u, v, k, attributes in B.edges(data=True, keys=True):
-            attributes["render"] = "injected"
-        for u, v, k, attributes in C.edges(data=True, keys=True):
-            attributes["render"] = "original"
+    for attrs in iterate_edge_attributes(B):
+        attrs["render"] = "injected"
+
+    for nid, attrs in C.nodes(data=True):
+        attrs["render"] = "original"
+    for attrs in iterate_edge_attributes(C):
+        attrs["render"] = "original"
 
     # Construct rtree on nodes in C.
     nodetree = graphnodes_to_rtree(C)
 
-    # Register edge connections for A to C.
+    # Register edge connections for A to C. (Node-based inserted.)
     connections = [] 
     for nid in connect_nodes: # In case of `nearest_node` strategy we only care for node, ignore edge.
 
@@ -116,15 +104,10 @@ def merge_graphs(C=None, A=None, prune_threshold=20):
             y2, x2 = C._node[hit]['y'], C._node[hit]['x'],
             curvature = array([(y, x), (y2, x2)])
             geometry = to_linestring(curvature)
-            connections.append((hit, nid, {"render": "connection", "geometry": geometry, "curvature": curvature}))
-    
+            connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature}))
     # Inject B into C.
     C.add_nodes_from(B.nodes(data=True))
-
-    if is_vectorized:
-        C.add_edges_from(B.edges(data=True))
-    else:
-        C.add_edges_from(B.edges(data=True, keys=True))
+    C.add_edges_from(graph_edges(B))
     
     # Add edge connections between B and C.
     C.add_edges_from(connections)

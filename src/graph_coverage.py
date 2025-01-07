@@ -23,7 +23,7 @@ def curve_by_curveset_coverage(ps, qss, lam):
 ###  Curve by network coverage
 
 # Obtain threshold per simplified edge of S in comparison to T.
-# * `vectorized`: Whether input graph is vectorized (and thereby whether we have to annotate vectorized or simplified edges).
+# * `vectorized`: Whether input graph is vectorized (and thereby whether we have to annotate vectorized or simplified edges). Parameter acts as a sanity check.
 def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_utm=True): 
 
     S = S.copy()

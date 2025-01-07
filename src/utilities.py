@@ -308,3 +308,20 @@ def iterate_edge_attributes(G):
     else:
         for u, v, attrs in G.edges(data=True):
             yield attrs
+
+# Iterate all edge attributes. Iterated elements are overwritable.
+def iterate_edges(G):
+    if G.graph["simplified"]:
+        for u, v, k, attrs in G.edges(data=True, keys=True):
+            yield (u, v, k), attrs
+    else:
+        for u, v, attrs in G.edges(data=True):
+            yield (u, v), attrs
+
+# Iterate graph edges as `(eid, attrs)` pair. Helps generalizing simplified/vectorized graph logic.
+def graph_edges(G):
+    if not G.graph["simplified"]:
+        return G.edges(data=True)
+    else:
+        return G.edges(data=True, keys=True)
+
