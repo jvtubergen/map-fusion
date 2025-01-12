@@ -92,6 +92,57 @@ def path_to_curve(G, path=[], start_node=None, end_node=None):
     return qs
 
 
+# Ensure all edges have a maximal curve length. Cut curves if necessary.
+def ensure_max_edge_length(G, max_length=50):
+
+    nid = max(G.nodes()) + 1
+
+    nodes_to_add = [] # Same for nodes.
+    edges_to_add = [] # Store edges to insert afterwards (otherwise we have edge iteration change issue).
+    edges_to_delete = []
+
+    for eid, attrs in iterate_edge_attributes(G):
+
+        # Filter out edges above max length threshold.
+        if curve_length(curve) <= max_length:
+            continue
+
+        # Schedule current edge for deletion.
+        edges_to_delete.append(eid)
+
+        # Obtain subcurves.
+        curve = attrs["curvature"]
+        subcurves = curve_cut_max_distance(curve, max_distance=max_distance) 
+
+        # Number of edges to inject.
+        n = len(subcurves) 
+        assert len(n) > 1 # Expect at least two subcurves here.
+
+        # Obtain node positions.
+        new_points = [subcurve[-1] for subcurve in subcurves[:-1]]
+
+        # Obtain nids for new nodes.
+        new_nids = [nid + i for i in range(n - 1)] # We have `n - 1` new nodes.
+        nid += n - 1 # Update new nid.
+
+        # Schedule new nodes for injection.
+        for nid, position in zip(new_nids, new_points):
+            y, x = position
+            nodes_to_add.append((nid, {"y": y, "x": x}))
+
+        # Schedule new edges for injection.
+        u, v = eid[0:2]
+        edge_links = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
+        for (u, v), curvature in zip(edge_links, subcurves):
+            edges_to_add.append((u, v, {"curvature": curvature}))
+
+    G.add_nodes_from(nodes_to_add)
+    G.add_edges_from(edges_to_add)
+    G.remove_edges_from(edges_to_delete)
+    
+    return G
+
+
 # Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.
 def graph_split_edges(G, max_distance=10):
 

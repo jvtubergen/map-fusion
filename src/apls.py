@@ -1,13 +1,8 @@
 # Rewrite of https://github.com:CosmiQ/apls
+from graph_curvature import *
 
 def todo():
     raise Exception("todo")
-
-
-# Cut edges if necessary.
-def ensure_max_edge_length(G, max_length=50):
-    # TODO.
-    todo()
 
 
 # Relate nodes of G to H and inject control points if necessary.
