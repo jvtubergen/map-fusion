@@ -2,32 +2,32 @@ from external import *
 
 ### R-Tree
 
+# Construct R-Tree on graph nodes.
+def graphnodes_to_rtree(G):
+
+    tree = rtree.index.Index()
+
+    for nid, attrs in G.nodes(data = True):
+        y, x = attrs['y'], attrs['x']
+        tree.insert(nid, (y, x, y, x))
+
+    return tree
+
+
 # Construct R-Tree on graph edges.
 def graphedges_to_rtree(G):
 
-    edgetree = rtree.index.RtreeContainer()
+    tree = rtree.index.RtreeContainer()
 
-    if type(G) == nx.MultiGraph:
-        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
-    if type(G) == nx.Graph:
-        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
+    for eid, attrs in iterate_edges(G):
+        curvature = attrs["curvature"]
+        miny = min(curvature[:,0])
+        maxy = max(curvature[:,0])
+        minx = min(curvature[:,1])
+        maxx = max(curvature[:,1])
+        tree.insert(eid, (miny, minx, maxy, maxx))
 
-    for (eid, curvature) in elements:
-            miny = min(curvature[:,0])
-            maxy = max(curvature[:,0])
-            minx = min(curvature[:,1])
-            maxx = max(curvature[:,1])
-            edgetree.insert(eid, (miny, minx, maxy, maxx))
-    
-    return edgetree
-
-# Construct R-Tree on graph nodes.
-def graphnodes_to_rtree(G):
-    idx = rtree.index.Index()
-    for node, data in G.nodes(data = True):
-        y, x = data['y'], data['x']
-        idx.insert(node, (y, x, y, x))
-    return idx
+    return tree
 
 
 ### Bounding boxes
