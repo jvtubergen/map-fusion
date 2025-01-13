@@ -68,120 +68,15 @@ intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection((bbox[0][0], bb
 
 ## Curves
 
+# Generate a random curve.
+def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
+    ps = np.random.random((length, 2))
+    return a + (b - a) * ps
+
+
 # Length of curve, return accumulated length of piecewise linear segments.
 def curve_length(ps):
     return sum([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
-
-# Cut a curve at a percentage (interval of [0, 1]).
-curve_cut = lambda ps, percentage: curve_cut_intervals(ps, [percentage])
-
-# Cut curve in half.
-curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
-
-# Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
-def curve_cut_pieces(ps, amount=10):
-
-    # Compute (uniform) intervals to cut at given the number of pieces to cut.
-    step_size = 1 / amount
-    intervals = [i * step_size for i in range(1, amount)]
-    return curve_cut_intervals(ps, intervals)
-
-# Test curve cutting into pieces (basic test).
-def test_curve_cut_pieces():
-    curve = array([(0., i) for i in range(11)])
-    qss = curve_cut_pieces(curve, amount=10)
-    assert len(qss) == 10
-    assert all([abs(curve_length(qs) - 1) < 0.0001 for qs in qss])
-
-    qss = curve_cut_pieces(curve, amount=5)
-    assert len(qss) == 5
-    assert all([abs(curve_length(qs) - 2) < 0.0001 for qs in qss])
-
-    qss = curve_cut_pieces(curve, amount=2)
-    assert len(qss) == 2
-    assert all([abs(curve_length(qs) - 5) < 0.0001 for qs in qss])
-
-    qss = curve_cut_pieces(curve, amount=3)
-    assert len(qss) == 3
-    assert all([abs(curve_length(qs) - 3.333333) < 0.0001 for qs in qss])
-
-# Insert vertices in curve in such that that maximal distance between vertices is lower than `max_distance`.
-def curve_insert_vertices_max_distance(ps, max_distance=10):
-    assert len(ps) >= 2
-    steps = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
-    length = sum(steps)
-    assert length > 0 # Expect non-zero length.
-
-    qs = []
-    for i in range(len(steps)):
-        qs.append(ps[i])
-        step_length = norm(ps[i+1] - ps[i])
-        if step_length > max_distance + 0.0001: # Inject nodes.
-            amount, _ = divmod(step_length, max_distance + 0.0001)
-            amount = int(amount)
-            for j in range(amount):
-                percentage = ((j + 1) / (amount + 1))
-                p = percentage * ps[i + 1] + (1 - percentage) * ps[i]
-                qs.append(p)
-
-    qs.append(ps[-1])
-
-    return array(qs)
-
-# Test (basic test).
-def test_curve_insert_vertices_max_distance():
-
-    # Within range.
-    curve = array([(0., i) for i in range(11)])
-    qs = curve_insert_vertices_max_distance(curve, max_distance=10)
-    assert len(qs) == len(curve)
-    assert (curve == qs).all()
-    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
-
-    # Double range.
-    curve = array([(0., 2*i) for i in range(11)])
-    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
-    assert len(qs) - 1 == 2 * (len(curve) - 1)
-    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
-    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
-
-    # Incomplete.
-    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
-    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
-    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
-    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
-
-
-# Cut curve into subcurves each with less than max distance length, thus returning muliple subcurves.
-def curve_cut_max_distance(ps, max_distance=10):
-    assert len(ps) >= 2
-    step_lengths = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
-    total_length = sum(step_lengths)
-    assert total_length > 0 # Expect non-zero length.
-    pieces = ceil(total_length / max_distance)
-    return curve_cut_pieces(ps, amount=pieces)
-
-
-def test_curve_cut_max_distance():
-    # Within range.
-    curve = array([(0., i) for i in range(11)])
-    qs = curve_cut_max_distance(curve, max_distance=10)
-    assert len(qs) == 1 # The entire curve is within 10 meter, so no need to cut.
-    assert (qs[0] == curve).all() # Expect the curve to be the first entry.
-
-    # Double range.
-    curve = array([(0., 2*i) for i in range(11)])
-    qs = curve_cut_max_distance(curve, max_distance=1)
-    assert len(qs) == 20 # Expect 20 subcurves.
-    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
-    qs = array(qs) # We can do this here since we expect every subcurve to consist of exactly two coordinates.
-    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1 + 0.0001 # Expect each subcurve to be a length of 1.
-
-    # Incomplete.
-    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
-    qs = curve_cut_max_distance(curve, max_distance=1.4)
-    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
-    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
 
 
 # Cut curve at specified intervals.
@@ -246,16 +141,128 @@ def curve_cut_intervals(ps, intervals):
     return qss
 
 
+# Cut a curve at a percentage (interval of [0, 1]).
+curve_cut = lambda ps, percentage: curve_cut_intervals(ps, [percentage])
+
+# Cut curve in half.
+curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
+
+# Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
+def curve_cut_pieces(ps, amount=10):
+
+    # Compute (uniform) intervals to cut at given the number of pieces to cut.
+    step_size = 1 / amount
+    intervals = [i * step_size for i in range(1, amount)]
+    return curve_cut_intervals(ps, intervals)
+
+
+# Cut curve into subcurves each with less than max distance length, thus returning muliple subcurves.
+def curve_cut_max_distance(ps, max_distance=10):
+    assert len(ps) >= 2
+    step_lengths = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
+    total_length = sum(step_lengths)
+    assert total_length > 0 # Expect non-zero length.
+    pieces = ceil(total_length / max_distance)
+    return curve_cut_pieces(ps, amount=pieces)
+
+
+# Insert vertices in curve in such that that maximal distance between vertices is lower than `max_distance`.
+def curve_insert_vertices_max_distance(ps, max_distance=10):
+
+    # Compute number of (uniform length) intervals we need to make the curve respect the maximal distance threshold.
+    assert len(ps) >= 2
+    steps = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
+    length = sum(steps)
+    assert length > 0 # Expect non-zero length.
+
+    qs = []
+    for i in range(len(steps)):
+        qs.append(ps[i])
+        step_length = norm(ps[i+1] - ps[i])
+        if step_length > max_distance + 0.0001: # Inject nodes.
+            amount, _ = divmod(step_length, max_distance + 0.0001)
+            amount = int(amount)
+            for j in range(amount):
+                percentage = ((j + 1) / (amount + 1))
+                p = percentage * ps[i + 1] + (1 - percentage) * ps[i]
+                qs.append(p)
+
+    qs.append(ps[-1])
+
+    return array(qs)
+
+#### Curve tests
 def test_curve_cut_intervals():
     ps = random_curve()
     qss = curve_cut_intervals(ps, [0.2, 0.53, 0.99])
     assert abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001
 
 
-# Generate a random curve.
-def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
-    ps = np.random.random((length, 2))
-    return a + (b - a) * ps
+# Test curve cutting into pieces (basic test).
+def test_curve_cut_pieces():
+    curve = array([(0., i) for i in range(11)])
+    qss = curve_cut_pieces(curve, amount=10)
+    assert len(qss) == 10
+    assert all([abs(curve_length(qs) - 1) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=5)
+    assert len(qss) == 5
+    assert all([abs(curve_length(qs) - 2) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=2)
+    assert len(qss) == 2
+    assert all([abs(curve_length(qs) - 5) < 0.0001 for qs in qss])
+
+    qss = curve_cut_pieces(curve, amount=3)
+    assert len(qss) == 3
+    assert all([abs(curve_length(qs) - 3.333333) < 0.0001 for qs in qss])
+
+
+# Test (basic test).
+def test_curve_insert_vertices_max_distance():
+
+    # Within range.
+    curve = array([(0., i) for i in range(11)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=10)
+    assert len(qs) == len(curve)
+    assert (curve == qs).all()
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+
+    # Double range.
+    curve = array([(0., 2*i) for i in range(11)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
+    assert len(qs) - 1 == 2 * (len(curve) - 1)
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
+
+    # Incomplete.
+    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
+    qs = curve_insert_vertices_max_distance(curve, max_distance=1)
+    assert abs(curve_length(curve) - curve_length(qs)) < 0.0001
+    assert np.max(qs[1:] - qs[:-1]) < 1 + 0.0001
+
+
+def test_curve_cut_max_distance():
+    # Within range.
+    curve = array([(0., i) for i in range(11)])
+    qs = curve_cut_max_distance(curve, max_distance=10)
+    assert len(qs) == 1 # The entire curve is within 10 meter, so no need to cut.
+    assert (qs[0] == curve).all() # Expect the curve to be the first entry.
+
+    # Double range.
+    curve = array([(0., 2*i) for i in range(11)])
+    qs = curve_cut_max_distance(curve, max_distance=1)
+    assert len(qs) == 20 # Expect 20 subcurves.
+    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
+    qs = array(qs) # We can do this here since we expect every subcurve to consist of exactly two coordinates.
+    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1 + 0.0001 # Expect each subcurve to be a length of 1.
+
+    # Incomplete.
+    curve = array([(0., 10*i+j) for i in range(1,4) for j in range(1,4)])
+    qs = curve_cut_max_distance(curve, max_distance=1.4)
+    assert abs(sum([curve_length(subcurve) for subcurve in qs]) - curve_length(curve)) < 0.0001 # Expect total length of subcurves is equal to original curve.
+    assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
+
 
 
 ### Partial curve matching logic
