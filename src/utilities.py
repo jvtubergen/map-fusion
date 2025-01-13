@@ -242,6 +242,74 @@ def test_curve_cut_max_distance():
     assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
 
 
+# Cut curve at specified intervals.
+def curve_cut_intervals(ps, intervals):
+
+    assert intervals[0]  > 0.0001
+    assert intervals[-1] < 1 - 0.0001
+
+    n = len(ps)
+    m = len(intervals)
+
+    lengths    = np.linalg.norm(ps[1:] - ps[:-1], axis=1)
+    weights    = lengths / np.sum(lengths)
+    cumulative = np.hstack(([0], np.cumsum(weights)))
+
+    # Iterate points and inject curve when necessary.
+    i = 1 # Current curve point we are at.
+    j = 0 # Current interval we are cutting for.
+    qss = [] # Resulting collection of subcurves.
+    qs = [ps[0]] # Current subcurve we are constructing.
+
+    # Invariants:
+    while i < n: # Current point (and end of current line segment).
+
+        u, v = i - 1, i     # Curve point indices current line segment.
+        p, q = ps[u], ps[v] # Curve points of current line segment.
+
+        # If we have reached the final interval.
+        if j >= m:
+            # Then append curve points until we are done.
+            qs.append(q)
+            i += 1 # Move to next line segment.
+
+        # If interval falls exactly on end of current line segment.
+        elif abs(cumulative[i] - intervals[j]) < 0.0001:
+            # Then construct subcurve with current line segment included.
+            qs.append(q)
+            qss.append(qs)
+            qs = [q]
+            i += 1 # Move to next line segment.
+            j += 1 # Move to next interval.
+        
+        # If this interval stops somewhere within this line segment.
+        elif cumulative[i] > intervals[j]:
+            # Then construct subcurve to cutpoint on current line segment.
+            interval = intervals[j]
+            weight = weights[i - 1]
+            percentage = (interval - cumulative[i - 1]) / weight
+            cutpoint = p * (1 - percentage) + q * percentage
+            qs.append(cutpoint)
+            qss.append(qs)
+            qs = [cutpoint]
+            j += 1 # Move to next interval.
+
+        # If the interval contains this entire line segment.
+        else:
+            qs.append(q) 
+            i += 1 # Move to next line segment.
+    
+    qss.append(qs)
+
+    return qss
+
+
+def test_curve_cut_intervals():
+    ps = random_curve()
+    qss = curve_cut_intervals(ps, [0.2, 0.53, 0.99])
+    assert abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001
+
+
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
     ps = np.random.random((length, 2))
