@@ -64,6 +64,7 @@ def pad_bounding_box(bb, padding):
     padding = array([padding, padding])
     return array([bb[0] - padding, bb[1] + padding])
 
+intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection((bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1])))
 
 ## Curves
 
