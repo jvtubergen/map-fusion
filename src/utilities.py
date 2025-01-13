@@ -53,7 +53,7 @@ def graphedges_to_bboxs(G):
     return bboxs
 
 # Extract bounding box on a curve. Use padding to lambda pad.
-def bounding_box(ps, padding):
+def bounding_box(ps, padding=0):
     padding = array([padding, padding])
     lower = [np.min(ps[:,0]), np.min(ps[:,1])]
     higher = [np.max(ps[:,0]), np.max(ps[:,1])]
