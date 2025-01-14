@@ -33,6 +33,7 @@ def graphedges_to_rtree(G):
 ### Bounding boxes
 
 # Construct dictionary that links edge id to a bounding box.
+# Note: Padding has to be added manually afterwards if needed.
 def graphedges_to_bboxs(G):
 
     bboxs = {}
@@ -47,6 +48,24 @@ def graphedges_to_bboxs(G):
         bboxs[eid] = bbox
 
     return bboxs
+
+# Construct dictionary that links node id to a bounding box.
+# Note: Padding has to be added manually afterwards if needed.
+def graphnodes_to_bboxs(G):
+
+    bboxs = {}
+    
+    for nid, attrs in G.nodes(data=True):
+        ps = attrs["curvature"]
+        miny = min(ps[:,0])
+        maxy = max(ps[:,0])
+        minx = min(ps[:,1])
+        maxx = max(ps[:,1])
+        bbox = array([(miny, minx), (maxy, maxx)])
+        bboxs[eid] = bbox
+
+    return bboxs
+
 
 # Extract bounding box on a curve. Use padding to lambda pad.
 def bounding_box(ps, padding=0):
