@@ -361,8 +361,14 @@ def plot_with_weight_without_projection(S, T, max_threshold):
     plt.show()
 
 
+# Plot a list of graphs.
 def plot_graphs(graphs):
     plot_without_projection(graphs, [])
+
+
+# Plot a single graph.
+def plot_graph(G):
+    plot_without_projection([G], [])
 
 
 # Annotate duplicated nodes as red.

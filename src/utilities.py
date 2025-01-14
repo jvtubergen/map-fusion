@@ -331,7 +331,7 @@ def iterate_edge_attributes(G):
         for u, v, attrs in G.edges(data=True):
             yield attrs
 
-# Iterate all edge attributes. Iterated elements are overwritable.
+# Iterate all edge identifiers alongside their attributes. Iterated element attributes are overwritable.
 def iterate_edges(G):
     if G.graph["simplified"]:
         for u, v, k, attrs in G.edges(data=True, keys=True):
@@ -339,6 +339,10 @@ def iterate_edges(G):
     else:
         for u, v, attrs in G.edges(data=True):
             yield (u, v), attrs
+
+def iterate_nodes(G):
+    for nid, attrs in G.nodes(data=True):
+        yield nid, attrs
 
 # Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
 def get_edge(G, eid):
