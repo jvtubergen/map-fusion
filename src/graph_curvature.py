@@ -72,32 +72,6 @@ def graph_correctify_edge_curvature(G):
     return G
 
 
-# Extract curvature (stored potentially as a LineString under geometry) from an edge as an array.
-def edge_curvature(G, u, v, k = None):
-
-    # We expect a key in case of a simplified graph, and not otherwise.
-    assert G.graph["simplified"] == (k != None)
-    
-    # Obtain edge data.
-    if k == None:
-        data = G.get_edge_data(u, v)
-    else:
-        data = G.get_edge_data(u, v, k)
-
-    # Either extract 
-    if not "geometry" in data:
-        p1 = G.nodes()[u]
-        p2 = G.nodes()[v]
-        ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
-        return ps
-    else:
-        assert G.graph["simplified"] # We do not accept geometry on a vectorized graph, because the curvature is implicit.
-        linestring = data["geometry"]
-        ps = array([(y, x) for (x, y) in list(linestring.coords)])
-        assert len(ps) >= 2 # Expect start and end position.
-        return ps
-
-
 # Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
 def path_to_curve(G, path=[], start_node=None, end_node=None):
 
@@ -110,11 +84,13 @@ def path_to_curve(G, path=[], start_node=None, end_node=None):
     def _get_curvature(G, path):
         if G.graph["simplified"]:
             for a, b, k in path: # Expect key on each edge.
-                ps = edge_curvature(G, a, b, k=k)
+                eid = (a, b, k)
+                ps = get_edge(G, eid)["curvature"]
                 yield a, b, ps
         else: # Graph is vectorized.
             for a, b in path:
-                ps = edge_curvature(G, a, b)
+                eid = (a, b)
+                ps = get_edge(G, eid)["curvature"]
                 yield a, b, ps
     
     for (a, b, ps) in _get_curvature(G, path):

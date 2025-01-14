@@ -65,9 +65,8 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
     
     # Link a curve to every simplified edge.
     curves = {}
-    for uvk in leftS:
-        u, v, k = uvk # Edges always have a key, because S is always simplified at this point.
-        ps = edge_curvature(S, u, v, k=k)
+    for eid in leftS:
+        ps = get_edge(S, eid)["curvature"]
         curve = curve_to_vector_list(ps)
         curves[uvk] = curve
     
@@ -97,14 +96,15 @@ def edge_graph_coverage(S, T, max_threshold=None, vectorized=True, convert_to_ut
         for (u, v, k) in uvk_thresholds:
 
             # Obtain vectorized edges concerning this simplified edge.
-            edge_info = S.get_edge_data(u, v, k)
+            eid = (u, v, k)
+            edge_info = get_edge(S, eid)
 
             # Depending on whether a edge contains curvature.
             annotate = [(u, v)]
             if "merged_edges" in edge_info:
                 annotate += edge_info["merged_edges"]
             else:
-                assert len(edge_curvature(S, u, v, k=k)) == 2
+                assert len(get_edge(S, eid)["curvature"]) == 2
                 # print((u,v))
                 annotate = [(u, v)]
 

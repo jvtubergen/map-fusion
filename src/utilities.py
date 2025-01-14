@@ -36,17 +36,13 @@ def graphedges_to_rtree(G):
 def graphedges_to_bboxs(G):
 
     bboxs = {}
-
-    if type(G) == nx.MultiGraph:
-        elements = [((u, v, k), edge_curvature(G, u, v, k=k)) for (u, v, k) in G.edges(keys=True)]
-    if type(G) == nx.Graph:
-        elements = [((u, v), edge_curvature(G, u, v)) for (u, v) in G.edges()]
     
-    for (eid, curvature) in elements:
-        miny = min(curvature[:,0])
-        maxy = max(curvature[:,0])
-        minx = min(curvature[:,1])
-        maxx = max(curvature[:,1])
+    for eid, attrs in iterate_edges(G):
+        ps = attrs["curvature"]
+        miny = min(ps[:,0])
+        maxy = max(ps[:,0])
+        minx = min(ps[:,1])
+        maxx = max(ps[:,1])
         bbox = array([(miny, minx), (maxy, maxx)])
         bboxs[eid] = bbox
 
@@ -343,6 +339,15 @@ def iterate_edges(G):
     else:
         for u, v, attrs in G.edges(data=True):
             yield (u, v), attrs
+
+# Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
+def get_edge(G, eid):
+    if G.graph["simplified"]:
+        u, v, k = eid
+        return G.get_edge_data(u, v, k)
+    else:
+        u, v = eid
+        return G.get_edge_data(u, v)
 
 # Iterate graph edges as `(eid, attrs)` pair. Helps generalizing simplified/vectorized graph logic.
 def graph_edges(G):
