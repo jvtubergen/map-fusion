@@ -1,5 +1,5 @@
 from external import *
-from graph_simplifying import *
+from utilities import *
 from coordinates import *
 
 
@@ -58,18 +58,16 @@ def graph_transform_generic(G, coordinate_transformer):
     
     nx.set_node_attributes(G, node_relabel_mapping)
     
-    # Update edge geometry and curvature properties in case the graph is simplified.
-    if G.graph["simplified"]: 
+    # Update edge curvature.
+    for eid, attrs in iterate_edges(G):
 
-        for (u, v, k, attrs) in G.edges(data=True, keys=True):
+        curvature = attrs["curvature"]
+        curvature = array([coordinate_transformer(y, x) for y, x in curvature])
+        geometry  = to_linestring(curvature)
 
-            curvature = attrs["curvature"]
-            curvature = [coordinate_transformer(y, x) for y, x in curvature]
-            geometry  = to_linestring(curvature)
+        edge_relabel_mapping[eid] = {**attrs, "geometry": geometry, "curvature": curvature}
 
-            edge_relabel_mapping[(u, v, k)] = {**attrs, "geometry": geometry, "curvature": curvature}
-        
-        nx.set_edge_attributes(G, edge_relabel_mapping)
+    nx.set_edge_attributes(G, edge_relabel_mapping)
 
     return G
 
