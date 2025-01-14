@@ -5,6 +5,8 @@ from graph_node_extraction import *
 from utilities import *
 
 
+## Graph edge attribute annotation.
+
 # Add path length data element.
 def graph_annotate_edge_length(G):
 
@@ -72,49 +74,6 @@ def graph_correctify_edge_curvature(G):
     return G
 
 
-# Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
-def path_to_curve(G, path=[], start_node=None, end_node=None):
-
-    assert len(path) >= 1 # We traverse at least one edge.
-
-    # Collect subcurves.
-    pss = [] 
-    current = start_node # Node we are currently at as we are walking along the path.
-
-    def _get_curvature(G, path):
-        if G.graph["simplified"]:
-            for a, b, k in path: # Expect key on each edge.
-                eid = (a, b, k)
-                ps = get_edge(G, eid)["curvature"]
-                yield a, b, ps
-        else: # Graph is vectorized.
-            for a, b in path:
-                eid = (a, b)
-                ps = get_edge(G, eid)["curvature"]
-                yield a, b, ps
-    
-    for (a, b, ps) in _get_curvature(G, path):
-        # Reverse curvature in case we move from b to a.
-        if current == b: 
-            ps = ps[::-1]
-        # Move current pointer to next node.
-        if current == a:
-            current = b
-        else:
-            current = a
-        pss.append(ps)
-    
-    qs = array([(G.nodes()[start_node]["y"], G.nodes()[start_node]["x"])])
-    assert np.all(pss[0][0] == qs[0]) # Expect curvature to begin at coordinates of the startnode.
-    assert len(pss) >= 1
-    for ps in pss:
-        assert np.all(ps[0] == qs[-1]) # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
-        assert len(ps) >= 2
-        qs = np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
-
-    return qs
-
-
 # Ensure all edges have a maximal curve length. Cut curves if necessary.
 def ensure_max_edge_length(G, max_length=50):
 
@@ -165,6 +124,8 @@ def ensure_max_edge_length(G, max_length=50):
     
     return G
 
+
+## Graph edge curvature cutting.
 
 # Split each _simplified_ edge into line segments with at most `max_distance` line segments lengths.
 def graph_split_edges(G, max_distance=10):
@@ -261,6 +222,51 @@ def graph_split_edges(G, max_distance=10):
     assert G.graph["coordinates"] == "utm"
 
     return G    
+
+
+## Graph path-related curvature.
+
+# Transform the path in a graph to a curve (polygonal chain). Assumes path is correct and exists. Input is a list of graph nodes.
+def path_to_curve(G, path=[], start_node=None, end_node=None):
+
+    assert len(path) >= 1 # We traverse at least one edge.
+
+    # Collect subcurves.
+    pss = [] 
+    current = start_node # Node we are currently at as we are walking along the path.
+
+    def path_get_curvature(G, path):
+        if G.graph["simplified"]:
+            for a, b, k in path: # Expect key on each edge.
+                eid = (a, b, k)
+                ps = get_edge(G, eid)["curvature"]
+                yield a, b, ps
+        else: # Graph is vectorized.
+            for a, b in path:
+                eid = (a, b)
+                ps = get_edge(G, eid)["curvature"]
+                yield a, b, ps
+    
+    for (a, b, ps) in path_get_curvature(G, path):
+        # Reverse curvature in case we move from b to a.
+        if current == b: 
+            ps = ps[::-1]
+        # Move current pointer to next node.
+        if current == a:
+            current = b
+        else:
+            current = a
+        pss.append(ps)
+    
+    qs = array([(G.nodes()[start_node]["y"], G.nodes()[start_node]["x"])])
+    assert np.all(pss[0][0] == qs[0]) # Expect curvature to begin at coordinates of the startnode.
+    assert len(pss) >= 1
+    for ps in pss:
+        assert np.all(ps[0] == qs[-1]) # Expect to have curvature of adjacent edge to match endpoint (but it might be in opposite direction).
+        assert len(ps) >= 2
+        qs = np.append(qs, ps[1:], axis=0) # Drop first element of `ps`, because the curvature contains the node (endpoint locations) as well.
+
+    return qs
 
 
 # Conserving multi-edge curvature when converting from a MultiGraph into a Graph.
