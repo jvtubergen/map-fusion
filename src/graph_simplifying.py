@@ -11,21 +11,23 @@ from_linestring = lambda geometry : array([(y, x) for x, y in geometry.coords]) 
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
 def correctify_edge_curvature(G):
 
-    assert G.graph["simplified"]
-
-    G = G.copy()
     nodes = extract_nodes_dict(G)
     for eid, attrs in iterate_edges(G):
-        # We expect to have curvature in the edge.
+
+        # We expect to have curvature in the edge, obtain it..
         u, v = eid[0:2]
         ps = attrs["curvature"]
+
+        # Check whether the curvature is aligned with the node positions.
         is_correct_direction = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
         is_inverted_direction = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
-        if is_inverted_direction: # Invert the direction of the curvature.
+
+        # In case the direction of the curvature is inverted.
+        if is_inverted_direction: 
+            # Then invert the direction back.
             # print("flip around geometry", (u, v, k))
             ps = ps[::-1]
-            geometry = to_linestring(ps)
-            nx.set_edge_attributes(G, {(u, v, k): {"geometry": geometry, "curvature": ps}}) # Update geometry.
+            nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
 
     return G
 
