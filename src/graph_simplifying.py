@@ -1,35 +1,9 @@
 from external import *
 
 from graph_node_extraction import *
+from graph_curvature import *
 
-# Convert an array into a LineString consisting of Points.
-to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvature]) # Coordinates are flipped.
 
-# Convert a LineString into an array.
-from_linestring = lambda geometry : array([(y, x) for x, y in geometry.coords]) # Coordinates are flipped.
-
-# Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
-def correctify_edge_curvature(G):
-
-    nodes = extract_nodes_dict(G)
-    for eid, attrs in iterate_edges(G):
-
-        # We expect to have curvature in the edge, obtain it..
-        u, v = eid[0:2]
-        ps = attrs["curvature"]
-
-        # Check whether the curvature is aligned with the node positions.
-        is_correct_direction = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
-        is_inverted_direction = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
-
-        # In case the direction of the curvature is inverted.
-        if is_inverted_direction: 
-            # Then invert the direction back.
-            # print("flip around geometry", (u, v, k))
-            ps = ps[::-1]
-            nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
-
-    return G
 
 
 # Ensures each simplified edge has "geometry" and "curvature" attribute set.
@@ -72,7 +46,7 @@ def consolidate_edge_geometry_and_curvature(G):
 def simplify_graph(G):
     assert not G.graph["simplified"] 
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
-    G = correctify_edge_curvature(G)
+    G = graph_correctify_edge_curvature(G)
     G.graph["simplified"] = True
     G = consolidate_edge_geometry_and_curvature(G)
     return G

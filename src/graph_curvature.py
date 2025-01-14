@@ -1,5 +1,4 @@
 from external import *
-from graph_simplifying import *
 from graph_coordinates import *
 from graph_deduplicating import *
 from graph_node_extraction import *
@@ -44,6 +43,30 @@ def graph_annotate_edge_curvature(G):
             ps = from_linestring(data["geometry"])
 
             attrs["curvature"] = ps
+
+    return G
+
+
+# Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
+def graph_correctify_edge_curvature(G):
+
+    nodes = extract_nodes_dict(G)
+    for eid, attrs in iterate_edges(G):
+
+        # We expect to have curvature in the edge, obtain it..
+        u, v = eid[0:2]
+        ps = attrs["curvature"]
+
+        # Check whether the curvature is aligned with the node positions.
+        is_correct_direction = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
+        is_inverted_direction = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
+
+        # In case the direction of the curvature is inverted.
+        if is_inverted_direction: 
+            # Then invert the direction back.
+            # print("flip around geometry", (u, v, k))
+            ps = ps[::-1]
+            nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
 
     return G
 

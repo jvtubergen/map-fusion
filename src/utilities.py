@@ -264,6 +264,14 @@ def test_curve_cut_max_distance():
     assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
 
 
+## Linestring and curves.
+
+# Convert an array into a LineString consisting of Points.
+to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvature]) # Coordinates are flipped.
+
+# Convert a LineString into an array.
+from_linestring = lambda geometry : array([(y, x) for x, y in geometry.coords]) # Coordinates are flipped.
+
 
 ### Partial curve matching logic
 
