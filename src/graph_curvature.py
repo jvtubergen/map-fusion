@@ -9,17 +9,14 @@ from utilities import *
 # Add path length data element.
 def graph_annotate_edge_length(G):
 
-    assert G.graph["simplified"]
-
     G = G.copy()
 
     edge_attrs = {}
-    for (a, b, k, attrs) in G.edges(data=True, keys=True):
-
+    for eid, attrs in iterate_edge(G):
         ps = attrs["curvature"]
         length = curve_length(ps)
         assert length > 0 # Assert non-zero length.
-        edge_attrs[(a, b, k)] = {**attrs, "length": length}
+        edge_attrs[eid] = {**attrs, "length": length}
     
     nx.set_edge_attributes(G, edge_attrs)
     return G
