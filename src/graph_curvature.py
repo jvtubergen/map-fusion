@@ -40,7 +40,7 @@ def graph_annotate_edge_curvature(G):
     
         elif "geometry" in attrs:
 
-            ps = from_linestring(data["geometry"])
+            ps = from_linestring(attrs["geometry"])
 
             attrs["curvature"] = ps
 
@@ -66,6 +66,7 @@ def graph_correctify_edge_curvature(G):
             # Then invert the direction back.
             # print("flip around geometry", (u, v, k))
             ps = ps[::-1]
+            geometry = to_linestring(ps)
             nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
 
     return G
