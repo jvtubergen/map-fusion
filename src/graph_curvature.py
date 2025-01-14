@@ -22,6 +22,32 @@ def graph_annotate_edge_length(G):
     return G
 
 
+# Annotate each edge with curvature (if not already the case).
+# * Try to derive from the geometry.
+# * Otherwise extract from 
+def graph_annotate_edge_curvature(G):
+
+    for eid, attrs in iterate_edges(G):
+
+        if "curvature" not in attrs:
+
+            u, v = eid[0:2]
+
+            p1 = G.nodes()[u]
+            p2 = G.nodes()[v]
+            ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
+
+            attrs["curvature"] = ps
+    
+        elif "geometry" in attrs:
+
+            ps = from_linestring(data["geometry"])
+
+            attrs["curvature"] = ps
+
+    return G
+
+
 # Extract curvature (stored potentially as a LineString under geometry) from an edge as an array.
 def edge_curvature(G, u, v, k = None):
 
