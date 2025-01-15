@@ -98,7 +98,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
         for G_nid, H_nid in zip(G_nids, H_nids):
             relationship[G_nid] = H_nid
 
-    return H_to_G
+    return H_to_G, relationship
 
 
 # Compute shortest path data.
