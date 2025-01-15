@@ -8,18 +8,24 @@ from utilities import *
 ## Graph edge attribute annotation.
 
 # Add path length data element.
+# Optionally delete glitchy nodes (that somehow ended up in the input graphs).
 def graph_annotate_edge_length(G):
 
     G = G.copy()
 
     edge_attrs = {}
+    edges_to_remove = []
     for eid, attrs in iterate_edges(G):
         ps = attrs["curvature"]
         length = curve_length(ps)
-        assert length > 0 # Assert non-zero length.
-        edge_attrs[eid] = {**attrs, "length": length}
+        if eid[0] == eid[1] and length == 0:
+            edges_to_remove.append(eid)
+        else:
+            assert length > 0 # Assert non-zero length.
+            edge_attrs[eid] = {**attrs, "length": length}
     
     nx.set_edge_attributes(G, edge_attrs)
+    G.remove_edges_from(edges_to_remove)
 
     return G
 
