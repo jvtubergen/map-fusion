@@ -98,6 +98,12 @@ def graph_correctify_edge_curvature(G):
 # * Allow to provide either curve intervals to cut at or the actual subcurves to replace the edge with.
 def graph_cut_edge(G, eid, subcurves):
 
+    # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
+    ps = get_edge(G, eid)["curvature"]
+    assert (ps[0]  == subcurves[0][0]).all()
+    assert (ps[-1] == subcurves[-1][-1]).all()
+    assert abs(curve_length(ps) - sum([curve_length(qs) for qs in subcurves])) < 0.0001
+
     # Remove the original edge.
     G.remove_edges_from([eid])
 
