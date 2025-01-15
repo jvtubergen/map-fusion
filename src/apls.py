@@ -101,10 +101,18 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     return H_to_G, relationship
 
 
-# Compute shortest path data.
-def precompute_shortest_path_data(G):
-    # `nx.all_pairs_shortest_path_length`
-    todo()
+# Compute shortest path data (for a number of randomly picked node identifiers from the graph).
+def precompute_shortest_path_data(G, n=500):
+
+    # Sample n nids (to find all shortest paths between).
+    nids = set(random.sample(list(G.nodes()), min(n, len(G.nodes()))))
+
+    # Compute distance matrix between these points.
+    distance_matrix = {}
+    for nid in nids:
+        distance_matrix[nid] = nx.single_source_dijkstra_path_length(G, nid, weight="length")
+
+    return distance_matrix
 
 
 # Perform all samples and categorize them into the three categories:
