@@ -56,13 +56,8 @@ def graphnodes_to_bboxs(G):
     bboxs = {}
     
     for nid, attrs in G.nodes(data=True):
-        ps = attrs["curvature"]
-        miny = min(ps[:,0])
-        maxy = max(ps[:,0])
-        minx = min(ps[:,1])
-        maxx = max(ps[:,1])
-        bbox = array([(miny, minx), (maxy, maxx)])
-        bboxs[eid] = bbox
+        position = [attrs["y"], attrs["x"]]
+        bboxs[nid] = bounding_box(array([position]))
 
     return bboxs
 
@@ -152,6 +147,9 @@ def curve_cut_intervals(ps, intervals):
             i += 1 # Move to next line segment.
     
     qss.append(qs)
+
+    # Convert each subcurve into a numpy array.
+    qss = [array(qs) for qs in qss]
 
     return qss
 
@@ -379,3 +377,85 @@ def graph_edges(G):
     else:
         return G.edges(data=True, keys=True)
 
+
+## Curve-point related logic.
+
+# Rotating (x, y)
+def rotate(a):
+    return array([
+        [cos(a), sin(-a)],
+        [sin(a), cos( a)],
+    ])
+
+
+# Compute the distance (and the interval along the line-segment) between a line-segment `p-q` and a point `a`.
+# * Assume as arrays.
+# * Linesegment p, q
+# * Point a
+# * All input points are `(y, x)`, but we compute on `(x, y)`.
+def distance_point_to_linesegment(p, q, a):
+
+    # Flip coordinates around from `(y, x)` to `(x, y)`.
+    flip = lambda _x: array([_x[1], _x[0]])
+
+    # Act on x, y
+    p = flip(p)
+    q = flip(q)
+    a = flip(a)
+
+    # Translate p to the origin.
+    q = q - p
+    a = a - p
+
+    # Rotate a and q around p (and thereby the origin) in such that q lies horizontally to the right.
+    rotation = -atan2(q[1], q[0])  # Find rotation (take orientation of q).
+    q = rotate(rotation).dot(q)
+    a = rotate(rotation).dot(a)
+    assert abs(q[1]) < 0.0001
+
+    # Decide on orthogonality.
+    if a[0] < 0: # Point is on the left side of the origin.
+        return norm(a), 0 # Distance from point to startpoint linesegment, start of interval.
+    elif a[0] > q[0]: # Point is to the right of the endpoint linesegment.
+        return norm(q - a), 1  # Distance from point to end linesegment, end of interval.
+    else: # Distance from point y coordinate to x axis (where y equals 0), relative x coordinate to end of line segment.
+        return a[1], a[0] / q[0]
+
+
+# Compute position on curve which lies nearest to a point.
+def nearest_position_and_interval_on_curve_to_point(ps, point): 
+    
+    items = []
+    for i, linesegment in enumerate(zip(ps,ps[1:])):
+        p, q = linesegment
+        distance, interval = distance_point_to_linesegment(p, q, point)
+        items.append((i, distance, interval))
+
+    # Seek lowest distance.
+    i, distance, interval = min(items, key=lambda x: x[1])
+    position = ps[i] * (1 - interval) + ps[i + 1] * interval
+
+    # Compute interval along curve.
+    lengths    = norm(ps[1:] - ps[:-1], axis=1)
+    weights    = lengths / np.sum(lengths)
+    cumulative = np.hstack(([0], np.cumsum(weights)))
+    actual_interval = cumulative[i] + interval * weights[i]
+
+    return position, actual_interval
+
+# Wrapper function to only obtain nearest position on curve to point.
+nearest_position_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[0]
+
+# Wrapper function to only obtain nearest curve interval on curve to point.
+nearest_interval_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[1]
+
+
+## Arbitrary
+
+# Unzip a list of pairs into a pair of lists.
+def unzip(data):
+    left, right = [], []
+    for l, r in data:
+        left.append(l)
+        right.append(r)
+    return left, right

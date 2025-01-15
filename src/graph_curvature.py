@@ -137,7 +137,7 @@ def graph_cut_edge_subcurves(G, eid, subcurves):
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    return G
+    return G, {"nids": nodes_to_add, "eids": edges_to_add}
 
 
 # Replace edge with subedges at provided intervals.
@@ -176,7 +176,7 @@ def graph_ensure_max_edge_length(G, max_length=50):
         step_size = 1 / amount
         intervals = [i * step_size for i in range(1, amount)]
 
-        G = graph_cut_edge_intervals(G, eid, intervals)
+        G, _ = graph_cut_edge_intervals(G, eid, intervals)
     
     return G
 

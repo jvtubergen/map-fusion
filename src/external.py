@@ -36,6 +36,7 @@ sin  = math.sin
 tan  = math.tan
 asin = math.asin
 atan = math.atan
+atan2= math.atan2
 acos = math.acos
 sinh = math.sinh
 exp  = math.exp
