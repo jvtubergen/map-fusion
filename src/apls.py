@@ -88,7 +88,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
         items = to_inject[H_eid]
 
         # Take out curve intervals from low to high.
-        curve_intervals, G_nids = unzip(sorted(items))
+        curve_intervals, G_nids = unzip(sorted(set(items))) # (By building a set we filter out unique elements)
 
         # Cut intervals.
         H_to_G, data = graph_cut_edge_intervals(H_to_G, H_eid, curve_intervals)
