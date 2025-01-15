@@ -511,7 +511,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         # * Split each edge of gps into 10 small pieces.
         print("Split edges (simplifies and converts to UTM coordinates as well).")
         assert len(duplicated_nodes(gps)) == 0
-        gps_splitted = graph_split_edges(gps, max_distance=10)
+        gps_splitted = graph_ensure_max_edge_length(gps, max_distance=10)
         # plot_graphs([gps_splitted])
 
         print("Compute coverage.")
