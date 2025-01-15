@@ -102,10 +102,14 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 
 
 # Compute shortest path data (for a number of randomly picked node identifiers from the graph).
-def precompute_shortest_path_data(G, n=500):
+def precompute_shortest_path_data(G, n=500, nids=None):
+
+    # If we did not provide a specific set of nodes, start with the entire collection of nodes of the graph.
+    if nids == None:
+        nids = list(G.nodes())
 
     # Sample n nids (to find all shortest paths between).
-    nids = set(random.sample(list(G.nodes()), min(n, len(G.nodes()))))
+    nids = set(random.sample(nids, min(n, len(G.nodes()))))
 
     # Compute distance matrix between these points.
     distance_matrix = {}
