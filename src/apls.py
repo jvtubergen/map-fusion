@@ -156,31 +156,68 @@ def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
     return sample_paths
 
 
-# Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
-def apls(G, H):
+# Asymmetric APLS computes by only considering the control nodes into the proposed graph.
+def apls_asymmetric(G, H):
+
+    assert G.graph["simplified"]
+    assert H.graph["simplified"]
 
     assert G.graph["coordinates"] == "utm"
     assert H.graph["coordinates"] == "utm"
 
     # Ensure lengths within 50m.
     G = ensure_max_edge_length(G)
-    H = ensure_max_edge_length(H)
 
     # Find and relate control points of G to H.
     # Note: All nodes (of the simplified graph) are control points.
     Hc, G_to_Hc = inject_and_relate_control_points(G, H)
-    Gc, H_to_Gc = inject_and_relate_control_points(H, G)
 
-    # Pre-compute shortest path data.
-    G_to_H_shortest_paths = precompute_shortest_path_data(G_to_H)
-    H_to_G_shortest_paths = precompute_shortest_path_data(H_to_G)
+    # Edge length is necessary for computing shortest distance.
+    G  = graph_annotate_edge_length(G)
+    Hc = graph_annotate_edge_length(Hc)
+
+    # Control nodes which have coverage (subselection of control points for APLS prime metric).
+    G_prime_nodes = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
+    Hc_prime_nodes = [G_to_Hc[nid] for nid in G_prime_nodes]
+
+    # Graphs are prepared, we can apply APLS or APLS prime specific logic.
+    if prime:
+
+        # Limit the number of nodes we are computing from.
+        G_shortest_paths = precompute_shortest_path_data(G, nids=G_prime_nodes)
+        Hc_shortest_paths = precompute_shortest_path_data(Hc, nids=Hc_prime_nodes)
+
+    else:
+
+        # For normal APLS we require to include the dangling nodes within the distance matrix, to know the number of reachable paths to penalize for.
+        G_shortest_paths = precompute_shortest_path_data(G)
+        Hc_shortest_paths = precompute_shortest_path_data(Hc)
 
     # Perform sampling.
-    no_point, no_path, valid = perform_sampling(G, H_to_G, G, H_to_G_relations, H_to_G_shortest_paths)
-    no_point, no_path, valid = perform_sampling(G, H_to_G, G, H_to_G_relations, H_to_G_shortest_paths)
+    samples = perform_sampling(H, G_to_Hc, G, G_to_Hc, H_to_G_shortest_paths)
 
-    # Compute APLS and APLS* from samples.
-    apls_value = todo()
-    apls_prime_value = todo()
+    # Compute path score.
+    def score(start, end):
+        a = G_shortest_paths[start][end]
+        b = Hc_shortest_paths[G_to_Hc[start]][G_to_Hc[end]]
+        value = 1 - min(abs(a - b) / a, 1)
+        return value
 
-    return apls_value, apls_prime_value
+    # Compute metric.
+    n = len(samples["B"]) + len(samples["C"])
+
+    if not prime:
+        n += samples["A"]
+
+    # Add sample points
+    result = sum([score(start, end) for (start, end) in samples["C"]]) / n
+
+    return result
+
+
+# Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
+def apls(G, H):
+
+    result = 0.5 * (apls_asymmetric(G, H) + apls_asymmetric(H, G))
+
+    return result
