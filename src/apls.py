@@ -16,7 +16,7 @@ def todo():
 # ```
 def inject_and_relate_control_points(G, H, max_distance=4):
 
-    relationship = {} # All nodes of G 
+    G_to_H = {} # All nodes of G related to a node of H.
 
     # Construct bounding boxes on nodes and edges of H to compute neighboring nodes/edges more quickly.
     H_node_rtree = graphnodes_to_rtree(H)
@@ -25,7 +25,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     G_node_bboxs = graphnodes_to_bboxs(G)
     G_node_positions = extract_nodes_dict(G)
 
-    H_to_G = H.copy() # The resulting graph of H after injecting control nodes.
+    H_with_control_points = H.copy() # The resulting graph of H after injecting control nodes.
 
     to_inject = {}
 
@@ -33,7 +33,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     for G_nid, attrs in iterate_nodes(G):
 
         # Initiate an empty relation.
-        relationship[G_nid] = None
+        G_to_H[G_nid] = None
 
         # Pick the node bounding box and pad it with the max distance.
         G_node_bbox = G_node_bboxs[G_nid]
@@ -46,7 +46,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
         if len(intersections) > 0: 
             # Extract nid from intersection result.
             H_nid = intersections[0]
-            relationship[G_nid] = H_nid
+            G_to_H[G_nid] = H_nid
             continue
     
         # Try to find edge (in H) nearby control point (of G).
@@ -91,14 +91,14 @@ def inject_and_relate_control_points(G, H, max_distance=4):
         curve_intervals, G_nids = unzip(sorted(set(items))) # (By building a set we filter out unique elements)
 
         # Cut intervals.
-        H_to_G, data = graph_cut_edge_intervals(H_to_G, H_eid, curve_intervals)
+        H_with_control_points, data = graph_cut_edge_intervals(H_with_control_points, H_eid, curve_intervals)
 
         # Link resulting node identifiers.
         H_nids = data["nids"]
         for G_nid, H_nid in zip(G_nids, H_nids):
-            relationship[G_nid] = H_nid
+            G_to_H[G_nid] = H_nid
 
-    return H_to_G, relationship
+    return H_with_control_points, G_to_H
 
 
 # Compute shortest path data (for a number of randomly picked node identifiers from the graph).
@@ -139,8 +139,8 @@ def apls(G, H):
 
     # Find and relate control points of G to H.
     # Note: All nodes (of the simplified graph) are control points.
-    G_to_H, G_to_H_relations = inject_and_relate_control_points(G, H)
-    H_to_G, H_to_G_relations = inject_and_relate_control_points(H, G)
+    Hc, G_to_Hc = inject_and_relate_control_points(G, H)
+    Gc, H_to_Gc = inject_and_relate_control_points(H, G)
 
     # Pre-compute shortest path data.
     G_to_H_shortest_paths = precompute_shortest_path_data(G_to_H)
