@@ -105,16 +105,28 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 def precompute_shortest_path_data(G, n=500, nids=None):
 
     # If we did not provide a specific set of nodes, start with the entire collection of nodes of the graph.
-    if nids == None:
-        nids = list(G.nodes())
+    if control_nids == None:
+        control_nids = list(G.nodes())
 
-    # Sample n nids (to find all shortest paths between).
-    nids = set(random.sample(nids, min(n, len(G.nodes()))))
+    # Sample n control points (to find all shortest paths between).
+    control_nids = set(random.sample(control_nids, min(n, len(G.nodes()))))
 
     # Compute distance matrix between these points.
     distance_matrix = {}
-    for nid in nids:
-        distance_matrix[nid] = nx.single_source_dijkstra_path_length(G, nid, weight="length")
+    for u in control_nids:
+
+        # Compute all reachable points from this node.
+        distances = nx.single_source_dijkstra_path_length(G, u, weight="length")
+
+        # Filter out dictionary to only include end nodes which are:
+        # * Contained in the control nodes list.
+        # * Have a node identifier higher than the control nid coming from (prevents duplicated checks in subsequent logic).
+        filtered = {}
+        for v in distances.keys():
+            if v > u and v in control_nids:
+                filtered[v] = distances[v]
+        
+        distance_matrix[u] = filtered
 
     return distance_matrix
 
