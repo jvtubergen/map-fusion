@@ -101,15 +101,40 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     return H_with_control_points, G_to_H
 
 
+# Prepare graph data to be sampled for APLS.
+# * G has edges of max 50m length.
+# * H has nearby control points injected.
+# * Relation between control nodes of G to H.
+# * All edges have length annotated.
+def prepare_graph_data(G, H):
+
+    assert G.graph["simplified"]
+    assert H.graph["simplified"]
+
+    assert G.graph["coordinates"] == "utm"
+    assert H.graph["coordinates"] == "utm"
+
+    # Ensure lengths within 50m.
+    G = graph_ensure_max_edge_length(G)
+
+    # Find and relate control points of G to H.
+    # Note: All nodes (of the simplified graph) are control points.
+    Hc, G_to_Hc = inject_and_relate_control_points(G, H)
+
+    # Edge length is necessary for computing shortest distance.
+    G  = graph_annotate_edge_length(G)
+    Hc = graph_annotate_edge_length(Hc)
+    
+    return {
+        "G": G,
+        "Hc": Hc,
+        "G_to_Hc": G_to_Hc
+    }
+
+
+
 # Compute shortest path data (for a number of randomly picked node identifiers from the graph).
-def precompute_shortest_path_data(G, n=500, nids=None):
-
-    # If we did not provide a specific set of nodes, start with the entire collection of nodes of the graph.
-    if control_nids == None:
-        control_nids = list(G.nodes())
-
-    # Sample n control points (to find all shortest paths between).
-    control_nids = set(random.sample(control_nids, min(n, len(G.nodes()))))
+def precompute_shortest_path_data(G, control_nids):
 
     # Compute distance matrix between these points.
     distance_matrix = {}
@@ -137,12 +162,11 @@ def precompute_shortest_path_data(G, n=500, nids=None):
 # * C. Both graphs have control points and a path between them.
 def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 
-    samples = {} # A sample itself is a value between 0 and 1. Higher value implies worse. (So perfect sample has a value of 0).
-    sample_paths = [] # The start and end node pair related to a sample. This is taken from the G graph (so to reconstruct for Hc you require to apply G_to_Hc).
+    sample_paths = {} # The start and end node pair related to a sample. This is taken from the G graph (so to reconstruct for Hc you require to apply G_to_Hc).
 
     nids = set(list(G_to_Hc.keys())) # The control points we sample (and thus seek paths between).
     nids_not_covered = set([nid for nid in nids if G_to_Hc[nid] == None]) 
-    nids_covered     = nid - nids_not_covered
+    nids_covered     = nids - nids_not_covered
     
     ## Category A: No control point in the proposed graph.
     sample_paths["A"] = [(start, end) for start in nids_not_covered for end in G_shortest_paths[start]]
@@ -157,46 +181,36 @@ def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 
 
 # Asymmetric APLS computes by only considering the control nodes into the proposed graph.
-def apls_asymmetric(G, H):
+# * Optionally provide a predetermined set of control nodes.
+# * Optionally extract control nodes specifically viable for computing prime (thus control point is related to proposed graph).
+def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False, G_control_nids=None):
 
-    assert G.graph["simplified"]
-    assert H.graph["simplified"]
+    # Prepared graph data for sampling.
+    G = prepared_graph_data["G"]
+    Hc = prepared_graph_data["Hc"]
+    G_to_Hc = prepared_graph_data["G_to_Hc"]
 
-    assert G.graph["coordinates"] == "utm"
-    assert H.graph["coordinates"] == "utm"
+    # Select control nodes to perform sampling on.
+    if G_control_nids == None:
 
-    # Ensure lengths within 50m.
-    G = ensure_max_edge_length(G)
+        if prime:
+            nids_to_sample_from = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
 
-    # Find and relate control points of G to H.
-    # Note: All nodes (of the simplified graph) are control points.
-    Hc, G_to_Hc = inject_and_relate_control_points(G, H)
+        else:
+            # Sample randomly from the original graph until we have the number of control nodes.
+            nids_to_sample_from = list(G.nodes())
+        
+        G_control_nids = set(random.sample(nids_to_sample_from, min(n, len(nids_to_sample_from))))
 
-    # Edge length is necessary for computing shortest distance.
-    G  = graph_annotate_edge_length(G)
-    Hc = graph_annotate_edge_length(Hc)
-
-    # Control nodes which have coverage (subselection of control points for APLS prime metric).
-    G_prime_nodes = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
-    Hc_prime_nodes = [G_to_Hc[nid] for nid in G_prime_nodes]
-
-    # Graphs are prepared, we can apply APLS or APLS prime specific logic.
-    if prime:
-
-        # Limit the number of nodes we are computing from.
-        G_shortest_paths = precompute_shortest_path_data(G, nids=G_prime_nodes)
-        Hc_shortest_paths = precompute_shortest_path_data(Hc, nids=Hc_prime_nodes)
-
-    else:
-
-        # For normal APLS we require to include the dangling nodes within the distance matrix, to know the number of reachable paths to penalize for.
-        G_shortest_paths = precompute_shortest_path_data(G)
-        Hc_shortest_paths = precompute_shortest_path_data(Hc)
+    # Compute shortest paths between this set of control nodes.
+    G_shortest_paths = precompute_shortest_path_data(G, G_control_nids)
+    Hc_shortest_paths = precompute_shortest_path_data(Hc, [G_to_Hc[nid] for nid in G_control_nids])
 
     # Perform sampling.
-    samples = perform_sampling(H, G_to_Hc, G, G_to_Hc, H_to_G_shortest_paths)
+    samples = perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths)
 
     # Compute path score.
+    # Note: This function is bound to scope (it relies on variables in scope) to keep things simple.
     def score(start, end):
         a = G_shortest_paths[start][end]
         b = Hc_shortest_paths[G_to_Hc[start]][G_to_Hc[end]]
@@ -204,20 +218,53 @@ def apls_asymmetric(G, H):
         return value
 
     # Compute metric.
-    n = len(samples["B"]) + len(samples["C"])
+    path_scores      = [score(start, end) for (start, end) in samples["C"]]
 
-    if not prime:
-        n += samples["A"]
+    # Arbitrary data for debugging/visualization purposes.
+    data = {
+        "samples": samples,
+        "path_scores": path_scores,
+        "G_control_nids": G_control_nids,
+        "prepared_graph_data": prepared_graph_data
+    }
+    
+    return data
 
-    # Add sample points
-    result = sum([score(start, end) for (start, end) in samples["C"]]) / n
 
-    return result
+# Compute score on the data object.
+def compute_score(data, prime=False):
+
+    path_scores = data["path_scores"]
+    samples     = data["samples"]
+    sample_sum  = sum(path_scores)
+
+    if prime:
+        n = len(samples["B"]) + len(samples["C"])
+    else:
+        n = len(samples["B"]) + len(samples["C"]) + len(samples["A"])
+
+    score = sample_sum / (len(samples["B"]) + len(samples["C"]) + len(samples["A"]))
+    
+    return score
 
 
 # Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
-def apls(G, H):
+def apls(G, H, n=500, prime=False, G_control_nids=None, prepared_graph_data=None):
 
-    result = 0.5 * (apls_asymmetric(G, H) + apls_asymmetric(H, G))
+    if prepared_graph_data == None:
+        prepared_graph_data = {
+            "left": prepare_graph_data(G, H),
+            "right": prepare_graph_data(H, G),
+        }
 
-    return result
+    left  = apls_asymmetric_sampling(prepared_graph_data["left"], n=n, prime=prime, G_control_nids=G_control_nids)
+    right = apls_asymmetric_sampling(prepared_graph_data["right"], n=n, prime=prime, G_control_nids=G_control_nids)
+
+    score = 0.5 * (compute_score(left, prime=prime) + compute_score(right, prime=prime))
+
+    data = {
+        "left" : left,
+        "right": right,
+    }
+
+    return score, data
