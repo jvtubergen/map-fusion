@@ -132,11 +132,28 @@ def precompute_shortest_path_data(G, n=500, nids=None):
 
 
 # Perform all samples and categorize them into the three categories:
-# * Proposed graph does not have a control point.
-# * Proposed graph does not have a path between control points.
-# * The difference in path length.
-def perform_sampling(G, H_to_G, H_to_G_relations, H_to_G_shortest_paths):
-    todo()
+# * A. Proposed graph does not have a control point.
+# * B. Proposed graph does not have a path between control points.
+# * C. Both graphs have control points and a path between them.
+def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
+
+    samples = {} # A sample itself is a value between 0 and 1. Higher value implies worse. (So perfect sample has a value of 0).
+    sample_paths = [] # The start and end node pair related to a sample. This is taken from the G graph (so to reconstruct for Hc you require to apply G_to_Hc).
+
+    nids = set(list(G_to_Hc.keys())) # The control points we sample (and thus seek paths between).
+    nids_not_covered = set([nid for nid in nids if G_to_Hc[nid] == None]) 
+    nids_covered     = nid - nids_not_covered
+    
+    ## Category A: No control point in the proposed graph.
+    sample_paths["A"] = [(start, end) for start in nids_not_covered for end in G_shortest_paths[start]]
+
+    ## Category B: Control nodes exist and a path exists in the ground truth, but not in the proposed graph. 
+    sample_paths["B"] = [(start, end) for start in nids_covered for end in G_shortest_paths[start] if G_to_Hc[end] not in Hc_shortest_paths[G_to_Hc[start]]]
+
+    ## Category C: Both graphs have control points and a path between them.
+    sample_paths["C"] = [(start, end) for start in nids_covered for end in G_shortest_paths[start] if G_to_Hc[end] in Hc_shortest_paths[G_to_Hc[start]]]
+
+    return sample_paths
 
 
 # Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
