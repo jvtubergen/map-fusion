@@ -64,8 +64,9 @@ def graph_transform_generic(G, coordinate_transformer):
         curvature = attrs["curvature"]
         curvature = array([coordinate_transformer(y, x) for y, x in curvature])
         geometry  = to_linestring(curvature)
+        edge_length = curve_length(curvature)
 
-        edge_relabel_mapping[eid] = {**attrs, "geometry": geometry, "curvature": curvature}
+        edge_relabel_mapping[eid] = {**attrs, "geometry": geometry, "curvature": curvature, "length": edge_length}
 
     nx.set_edge_attributes(G, edge_relabel_mapping)
 

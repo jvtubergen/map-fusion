@@ -138,7 +138,7 @@ def graph_cut_edge_subcurves(G, eid, subcurves):
     u, v = eid[0:2]
     edge_links = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
     for (u, v), curvature in zip(edge_links, subcurves):
-        edges_to_add.append((u, v, {"curvature": curvature}))
+        edges_to_add.append((u, v, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
 
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
