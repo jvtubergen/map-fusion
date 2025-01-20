@@ -3,27 +3,41 @@ from graph_node_extraction import *
 from utilities import *
 
 # Group duplicated nodes.
-def duplicated_nodes(G, eps=0.0001):
+def duplicated_nodes(G, eps=0.001):
 
     positions = extract_nodes_dict(G)
     tree = graphnodes_to_rtree(G)
     bboxs = graphnodes_to_bboxs(G)
 
-    duplicated = []
+    regions = [] # Collection of nodes which are adjacent.
 
     # Nodes are iterated incrementally.
     for nid in G.nodes():
 
         # Find nearby nodes.
         bbox = pad_bounding_box(bboxs[nid], eps)
-        nids = sorted(intersect_rtree_bbox(tree, bbox))
+        nids = set(intersect_rtree_bbox(tree, bbox))
 
-        # All nodes intersect at least once (namely with itself).
-        # If more intersections occur, we group the duplicates under the lowest node identifier.
-        if len(nids) > 1 and nids[0] == nid:
-            duplicated.append(nids)
-    
-    return duplicated
+        # Clusters require at least two elements.
+        if len(nids) == 1:
+            continue
+
+        # Check some node already belongs to an existing cluster. 
+        has_found = False
+        for i, region in enumerate(regions):
+            # If such a cluster consist.
+            if len(nids & region) > 0:
+                # Then add all elements to this cluster.
+                regions[i] = region.union(nids)
+                break
+            
+        # Otherwise if we haven't found a cluster it partially belongs to.
+        if not has_found:
+            # Then we found a new isolated cluster.
+            regions.append(nids)
+
+    # Convert regions into lists.
+    return [list(region) for region in regions]
 
 
 # Deduplicates a vectorized graph. Reconnects edges of removed nodes (if any). 
