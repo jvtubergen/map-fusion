@@ -1,5 +1,8 @@
 from external import *
 from coordinates import *
+from graph_curvature import *
+from graph_deduplicating import *
+from utilities import *
 
 # Valid graph sets to work with. GPS: Roadster, Sat: Sat2Graph, Truth: OpenStreetMaps. Extend with techniques as you see fit.
 graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merge_A", "merge_B", "merge_C"]
@@ -50,6 +53,16 @@ def read_graph(graphset=None, place=None, use_utm=False):
     # Generate undirected, vectorized graph.
     G.graph["coordinates"] = "latlon"
     G.graph["simplified"] = False
+
+    G = deduplicate(G)
+
+    # Drop trash from graph.
+    graph_annotate_edge_curvature(G)
+    graph_annotate_edge_length(G)
+    graph_annotate_edge_geometry(G)
+
+    sanity_check_edge_length(G)
+
     return G
 
 
