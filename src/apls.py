@@ -201,6 +201,11 @@ def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False, G_control_
             nids_to_sample_from = list(G.nodes())
         
         G_control_nids = set(random.sample(nids_to_sample_from, min(n, len(nids_to_sample_from))))
+    
+    # Take subset of `G_to_Hc` to the control nodes (these are the only nodes we have to relate with another).
+    for nid in [nid for nid in G_to_Hc.keys()]:
+        if nid not in G_control_nids:
+            G_to_Hc.pop(nid)
 
     # Compute shortest paths between this set of control nodes.
     G_shortest_paths = precompute_shortest_path_data(G, G_control_nids)
