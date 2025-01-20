@@ -1,6 +1,9 @@
 # Rewrite of https://github.com:CosmiQ/apls
 from utilities import *
+from graph_simplifying import *
+from graph_coordinates import *
 from graph_curvature import *
+from network import *
 
 def todo():
     raise Exception("todo")
@@ -89,7 +92,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 
         # Take out curve intervals from low to high.
         curve_intervals, G_nids = unzip(sorted(set(items))) # (By building a set we filter out unique elements)
-
+        
         # Cut intervals.
         H_with_control_points, data = graph_cut_edge_intervals(H_with_control_points, H_eid, curve_intervals)
 
@@ -108,6 +111,22 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 # * All edges have length annotated.
 def prepare_graph_data(G, H):
 
+    G = G.copy()
+    H = H.copy()
+
+    sanity_check_node_positions(G)
+    sanity_check_node_positions(H)
+
+    if not G.graph["simplified"]:
+        G = simplify_graph(G)
+    if not H.graph["simplified"]:
+        H = simplify_graph(H)
+    
+    if not G.graph["coordinates"] == "utm":
+        G = graph_transform_latlon_to_utm(G)
+    if not H.graph["coordinates"] == "utm":
+        H = graph_transform_latlon_to_utm(H)
+
     assert G.graph["simplified"]
     assert H.graph["simplified"]
 
@@ -121,10 +140,6 @@ def prepare_graph_data(G, H):
     # Note: All nodes (of the simplified graph) are control points.
     Hc, G_to_Hc = inject_and_relate_control_points(G, H)
 
-    # Edge length is necessary for computing shortest distance.
-    G  = graph_annotate_edge_length(G)
-    Hc = graph_annotate_edge_length(Hc)
-    
     return {
         "G": G,
         "Hc": Hc,
