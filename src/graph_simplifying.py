@@ -47,10 +47,10 @@ def simplify_graph(G):
     assert not G.graph["simplified"] 
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
     G.graph["simplified"] = True
-    G = graph_annotate_edge_curvature(G)
-    G = graph_correctify_edge_curvature(G)
-    G.graph["simplified"] = True
-    G = consolidate_edge_geometry_and_curvature(G)
+    graph_annotate_edge_curvature(G)
+    graph_correctify_edge_curvature(G)
+    graph_annotate_edge_length(G)
+    graph_annotate_edge_geometry(G)
     return G
 
 

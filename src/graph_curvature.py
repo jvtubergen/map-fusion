@@ -11,8 +11,6 @@ from utilities import *
 # Optionally delete glitchy nodes (that somehow ended up in the input graphs).
 def graph_annotate_edge_length(G):
 
-    G = G.copy()
-
     edge_attrs = {}
     edges_to_remove = []
     for eid, attrs in iterate_edges(G):
@@ -27,13 +25,9 @@ def graph_annotate_edge_length(G):
     nx.set_edge_attributes(G, edge_attrs)
     G.remove_edges_from(edges_to_remove)
 
-    return G
-
 
 # Add geometry attribute to every edge.
 def graph_annotate_edge_geometry(G):
-
-    G = G.copy()
 
     edge_attrs = {}
     for eid, attrs in iterate_edges(G):
@@ -43,8 +37,6 @@ def graph_annotate_edge_geometry(G):
         edge_attrs[eid] = {**attrs, "geometry": geometry}
     
     nx.set_edge_attributes(G, edge_attrs)
-
-    return G
 
 
 # Annotate each edge with curvature (if not already the case).
@@ -70,8 +62,6 @@ def graph_annotate_edge_curvature(G):
 
             attrs["curvature"] = ps
 
-    return G
-
 
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
 def graph_correctify_edge_curvature(G):
@@ -94,8 +84,6 @@ def graph_correctify_edge_curvature(G):
             ps = ps[::-1]
             geometry = to_linestring(ps)
             nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
-
-    return G
 
 
 ## Graph edge curvature cutting.
