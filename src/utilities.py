@@ -93,8 +93,15 @@ def curve_length(ps):
 # Cut curve at specified intervals.
 def curve_cut_intervals(ps, intervals):
 
+    if len(intervals) == 0:
+        return [ps]
+
+    # Ensure minimal interval difference of 0.001.
     assert intervals[0]  > 0.0001
     assert intervals[-1] < 1 - 0.0001
+    if len(intervals) > 1:
+        r = array(intervals)
+        assert min(r[1:] - r[:-1]) > 0.0001
 
     n = len(ps)
     m = len(intervals)
@@ -163,6 +170,9 @@ curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
 
 # Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
 def curve_cut_pieces(ps, amount=10):
+
+    if amount == 1:
+        return [ps]
 
     # Compute (uniform) intervals to cut at given the number of pieces to cut.
     step_size = 1 / amount
