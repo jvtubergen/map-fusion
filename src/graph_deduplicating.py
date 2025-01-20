@@ -1,29 +1,29 @@
 from external import *
-
+from graph_node_extraction import *
+from utilities import *
 
 # Group duplicated nodes.
-def duplicated_nodes(G):
+def duplicated_nodes(G, eps=0.0001):
 
-    # NOTE: Keep IDs (integeters) separate from coordinates (floats): Numpy arrays all have same type.
-    node_ids = G.nodes()
-    coordinates = np.array([[info["y"], info["x"]] for node, info in G.nodes(data=True)])
-    uniques, inverses, counts = np.unique( coordinates, return_inverse=True, axis=0, return_counts=True )
+    positions = extract_nodes_dict(G)
+    tree = graphnodes_to_rtree(G)
+    bboxs = graphnodes_to_bboxs(G)
 
-    # Construct dictionary.
-    duplicated = {}
-    for node_id, index_to_unique in zip(node_ids, inverses):
-        if counts[index_to_unique] > 1:
-            if index_to_unique in duplicated.keys():
-                duplicated[index_to_unique].append(node_id)
-            else:
-                duplicated[index_to_unique] = [node_id]
+    duplicated = []
 
-    # Convert dictionary into a list.
-    result = []
-    for v in duplicated:
-        result.append(duplicated[v])
+    # Nodes are iterated incrementally.
+    for nid in G.nodes():
 
-    return result
+        # Find nearby nodes.
+        bbox = pad_bounding_box(bboxs[nid], eps)
+        nids = sorted(intersect_rtree_bbox(tree, bbox))
+
+        # All nodes intersect at least once (namely with itself).
+        # If more intersections occur, we group the duplicates under the lowest node identifier.
+        if len(nids) > 1 and nids[0] == nid:
+            duplicated.append(nids)
+    
+    return duplicated
 
 
 # Deduplicates a vectorized graph. Reconnects edges of removed nodes (if any). 
@@ -45,11 +45,11 @@ def deduplicate(G):
             nodes_to_delete.append(nid)
 
             # Obtain edges to delete.
-            old_edges = G.edges(nid)
-            edges_to_delete.extend(old_edges)
+            old_edges = G.edges(nid) # Edges connected to node that is about to be removed.
+            edges_to_delete.extend(old_edges) 
 
             # Convert edge endpoint to `first` node identifier.
-            new_edges = [(first, edge[1]) for edge in list(old_edges)]
+            new_edges = [(first, edge[1]) for edge in list(old_edges)] # Reconnect edge to the remaining node.
             edges_to_insert.extend(new_edges)
         
     # print("Edges to delete: ", edges_to_delete)

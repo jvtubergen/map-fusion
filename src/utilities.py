@@ -1,4 +1,5 @@
 from external import * 
+from graph_node_extraction import *
 
 ### R-Tree
 
@@ -459,3 +460,26 @@ def unzip(data):
         left.append(l)
         right.append(r)
     return left, right
+
+#######################################
+### Sanity check functionality
+#######################################
+
+# Sanity check nodes have unique position.
+def sanity_check_node_positions(G):
+
+    positions = extract_nodes_dict(G)
+    tree = graphnodes_to_rtree(G)
+    bboxs = graphnodes_to_bboxs(G)
+
+    padding = 0.0001
+
+    for nid in G.nodes():
+
+        # Find nearby nodes.
+        bbox = pad_bounding_box(bboxs[nid], padding)
+        nids = intersect_rtree_bbox(tree, bbox)
+
+        for nid2 in nids:
+            if nid2 != nid:
+                assert not (positions[nid] == positions[nid2]).all()
