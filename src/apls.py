@@ -198,7 +198,7 @@ def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 # Asymmetric APLS computes by only considering the control nodes into the proposed graph.
 # * Optionally provide a predetermined set of control nodes.
 # * Optionally extract control nodes specifically viable for computing prime (thus control point is related to proposed graph).
-def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False, G_control_nids=None):
+def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False):
 
     # Prepared graph data for sampling.
     G = prepared_graph_data["G"]
@@ -206,16 +206,14 @@ def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False, G_control_
     G_to_Hc = prepared_graph_data["G_to_Hc"]
 
     # Select control nodes to perform sampling on.
-    if G_control_nids == None:
+    if prime:
+        nids_to_sample_from = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
 
-        if prime:
-            nids_to_sample_from = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
-
-        else:
-            # Sample randomly from the original graph until we have the number of control nodes.
-            nids_to_sample_from = list(G.nodes())
-        
-        G_control_nids = set(random.sample(nids_to_sample_from, min(n, len(nids_to_sample_from))))
+    else:
+        # Sample randomly from the original graph until we have the number of control nodes.
+        nids_to_sample_from = list(G.nodes())
+    
+    G_control_nids = set(random.sample(nids_to_sample_from, min(n, len(nids_to_sample_from))))
     
     # Take subset of `G_to_Hc` to the control nodes (these are the only nodes we have to relate with another).
     for nid in [nid for nid in G_to_Hc.keys()]:
@@ -269,7 +267,7 @@ def compute_score(data, prime=False):
 
 
 # Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
-def apls(G, H, n=500, prime=False, G_control_nids=None, prepared_graph_data=None):
+def apls(G, H, n=500, prime=False, prepared_graph_data=None):
 
     if prepared_graph_data == None:
         prepared_graph_data = {
@@ -277,8 +275,8 @@ def apls(G, H, n=500, prime=False, G_control_nids=None, prepared_graph_data=None
             "right": prepare_graph_data(H, G),
         }
 
-    left  = apls_asymmetric_sampling(prepared_graph_data["left"], n=n, prime=prime, G_control_nids=G_control_nids)
-    right = apls_asymmetric_sampling(prepared_graph_data["right"], n=n, prime=prime, G_control_nids=G_control_nids)
+    left  = apls_asymmetric_sampling(prepared_graph_data["left"] , n=n, prime=prime)
+    right = apls_asymmetric_sampling(prepared_graph_data["right"], n=n, prime=prime)
 
     score = 0.5 * (compute_score(left, prime=prime) + compute_score(right, prime=prime))
 
