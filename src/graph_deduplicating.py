@@ -47,35 +47,26 @@ def deduplicate(G):
 
     G = G.copy()
 
-    # Trash edges of duplicated nodes (we can do so since it is vectorized).
-    nodes_to_delete = []
-    edges_to_delete = []
-    edges_to_insert = []
-    for node_group in duplicated_nodes(G):
-        assert len(node_group) > 1
-        first = node_group[0]
-        for nid in node_group[1:]:
+    duplicated_groups = duplicated_nodes(G)
 
-            nodes_to_delete.append(nid)
+    # Initiate all nodes to link to themselves (used for rebinding edges).
+    nid_relink = {}
+    for nid in G.nodes():
+        nid_relink[nid] = nid
 
-            # Obtain edges to delete.
-            old_edges = G.edges(nid) # Edges connected to node that is about to be removed.
-            edges_to_delete.extend(old_edges) 
+    # Link all nids to their unique target nid.
+    duplicated_nids = {nids[0]: nids[1:] for nids in duplicated_groups}
+    for target in duplicated_nids.keys():
+        nid_relink[target] = target
+        for source in duplicated_nids[target]:
+            nid_relink[source] = target
 
-            # Convert edge endpoint to `first` node identifier.
-            new_edges = [(first, edge[1]) for edge in list(old_edges)] # Reconnect edge to the remaining node.
-            edges_to_insert.extend(new_edges)
-        
-    # print("Edges to delete: ", edges_to_delete)
-    G.remove_edges_from(edges_to_delete)
-    # print("Number of edges after deletion of edges: ", len(G.edges))
-    G.add_edges_from(edges_to_insert)
-    # print("Number of edges after insertion of edges: ", len(G.edges))
-    G.remove_nodes_from(nodes_to_delete)
-    # print("Number of edges after deletion of nodes: ", len(G.edges))
-    # print("Number of nodes after deletion of nodes: ", len(G.nodes))
-    # print(duplicated_nodes(G))
-    # print(duplicated_edges(G))
+    # Delete duplicated nodes.
+    nids_to_delete = set(flatten([nids[1:] for nids in duplicated_groups]))
+    G.remove_nodes_from(nids_to_delete)
+
+    # Link (partially) dangling edges to connect between the remaining nodes.
+    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges()]
+    G.add_edges_from(new_edges)
 
     return G
-
