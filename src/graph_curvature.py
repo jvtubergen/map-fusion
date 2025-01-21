@@ -9,6 +9,7 @@ from utilities import *
 
 # Add path length data element.
 # Optionally delete glitchy nodes (that somehow ended up in the input graphs).
+@info()
 def graph_annotate_edge_length(G):
 
     edge_attrs = {}
@@ -27,6 +28,7 @@ def graph_annotate_edge_length(G):
 
 
 # Add geometry attribute to every edge.
+@info()
 def graph_annotate_edge_geometry(G):
 
     edge_attrs = {}
@@ -42,6 +44,7 @@ def graph_annotate_edge_geometry(G):
 # Annotate each edge with curvature (if not already the case).
 # * Try to derive from the geometry.
 # * Otherwise extract from 
+@info()
 def graph_annotate_edge_curvature(G):
 
     for eid, attrs in iterate_edges(G):
@@ -67,6 +70,7 @@ def graph_annotate_edge_curvature(G):
 
 
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
+@info()
 def graph_correctify_edge_curvature(G):
 
     nodes = extract_nodes_dict(G)
@@ -93,13 +97,17 @@ def graph_correctify_edge_curvature(G):
 
 # Replace edge with subedges with provided subcurves.
 # * Allow to provide either curve intervals to cut at or the actual subcurves to replace the edge with.
-def graph_cut_edge_subcurves(G, eid, subcurves):
+@info()
+def graph_cut_edge_subcurves(G, eid, qss):
 
     # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
     ps = get_edge(G, eid)["curvature"]
-    assert (ps[0]  == subcurves[0][0]).all()
-    assert (ps[-1] == subcurves[-1][-1]).all()
-    assert abs(curve_length(ps) - sum([curve_length(qs) for qs in subcurves])) < 0.0001
+    assert (ps[0]  == qss[0][0]).all()
+    assert (ps[-1] == qss[-1][-1]).all()
+    assert abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001
+    if len(ps) > 1:
+        for diff in ps[1:] - ps[:-1]:
+            assert norm(diff) > 0.0001
 
     # Remove the original edge.
     G.remove_edges_from([eid])
@@ -110,11 +118,11 @@ def graph_cut_edge_subcurves(G, eid, subcurves):
     edges_to_add = [] # New edges to inject.
 
     # Number of edges to inject.
-    n = len(subcurves)
+    n = len(qss)
     assert n > 1 # Expect at least two subcurves here.
 
     # Obtain node positions.
-    new_points = [subcurve[-1] for subcurve in subcurves[:-1]]
+    new_points = [qs[-1] for qs in qss[:-1]]
 
     # Obtain nids for new nodes.
     new_nids = [nid + i for i in range(n - 1)] # We have `n - 1` new nodes.
@@ -128,11 +136,13 @@ def graph_cut_edge_subcurves(G, eid, subcurves):
     # Schedule new edges for injection.
     u, v = eid[0:2]
     edge_links = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
-    for (u, v), curvature in zip(edge_links, subcurves):
+    for (u, v), curvature in zip(edge_links, qss):
         edges_to_add.append((u, v, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
 
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
+
+    log("Injecting nodes: ", new_nids)
 
     return G, {"nids": nodes_to_add, "eids": edges_to_add}
 
@@ -144,36 +154,40 @@ def graph_cut_edge_intervals(G, eid, intervals):
     curve = get_edge(G, eid)["curvature"]
 
     # Compute the subcurves.
-    subcurves = curve_cut_intervals(curve, intervals)
+    qss = curve_cut_intervals(curve, intervals)
 
-    return graph_cut_edge_subcurves(G, eid, subcurves)
+    return graph_cut_edge_subcurves(G, eid, qss)
 
 
 # Ensure all edges have a maximal curve length. Cut curves if necessary.
+@info()
 def graph_ensure_max_edge_length(G, max_length=50):
 
     scheduled = [] # eid with number of necessary intervals.
 
-    # Find number of intervals necessary per edge.
+    # Compute subcurves to replace an edge with.
     for eid, attrs in iterate_edges(G):
 
         ps = attrs["curvature"]
 
-        # Obtain number of intervals necessary. (This as well filters out edges below the max length threshold.)
-        number_of_intervals, remainder = divmod(curve_length(ps), max_length)
+        qss = curve_cut_max_distance(ps, max_distance=max_length)
 
-        # Filters out edges below the max length threshold and schedule them for edge injection.
-        if number_of_intervals >= 1:
-            scheduled.append((eid, int(number_of_intervals)))
-    
-    for eid, number_of_intervals in scheduled:
+        # Sanity check on subcurves.
+        if len(qss) > 1:
+            for qs in qss:
+                assert curve_length(qs) > 0
+            for a, b in zip(qss, qss[1:]):
+                assert (a[-1] == b[0]).all()
 
-        # Transform number of intervals (integer) into uniform intervals (along `[0, 1]`).
-        amount = number_of_intervals + 1
-        step_size = 1 / amount
-        intervals = [i * step_size for i in range(1, amount)]
+        # If the edge is being cut (thus more than 1 subcurve), then schedule it for injection.
+        if len(qss) > 1:
+            scheduled.append((eid, qss))
 
-        G, _ = graph_cut_edge_intervals(G, eid, intervals)
+    # Inject edges.
+    for eid, qss in scheduled:
+
+        # Graph is updated iteratively by replacing edge (by subcurves) one at a time.
+        G, _ = graph_cut_edge_subcurves(G, eid, qss)
     
     return G
 
