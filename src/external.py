@@ -28,6 +28,7 @@ import subprocess
 from operator import itemgetter
 import traceback
 from time import time
+from copy import deepcopy
 
 # Shortcuts
 cos  = math.cos

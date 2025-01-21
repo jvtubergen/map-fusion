@@ -298,9 +298,12 @@ def apls(G, H, n=500, prime=False, prepared_graph_data=None):
 
     if prepared_graph_data == None:
         prepared_graph_data = {
-            "left": prepare_graph_data(G, H),
+            "left" : prepare_graph_data(G, H),
             "right": prepare_graph_data(H, G),
         }
+    else:
+        # Deep copy to prevent mangling (`apls_asymmetric_sampling` pops unneeded nids from `G_to_Hc`).
+        prepared_graph_data = deepcopy(prepared_graph_data)
 
     left  = apls_asymmetric_sampling(prepared_graph_data["left"] , n=n, prime=prime)
     right = apls_asymmetric_sampling(prepared_graph_data["right"], n=n, prime=prime)
