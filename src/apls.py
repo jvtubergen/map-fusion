@@ -97,7 +97,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
         H_with_control_points, data = graph_cut_edge_intervals(H_with_control_points, H_eid, curve_intervals)
 
         # Link resulting node identifiers.
-        H_nids = data["nids"]
+        H_nids = [el[0] for el in data["nids"]]
         for G_nid, H_nid in zip(G_nids, H_nids):
             G_to_H[G_nid] = H_nid
 
