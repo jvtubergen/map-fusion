@@ -46,19 +46,22 @@ def graph_annotate_edge_curvature(G):
 
     for eid, attrs in iterate_edges(G):
 
-        if "curvature" not in attrs:
+        if "curvature" in attrs:
+            continue
+
+        elif "geometry" in attrs:
+
+            ps = from_linestring(attrs["geometry"])
+
+            attrs["curvature"] = ps
+
+        else:
 
             u, v = eid[0:2]
 
             p1 = G.nodes()[u]
             p2 = G.nodes()[v]
             ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
-
-            attrs["curvature"] = ps
-    
-        elif "geometry" in attrs:
-
-            ps = from_linestring(attrs["geometry"])
 
             attrs["curvature"] = ps
 
