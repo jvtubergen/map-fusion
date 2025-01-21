@@ -54,14 +54,16 @@ def read_graph(graphset=None, place=None, use_utm=False):
     G.graph["coordinates"] = "latlon"
     G.graph["simplified"] = False
 
-    G = deduplicate(G)
-
-    # Drop trash from graph.
+    # Annotate edges.
     graph_annotate_edge_curvature(G)
     graph_annotate_edge_length(G)
     graph_annotate_edge_geometry(G)
 
-    sanity_check_edge_length(G)
+    # Drop duplicated nodes.
+    utm_info = graph_utm_info(G)
+    G = graph_transform_latlon_to_utm(G)
+    G = deduplicate(G)
+    G = graph_transform_utm_to_latlon(G, "", **utm_info)
 
     return G
 

@@ -3,41 +3,26 @@ from external import *
 from graph_node_extraction import *
 from graph_curvature import *
 
+# Drop self-loops and multi-edges from graph.
+def graph_sanitize_simplified_edges(G):
 
-
-
-# Ensures each simplified edge has "geometry" and "curvature" attribute set.
-def consolidate_edge_geometry_and_curvature(G):
-
-    assert G.graph["simplified"]
-
+    if not G.graph["simplified"]:
+        return G
+    
     G = G.copy()
 
-    # Edges contain curvature information.
-    edge_attrs = {}
-    for (a, b, k, attrs) in G.edges(data=True, keys=True):
-        # print(a, b, attrs)
+    self_loops = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u == v]
+    multi_edges = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u != v and k > 0]
 
-        # Obtain "geometry" and "curvature" attribute.
-        if "geometry" in attrs.keys():
-            geometry = attrs["geometry"]
-            curvature = from_linestring(geometry)
-        else:
-            # No curvature in edge, thus a straight line segment.
-            p1 = G.nodes()[a]
-            p2 = G.nodes()[b]
-            latlon1 = p1["y"], p1["x"]
-            latlon2 = p2["y"], p2["x"]
-            curvature = array([latlon1, latlon2])
-            geometry = to_linestring(curvature)
-        
-        # Sanity check to always have sensible curvature.
-        assert len(curvature) >= 2
-        
-        # Add both attributes to the edge.
-        edge_attrs[(a, b, k)] = {**attrs, "curvature": curvature, "geometry": geometry}
-    
-    nx.set_edge_attributes(G, edge_attrs)
+    # Drop self-loops and multi-edges.
+    print(f"Dropping {len(self_loops)} self-loops.")
+    print(f"Dropping {len(multi_edges)} self-loops.")
+    G.remove_edges_from(self_loops)
+    G.remove_edges_from(multi_edges)
+
+    # Sanity check that we have multi-edge at `k == 0`.
+    for (u, v, k) in multi_edges:
+        edge = get_edge(G, (u, v, 0))
 
     return G
 
@@ -47,6 +32,7 @@ def simplify_graph(G):
     assert not G.graph["simplified"] 
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()
     G.graph["simplified"] = True
+    G = graph_sanitize_simplified_edges(G)
     graph_annotate_edge_curvature(G)
     graph_correctify_edge_curvature(G)
     graph_annotate_edge_length(G)
