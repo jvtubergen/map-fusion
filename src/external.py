@@ -53,6 +53,8 @@ norm = np.linalg.norm
 array = np.array
 dataframe = gpd.GeoDataFrame
 
+flatten = itertools.chain.from_iterable
+
 
 # Configurations.
 ox.settings.log_console = False # Whether to log debug actions of OSMnx to stdout.

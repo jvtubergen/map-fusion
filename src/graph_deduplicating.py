@@ -40,10 +40,8 @@ def duplicated_nodes(G, eps=0.001):
     return [list(region) for region in regions]
 
 
-# Deduplicates a vectorized graph. Reconnects edges of removed nodes (if any). 
+# Deduplicates a graph. Reconnects edges of removed nodes (if any). 
 def deduplicate(G):
-
-    assert not G.graph["simplified"]
 
     G = G.copy()
 
@@ -63,10 +61,12 @@ def deduplicate(G):
 
     # Delete duplicated nodes.
     nids_to_delete = set(flatten([nids[1:] for nids in duplicated_groups]))
+    print(f"Dropping {len(nids_to_delete)} duplicated node positions.")
     G.remove_nodes_from(nids_to_delete)
 
     # Link (partially) dangling edges to connect between the remaining nodes.
-    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges()]
+    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges() if nid_relink[u] != u or nid_relink[v] != v]
+    print(f"Reconnecting {len(new_edges)} edges.")
     G.add_edges_from(new_edges)
 
     return G

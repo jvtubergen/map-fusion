@@ -451,20 +451,17 @@ def unzip(data):
 #######################################
 
 # Sanity check nodes have unique position.
-def sanity_check_node_positions(G):
+def sanity_check_node_positions(G, eps=0.0001):
+
+    assert G.graph["coordinates"] == "utm" # Act only on UTM for epsilon to make sense.
 
     positions = extract_nodes_dict(G)
     tree = graphnodes_to_rtree(G)
     bboxs = graphnodes_to_bboxs(G)
 
-    padding = 0.0001
-
     for nid in G.nodes():
 
         # Find nearby nodes.
-        bbox = pad_bounding_box(bboxs[nid], padding)
+        bbox = pad_bounding_box(bboxs[nid], eps)
         nids = intersect_rtree_bbox(tree, bbox)
-
-        for nid2 in nids:
-            if nid2 != nid:
-                assert not (positions[nid] == positions[nid2]).all()
+        assert len(nids) == 1 # Expect to only intersect with itself.
