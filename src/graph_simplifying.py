@@ -28,6 +28,27 @@ def graph_sanitize_simplified_edges(G):
     return G
 
 
+# Group together multi-edges in a list.
+def group_multi_edges(G):
+
+    # Vectorized graphs do not have multi-edges.
+    if not G.graph["simplified"]:
+        return []
+
+    # Collect `(u, v)` pairs where `k > 0`.
+    groups = {}
+    for (u, v, k), attrs in iterate_edges:
+        if (u, v) not in groups:
+            groups[(u, v)] = [(u, v, k)]
+        else: 
+            groups[(u, v)].append((u, v, k))
+    
+    # Filter out groups with one element.
+    groups = [group for group in groups if len(group) > 1]
+    
+    return groups
+
+
 # Wrapping the OSMnx graph simplification logic, and being consistent in MultiGraph convention by converting between directed and undirected.
 @info()
 def simplify_graph(G):

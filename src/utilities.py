@@ -183,10 +183,14 @@ def curve_cut_pieces(ps, amount=10):
 # Cut curve into subcurves each with less than max distance length, thus returning muliple subcurves.
 def curve_cut_max_distance(ps, max_distance=10):
     assert len(ps) >= 2
-    step_lengths = array([norm(p1 - p2) for p1, p2 in zip(ps, ps[1:])])
-    total_length = sum(step_lengths)
-    assert total_length > 0 # Expect non-zero length.
-    pieces = ceil(total_length / max_distance)
+
+    length = curve_length(ps)
+
+    if max_distance >= length:
+        return [ps]
+
+    pieces = ceil(length / max_distance)
+
     return curve_cut_pieces(ps, amount=pieces)
 
 
@@ -446,9 +450,96 @@ def unzip(data):
         right.append(r)
     return left, right
 
+
 #######################################
 ### Sanity check functionality
 #######################################
+
+# Perform a few sanity checks on the graph to prevent computation errors down the line.
+def graph_sanity_check(G):
+    print("Check graph.")
+
+    # Simplification.
+    if "simplified" not in G.graph:
+        raise Exception("Expect 'simplified' dictionary key in graph.")
+
+    # If simplified, then multigraph.
+    if G.graph["simplified"] and type(G) != type(nx.MultiGraph()):
+        raise Exception("Expect simplified graph to be an undirected multi-graph.") 
+    if not G.graph["simplified"] and type(G) != type(nx.Graph()):
+        raise Exception("Expect vectorized graph to be a undirected single-graph.") 
+
+    # Coordinates.    
+    if "coordinates" not in G.graph:
+        raise Exception("Expect 'coordinates' dictionary key in graph.")
+    if G.graph["coordinates"] != "utm" and G.graph["coordinates"] != "latlon":
+        raise Exception("Expect 'coordinates' dictionary value to be either 'utm' or 'latlon'.")
+
+    # Nodes.
+    sanity_check_node_positions(G)
+    nodes = extract_node_positions(G)
+    if G.graph["coordinates"] == "utm":
+        if np.min(nodes) < 100: 
+            print(nodes)
+            raise Exception("Expect graph in utm coordinate system. Big chance some node is in latlon coordinate system.")
+    if G.graph["coordinates"] == "latlon":
+        if np.min(nodes) > 100: 
+            print(nodes)
+            raise Exception("Expect graph in latlon coordinate system. Big chance some node is in utm coordinate system.")
+
+    # Node (x,y coordinates) flipping.
+    coord0 = np.min(nodes, axis=0)
+    coord1 = np.max(nodes, axis=0)
+    diffa = np.max(nodes[:,0]) - np.min(nodes[:,0])
+    diffb = np.max(nodes[:,1]) - np.min(nodes[:,1])
+    # print(diffa, diffb)
+    diffc = np.max(nodes[:,0]) - np.min(nodes[:,1])
+    diffd = np.max(nodes[:,1]) - np.min(nodes[:,0])
+    # print(diffc, diffd)
+
+    if G.graph["coordinates"] == "latlon" and (abs(diffa) > 1 or abs(diffb) > 1):
+        print(nodes)
+        print(abs(diffa), abs(diffb))
+        raise Exception("Expect node y, x coordinate consistency.") 
+    if G.graph["coordinates"] == "utm" and (abs(diffa) > 100000 or abs(diffb) > 100000):
+        print(nodes)
+        print(abs(diffa), abs(diffb))
+        raise Exception("Expect node y, x coordinate consistency.") 
+    
+    # Edges.
+    nodes = extract_nodes_dict(G)
+    if G.graph["simplified"]: 
+        for (a, b, k, attrs) in G.edges(data=True, keys=True):
+            ps = edge_curvature(G, a, b, k)
+            if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
+                ps = array([latlon_to_coord(latlon) for latlon in ps])
+            if curve_length(ps) > 1000: # Expect reasonable curvature length.
+                raise Exception("Expect edge length less than 1000 meters. Probably some y, x coordinate in edge curvature got flipped.")
+            # Expect start and endpoint of edge curvature match the node position.
+            ps = edge_curvature(G, a, b, k) # Expect startpoint matches curvature.
+            try:
+                if (not np.all(ps[0] == nodes[a])) and (not np.all(ps[-1] != nodes[b])):
+                    raise Exception("Expect curvature have same directionality as edge start and end edge.")
+            except Exception as e:
+                print(traceback.format_exc())
+                print(e)
+                breakpoint()
+            
+            assert "geometry" in attrs
+            assert "curvature" in attrs
+
+
+# Sanity check that all curvature annotations are numpy array.
+def sanity_check_curvature_type(G):
+    for eid, attrs in iterate_edges(G):
+        check(type(attrs["curvature"]) == type(array([])))
+
+
+# Sanity check all edges have non-zero edge length.
+def sanity_check_edge_length(G):
+    for eid, attrs in iterate_edges(G):
+        check(attrs["length"] > 0)
+
 
 # Sanity check nodes have unique position.
 def sanity_check_node_positions(G, eps=0.0001):
@@ -516,3 +607,10 @@ def info(print_context=True, timer=False):
 def log(*args):
     print(f"{" - ".join(current_context)}:", *args)
 
+
+# Assert with a breakpoint, so we can debug if an exception occurs.
+def check(statement):
+    try:
+        assert statement
+    except:
+        breakpoint()
