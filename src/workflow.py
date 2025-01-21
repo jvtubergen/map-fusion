@@ -445,6 +445,36 @@ def apply_coloring(G):
     return G
 
 
+# Workflow to check apls
+@info(timer=True)
+def workflow_apls(place, setup=True):
+
+    if setup:
+
+        G = read_graph(place=place, graphset=links["sat"])
+        H = read_graph(place=place, graphset=links["gps"])
+
+        prepared_graph_data = {
+            "left" : prepare_graph_data(G, H),
+            "right": prepare_graph_data(H, G),
+        }
+
+        data = G, H, prepared_graph_data
+        pickle.dump(data, open(f"tmp_data.pkl", "wb"))
+
+    data = pickle.load(open("tmp_data.pkl", "rb"))
+    G, H, prepared_graph_data = data
+
+    apls_score      , data = apls(G, H, prepared_graph_data=prepared_graph_data)
+    apls_prime_score, _    = apls(G, H, prime=True, prepared_graph_data=prepared_graph_data)
+
+    print("times:")
+    print("\n".join([f"{execution_time: .2f}: {context}" for context, execution_time in times]))
+
+    print("APLS  score: ", apls_score)
+    print("APLS* score: ", apls_prime_score)
+
+
 # Generating network variants (Benchmarking your algorithms).
 # Variants:
 # * a. Coverage of sat edges by gps.

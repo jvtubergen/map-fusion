@@ -74,6 +74,7 @@ def graph_transform_generic(G, coordinate_transformer):
 
 
 # Transform graphnodes UTM coordinate system into latitude-longitude coordinates.
+@info()
 def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
     assert G.graph["coordinates"] == "utm"
@@ -93,6 +94,7 @@ def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
 
 
 # Transform graphnodes latitude-longitude coordinates into UTM coordinate system.
+@info()
 def graph_transform_latlon_to_utm(G):
 
     assert G.graph["coordinates"] == "latlon"

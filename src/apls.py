@@ -17,6 +17,7 @@ def todo():
 # assert len(H_to_G.nodes()) >= len(H.nodes())
 # H_to_G.nodes()[H_to_G_relations[G.nodes()[0]]] # Link nodes of G to H.
 # ```
+@info(timer=True)
 def inject_and_relate_control_points(G, H, max_distance=4):
 
     G_to_H = {} # All nodes of G related to a node of H.
@@ -109,6 +110,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 # * H has nearby control points injected.
 # * Relation between control nodes of G to H.
 # * All edges have length annotated.
+@info(timer=True)
 def prepare_graph_data(G, H):
 
     G = G.copy()
@@ -161,8 +163,8 @@ def prepare_graph_data(G, H):
     }
 
 
-
-# Compute shortest path data (for a number of randomly picked node identifiers from the graph).
+# Compute shortest path data (between all pairs of start-end nodes within a selection of node identifiers).
+@info(timer=True)
 def precompute_shortest_path_data(G, control_nids):
 
     # Sanity check control nids exist in graph.
@@ -194,6 +196,7 @@ def precompute_shortest_path_data(G, control_nids):
 # * A. Proposed graph does not have a control point.
 # * B. Proposed graph does not have a path between control points.
 # * C. Both graphs have control points and a path between them.
+@info(timer=True)
 def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 
     sample_paths = {} # The start and end node pair related to a sample. This is taken from the G graph (so to reconstruct for Hc you require to apply G_to_Hc).
@@ -217,6 +220,7 @@ def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 # Asymmetric APLS computes by only considering the control nodes into the proposed graph.
 # * Optionally provide a predetermined set of control nodes.
 # * Optionally extract control nodes specifically viable for computing prime (thus control point is related to proposed graph).
+@info(timer=True)
 def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False):
 
     # Prepared graph data for sampling.
@@ -294,6 +298,7 @@ def compute_score(data, prime=False):
 
 
 # Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
+@info(timer=True)
 def apls(G, H, n=500, prime=False, prepared_graph_data=None):
 
     if prepared_graph_data == None:

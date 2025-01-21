@@ -21,6 +21,7 @@ def get_graph_path(graphset=None, place=None):
 # Construct graph from edges.txt and vertex.txt text file in specified folder. 
 # Expect those files to be CSV with u,v and id,x,y columns respectively.
 # We act only on undirected vectorized graphs.
+@info(timer=True)
 def read_graph(graphset=None, place=None, use_utm=False):
 
     folder = get_graph_path(graphset=graphset, place=place)

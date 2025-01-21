@@ -4,6 +4,7 @@ from graph_node_extraction import *
 from graph_curvature import *
 
 # Drop self-loops and multi-edges from graph.
+@info()
 def graph_sanitize_simplified_edges(G):
 
     if not G.graph["simplified"]:
@@ -28,6 +29,7 @@ def graph_sanitize_simplified_edges(G):
 
 
 # Wrapping the OSMnx graph simplification logic, and being consistent in MultiGraph convention by converting between directed and undirected.
+@info()
 def simplify_graph(G):
     assert not G.graph["simplified"] 
     G = ox.simplify_graph(nx.MultiGraph(G).to_directed(), track_merged=True).to_undirected()

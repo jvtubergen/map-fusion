@@ -474,22 +474,39 @@ def sanity_check_node_positions(G, eps=0.0001):
 # Tracks current context (function stack).
 current_context = []
 
+# Track times.
+times = []
+
 # Decorator function to set context for printing debugging information.
 # Optionally print context on function launch.
-def info(print_context=True):
+def info(print_context=True, timer=False):
 
     # The decorator to return.
     def decorator(func):
-        """
-        Decorator function to set context for printing debugging information.
-        """
+
         def wrapper(*args, **kwargs):
+
             current_context.append(func.__name__)
+
+            context = " - ".join(current_context)
+
             if print_context:
-                print(" - ".join(current_context))
+                print(context)
+
+            if timer:
+                start_time = time()
+
             result = func(*args, **kwargs)
+
+            if timer:
+                end_time = time()
+                execution_time = end_time - start_time
+                times.append([context, execution_time])
+
             current_context.pop()
+
             return result
+
         return wrapper
 
     return decorator
@@ -499,19 +516,3 @@ def info(print_context=True):
 def log(*args):
     print(f"{" - ".join(current_context)}:", *args)
 
-
-# Decorator function to measure and print time cost of executing function logic.
-def timer(func):
-    """
-    Decorator to benchmark the execution time of a function.
-    """
-    def wrapper(*args, **kwargs):
-        context = {" - ".join(current_context)} # Store context before function returns, because `log` will drop current function beforehand.
-        start_time = time()
-        result = func(*args, **kwargs)
-        end_time = time()
-        execution_time = end_time - start_time
-        print(f"{execution_time:.2f}: {context}.")
-        return result
-
-    return wrapper
