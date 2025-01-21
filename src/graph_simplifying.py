@@ -15,8 +15,8 @@ def graph_sanitize_simplified_edges(G):
     multi_edges = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u != v and k > 0]
 
     # Drop self-loops and multi-edges.
-    print(f"Dropping {len(self_loops)} self-loops.")
-    print(f"Dropping {len(multi_edges)} self-loops.")
+    log(f"Dropping {len(self_loops)} self-loops.")
+    log(f"Dropping {len(multi_edges)} self-loops.")
     G.remove_edges_from(self_loops)
     G.remove_edges_from(multi_edges)
 

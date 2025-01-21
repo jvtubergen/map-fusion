@@ -114,18 +114,18 @@ def prepare_graph_data(G, H):
     G = G.copy()
     H = H.copy()
 
-    sanity_check_node_positions(G)
-    sanity_check_node_positions(H)
+    graph_annotate_edge_curvature(G)
+    graph_annotate_edge_curvature(H)
+
+    if not G.graph["coordinates"] == "utm":
+        G = graph_transform_latlon_to_utm(G)
+    if not H.graph["coordinates"] == "utm":
+        H = graph_transform_latlon_to_utm(H)
 
     if not G.graph["simplified"]:
         G = simplify_graph(G)
     if not H.graph["simplified"]:
         H = simplify_graph(H)
-    
-    if not G.graph["coordinates"] == "utm":
-        G = graph_transform_latlon_to_utm(G)
-    if not H.graph["coordinates"] == "utm":
-        H = graph_transform_latlon_to_utm(H)
 
     assert G.graph["simplified"]
     assert H.graph["simplified"]
@@ -133,8 +133,22 @@ def prepare_graph_data(G, H):
     assert G.graph["coordinates"] == "utm"
     assert H.graph["coordinates"] == "utm"
 
+    sanity_check_edge_length(G)
+    sanity_check_edge_length(H)
+    sanity_check_node_positions(G)
+    sanity_check_node_positions(H)
+
+    log("Before: ", duplicated_nodes(G))
+
     # Ensure lengths within 50m.
-    G = graph_ensure_max_edge_length(G)
+    G = graph_ensure_max_edge_length(G, max_length=50)
+
+    log("After:  ", duplicated_nodes(G))
+
+    sanity_check_edge_length(G)
+    sanity_check_edge_length(H)
+    sanity_check_node_positions(G)
+    sanity_check_node_positions(H)
 
     # Find and relate control points of G to H.
     # Note: All nodes (of the simplified graph) are control points.
