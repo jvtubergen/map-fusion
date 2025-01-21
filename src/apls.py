@@ -151,6 +151,11 @@ def prepare_graph_data(G, H):
 # Compute shortest path data (for a number of randomly picked node identifiers from the graph).
 def precompute_shortest_path_data(G, control_nids):
 
+    # Sanity check control nids exist in graph.
+    for nid in control_nids:
+        if nid not in G.nodes():
+            raise Exception(f"Control nid {nid} does not exist in the graph.")
+
     # Compute distance matrix between these points.
     distance_matrix = {}
     for u in control_nids:
@@ -219,10 +224,18 @@ def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False):
     for nid in [nid for nid in G_to_Hc.keys()]:
         if nid not in G_control_nids:
             G_to_Hc.pop(nid)
+    
+    # Sanity check that all control nids of G are contained in the G-to-Hc mapping.
+    for nid in G_control_nids:
+        if nid not in G_to_Hc:
+            raise Exception(f"Expect all nids of G_control_nids to be present in G_to_Hc.")
+    
+    # Obtain control nids to use in `H`.
+    Hc_control_nids = set([G_to_Hc[nid] for nid in G_control_nids if G_to_Hc[nid] != None])
 
     # Compute shortest paths between this set of control nodes.
     G_shortest_paths = precompute_shortest_path_data(G, G_control_nids)
-    Hc_shortest_paths = precompute_shortest_path_data(Hc, [G_to_Hc[nid] for nid in G_control_nids])
+    Hc_shortest_paths = precompute_shortest_path_data(Hc, Hc_control_nids)
 
     # Perform sampling.
     samples = perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths)
