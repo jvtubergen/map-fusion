@@ -31,15 +31,18 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
 # Merges graph A into graph C.
 # * Injects uncovered edges of graph A into graph C. 
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
-# * Removal of duplicates is an algorithm extension.
-def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
+# * Extension 1: Removal of duplicates.
+# * Extension 2: Reconnecting C edges to injected A edges.
+def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
 
-    is_vectorized = not A.graph["simplified"]
-
-    assert A.graph["coordinates"] == C.graph["coordinates"]
-    assert A.graph["simplified"] == C.graph["simplified"]
-    assert A.graph['max_threshold'] > 0 # Make sure thresholds are set.
+    # Sanity checks.
+    assert A.graph["simplified"] # We require simplified graphs for coverage to make sense.
+    assert C.graph["simplified"]
+    assert A.graph["coordinates"] == "utm" # We require UTM coordinates for prune threshold to make sense.
+    assert C.graph["coordinates"] == "utm"
+    assert A.graph['max_threshold'] > 0  # Make sure thresholds are set (indicator that edge coverage is computed and edges are annotated).
     assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
+    assert remove_duplicates or (remove_duplicates == reconnect_after) # Only possible to reconnect if duplicates are to be removed.
 
     A = A.copy()
     C = C.copy()
@@ -61,15 +64,15 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
     assert len(set(above) & set(below)) == 0
     assert len(set(above) ^ set(below)) == len(A.edges())
 
-    # Retain edges above the coverage threshold (thus those edges of GPS not being covered by Sat).
+    # Retain edges above the coverage threshold (thus those edges of A not being covered by C).
     B = A.edge_subgraph(above)
 
     # Extract nids which are connected to an edge above and below threshold.
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
     nodes_below = set([nid for el in below for nid in el[0:2]]) 
 
-    # (Assume `nearest_node` strategy: Only have to list what nodes of B should get connected to C.)
-    # List nodes of B to connect with C.
+    # Obtain what nodes of B to connect with C (those nodes of A which are connected to both a covered and uncovered edge).
+    # + Render nodes of B as either injected or connection points.
     connect_nodes = []
     for nid in B.nodes():
         # This logic checks every node whether it is connected to both a covered (below threshold) and uncovered (above threshold) edge.
@@ -80,9 +83,11 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
         else:
             B.nodes[nid]["render"] = "injected"
 
+    # Render edges of B as injected.
     for attrs in iterate_edge_attributes(B):
         attrs["render"] = "injected"
 
+    # Render nodes and edges of C as original.
     for nid, attrs in C.nodes(data=True):
         attrs["render"] = "original"
     for attrs in iterate_edge_attributes(C):
@@ -100,19 +105,32 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
         hit = list(nodetree.nearest((y, x, y, x)))[0] # Seek nearest node.
 
         # Add straight line curvature and geometry 
-        if is_vectorized:
-            connections.append((hit, nid, {"render": "connection"}))
-        else:
-            y2, x2 = C._node[hit]['y'], C._node[hit]['x'],
-            curvature = array([(y, x), (y2, x2)])
-            geometry = to_linestring(curvature)
-            connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature}))
+        y2, x2 = C._node[hit]['y'], C._node[hit]['x'],
+        curvature = array([(y, x), (y2, x2)])
+        geometry = to_linestring(curvature)
+        connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature}))
 
-    if remove_duplicates: # (Find edges of C which are covered by B and then remove them.)
+    # Inject B into C.
+    C.add_nodes_from(B.nodes(data=True))
+    C.add_edges_from(graph_edges(B))
+    
+    # Add edge connections between B and C.
+    C.add_edges_from(connections)
 
-        # Part a: Removal of duplicated sat edges. (Remove all edges of C covered by B, since all edges of B will be inserted into C).
+    # TODO: Extract subgraph B_prime we get by taking both B with its connections to C.
 
-        # Compute coverage of C against B. Those covered are the edges to remove.
+    # TODO: Extension a: Remove duplicated edges of C.
+    if remove_duplicates: 
+
+        # Then find edges of C which are covered by the injected B edges (which are all of them in B_prime) and then remove them.
+
+        # TODO: We should take the B edges _with_ their connection to C nodes.
+        #       So inject connections, simplify graph, and extract those edges.
+
+        # Track what nodes and edges are being injected. We need the selection of edges as subgraph to compare against.
+        # ... computing B_prime :)
+
+        # Compute coverage of C against B (covered edges are to be removed).
         C_covered_by_B = edge_graph_coverage(C, B, max_threshold=prune_threshold)
         assert C_covered_by_B.graph['max_threshold'] > 0 # Make sure thresholds are set.
 
@@ -126,26 +144,89 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False):
         nodes_below = set([nid for el in below for nid in el[0:2]]) 
         nodes_to_be_deleted = nodes_below - nodes_above
 
-    # Inject B into C.
-    C.add_nodes_from(B.nodes(data=True))
-    C.add_edges_from(graph_edges(B))
-    
-    # Add edge connections between B and C.
-    C.add_edges_from(connections)
-
-    if remove_duplicates:
-        # Update edges.
+        # Mark edges that are deleted.
         render_update = {}
         for eid in edges_to_be_deleted:
             render_update[eid] = {**C_covered_by_B.edges[eid], "render": "deleted"}
         nx.set_edge_attributes(C, render_update)
         # C.remove_edges_from(edges_to_be_deleted)
 
-        # Update nodes.
+        # Mark nodes that are deleted.
         render_update = {}
         for nid in nodes_to_be_deleted:
             render_update[nid] = {**C_covered_by_B.nodes[nid], "render": "deleted"}
         nx.set_node_attributes(C, render_update)
         # C.remove_nodes_from(nodes_to_be_deleted)
 
+    # TODO: Extension b: Reconnect edges of C to injected edges of A into B.
+    if reconnect_after:
+
+        # We require a list of removed sat edges (or what sat edges have a sat edge removed) _and_ a list of injected gps edges (B_prime).
+        #   Then we can find what sat nodes have a missing sat edge, _and_ what collection of (gps) edges it can be connected to.
+
+        # Rules for sat edges that have to be reconnected:
+        # * C edge is above threshold.
+        # * C edge is connected an A edge which is below threshold.
+        # * C edge is not contained in the set of injected A edges.
+
+        # Obtain sat nodes which are to be connected to injected GPS edges.
+        nodes_above = set([nid for el in above for nid in el[0:2]]) 
+        nodes_below = set([nid for el in below for nid in el[0:2]]) 
+        nodes_to_connect = set(nodes_above) & set(nodes_below)
+        
+        # # Find edges of sat to reconnect to injected gps edge.
+        # connect_edges = [] # (eid and endpoint)
+        # nodes_to_connect = 
+        # for u, v in C_covered_by_B.edges(data=True):
+        #     if nid in nodes_below and nid in nodes_above:
+        #         connect_node()
+        #         # We find a node at which a covered edge is connected to an uncovered edge.
+        #         # Pick edges which are above threshold.
+        #         candidates = [eid for eid in above if eid[0] == nid or eid[1] == nid]
+        #         # Intersect edge with injected gps edge.
+
+        #         merge_nearest_edge()
+        #         connect_nodes.append(nid)
+
+        # Apply nearest_edge injection.
+        for nid in nodes_to_connect:
+            connect_nearest_edge(C, nid)
+
     return C
+
+
+def connect_nearest_edge(G, nid):
+    position = G.nodes(data=True)[nid]
+    y, x = position["y"], position["x"]
+
+    # Find nearest node.
+    hit, distance = osmnx.distance.nearest_nodes(G, x, y, return_dist=True)
+    if distance < 10: # simply connect to node.
+        if not G.graph["simplified"]:
+            G.add_edges_from([(nid, hit, {"render": "connection"})])
+        else:
+            y2, x2 = G._node[hit]['y'], G._node[hit]['x'],
+            curvature = array([(y, x), (y2, x2)])
+            geometry = to_linestring(curvature)
+            G.add_edges_from([(nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature})])
+        return G
+
+    # TODO: Optimization: Prefilter out edges within `distance` bounding box.
+    # relevant_edges = [] # [(eid, attrs)]
+    # Convert edges into curve_points, eid
+    curves = G
+        # TODO: Link eids to identifiers.
+    # TODO: Find nearest edge and point of intersection.
+    # TODO: Cut nearest edge at point of intersection, connect new node, resolve.
+    nid = max(G.nodes()) + 1 
+    return G
+
+
+# Functionality for merging an edge with the `nearest_edge` strategy.
+# Inject edge at endpoint with G.
+# Find edge in G that is most suitable for injection.
+# Apply 
+def merge_nearest_edge(G, nidstart, edge, endpoint):
+    nid = max(G.nodes()) + 1
+    # Naive approach: 
+    # Take curvature 
