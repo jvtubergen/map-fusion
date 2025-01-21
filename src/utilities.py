@@ -465,3 +465,53 @@ def sanity_check_node_positions(G, eps=0.0001):
         bbox = pad_bounding_box(bboxs[nid], eps)
         nids = intersect_rtree_bbox(tree, bbox)
         assert len(nids) == 1 # Expect to only intersect with itself.
+
+
+#######################################
+### Printing stuff with decorators.
+#######################################
+
+# Tracks current context (function stack).
+current_context = []
+
+# Decorator function to set context for printing debugging information.
+# Optionally print context on function launch.
+def info(print_context=True):
+
+    # The decorator to return.
+    def decorator(func):
+        """
+        Decorator function to set context for printing debugging information.
+        """
+        def wrapper(*args, **kwargs):
+            current_context.append(func.__name__)
+            if print_context:
+                print(" - ".join(current_context))
+            result = func(*args, **kwargs)
+            current_context.pop()
+            return result
+        return wrapper
+
+    return decorator
+
+
+# `log` is the same as `print`  with function context prepended.
+def log(*args):
+    print(f"{" - ".join(current_context)}:", *args)
+
+
+# Decorator function to measure and print time cost of executing function logic.
+def timer(func):
+    """
+    Decorator to benchmark the execution time of a function.
+    """
+    def wrapper(*args, **kwargs):
+        context = {" - ".join(current_context)} # Store context before function returns, because `log` will drop current function beforehand.
+        start_time = time()
+        result = func(*args, **kwargs)
+        end_time = time()
+        execution_time = end_time - start_time
+        print(f"{execution_time:.2f}: {context}.")
+        return result
+
+    return wrapper
