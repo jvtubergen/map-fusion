@@ -30,19 +30,26 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
 # * Extension 1: Removal of duplicates.
 # * Extension 2: Reconnecting C edges to injected A edges.
+@info()
 def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
 
     # Sanity checks.
-    assert A.graph["simplified"] # We require simplified graphs for coverage to make sense.
-    assert C.graph["simplified"]
-    assert A.graph["coordinates"] == "utm" # We require UTM coordinates for prune threshold to make sense.
-    assert C.graph["coordinates"] == "utm"
-    assert A.graph['max_threshold'] > 0  # Make sure thresholds are set (indicator that edge coverage is computed and edges are annotated).
-    assert prune_threshold <= A.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
-    assert remove_duplicates or (remove_duplicates == reconnect_after) # Only possible to reconnect if duplicates are to be removed.
+    check(A.graph["simplified"], expect="Expect the graph is simplified for merging.")
+    check(C.graph["simplified"], expect="Expect the graph is simplified for merging.")
+    check(prune_threshold <= A.graph['max_threshold'], expect="Expect we are pruning (on a threshold) below the maximum computed.")
+    check(remove_duplicates or (remove_duplicates == reconnect_after), expect="Expect to only reconnect if duplicates are to be removed.")
 
-    A = A.copy()
-    C = C.copy()
+    _A = A
+    A = _A.copy()
+
+    _C = C
+    C = _C.copy()
+
+    if A.graph["coordinates"] == "latlon":
+        A = graph_transform_latlon_to_utm(A)
+
+    if C.graph["coordinates"] == "latlon":
+        C = graph_transform_latlon_to_utm(C)
 
     # Relabel additional to prevent node id overlap. / # Adjust nids of A to ensure uniqueness once added to C.
     nid = max(C.nodes()) + 1
@@ -68,6 +75,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
     nodes_below = set([nid for el in below for nid in el[0:2]]) 
 
+    ## Annotating render attribute on B and C.
     # Obtain what nodes of B to connect with C (those nodes of A which are connected to both a covered and uncovered edge).
     # + Render nodes of B as either injected or connection points.
     connect_nodes = []
@@ -81,14 +89,11 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
             B.nodes[nid]["render"] = "injected"
 
     # Render edges of B as injected.
-    for attrs in iterate_edge_attributes(B):
-        attrs["render"] = "injected"
-
+    annotate_edges(B, {"render": "injected"})
+    
     # Render nodes and edges of C as original.
-    for nid, attrs in C.nodes(data=True):
-        attrs["render"] = "original"
-    for attrs in iterate_edge_attributes(C):
-        attrs["render"] = "original"
+    annotate_nodes(C, {"render": "original"})
+    annotate_edges(C, {"render": "original"})
 
     # Construct rtree on nodes in C.
     nodetree = graphnodes_to_rtree(C)
@@ -105,16 +110,28 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         y2, x2 = C._node[hit]['y'], C._node[hit]['x'],
         curvature = array([(y, x), (y2, x2)])
         geometry = to_linestring(curvature)
-        connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature}))
+        connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature, "origin": "B"}))
+    
+    ## Annotate origin attribute on B and C (Necessary in case we want to apply extensions).
+    # Annotate hitted nids to be origin of B.
+    hits = [connection[1] for connection in connections]
+    annotate_nodes(C, {"origin": "B"}, nids=hits)
 
+    # Annotate "origin" of nodes and edges of C.
+    annotate_edges(C, {"origin": "C"})
+    annotate_nodes(C, {"origin": "C"})
+
+    # Annotate "origin" of injected nodes and edges of B.
+    annotate_edges(B, {"origin": "B"})
+    annotate_nodes(B, {"origin": "B"})
+
+    ## Connecting B to C.
     # Inject B into C.
     C.add_nodes_from(B.nodes(data=True))
     C.add_edges_from(graph_edges(B))
     
     # Add edge connections between B and C.
     C.add_edges_from(connections)
-
-    # TODO: Extract subgraph B_prime we get by taking both B with its connections to C.
 
     # TODO: Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
@@ -188,6 +205,11 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         # Apply nearest_edge injection.
         for nid in nodes_to_connect:
             connect_nearest_edge(C, nid)
+
+    # Convert back graph to latlon coordinates if necessary.
+    if _C.graph["coordinates"] == "latlon":
+        utm_info = graph_utm_info(_C)
+        C = graph_transform_utm_to_latlon(C, "", **utm_info) 
 
     return C
 
