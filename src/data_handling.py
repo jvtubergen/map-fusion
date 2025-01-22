@@ -132,31 +132,55 @@ def pickle_to_graph(data):
     return G
     
 
+# Obtain file age (since last write).
+def file_age(filename):
+    if not os.path.exists(filename):
+        return time()
+    
+    return time() - os.path.getmtime(filename)
+
+
 # Read and/or write with a specific action to perform in case we failed to read.
-def read_and_or_write(filename, action, use_storage=False, save=False, overwrite=False, is_graph=True):
+@info()
+def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwrite=False, rerun=False, reset_time=None, overwrite_if_old=False):
+    
+    filename = f"{filename}.pkl"
 
     result = None
-    has_read = False
-    if use_storage:
+    file_exists = os.path.exists(filename)
+    is_old = file_age(filename) > reset_time
+
+    # If we provide a reset time, it can set the overwrite and rerun variable.
+    if reset_time != None and is_old:
+        hours = file_age(filename) / 3600
+        logger(f"Age of file ({hours} hours) exceeds reset time. Rerunning.")
+        rerun = True
+
+    # Reading previous result from disk.
+    if file_exists and use_storage and not rerun: # No need to read if we are going to rerun.
+        logger("Try reading file from disk.")
         try:
             if is_graph:
-                result = pickle_to_graph(pickle.load(open(f"{filename}.pkl", "rb")))
+                result = pickle_to_graph(pickle.load(open(filename, "rb")))
             else:
-                result = pickle.load(open(f"{filename}.pkl", "rb"))
-            has_read = True
+                result = pickle.load(open(filename, "rb"))
         except Exception as e:
-            print(traceback.format_exc())
-            print(e)
-            print(f"Failed to read {filename}. Running instead.")
+            logger(traceback.format_exc())
+            logger(e)
+            logger(f"Failed to read {filename}. Running instead.")
         
+    # Rerunning result.
     if result == None:
+        logger("Performing action.")
         result = action()
 
-    if save and (overwrite or not has_read):
-        print(f"(Over)writing {filename}")
+    # Store (overwrite) data.
+    # * We save if the file does not exist or we mention to overwrite (which can be so only if outdated file).
+    if (not file_exists) or overwrite or (is_old and overwrite_if_old):
+        logger(f"(Over)writing {filename}")
         if is_graph:
-            pickle.dump(graph_to_pickle(result), open(f"{filename}.pkl", "wb"))
+            pickle.dump(graph_to_pickle(result), open(filename, "wb"))
         else:
-            pickle.dump(result, open(f"{filename}.pkl", "wb"))
+            pickle.dump(result, open(filename, "wb"))
 
     return result
