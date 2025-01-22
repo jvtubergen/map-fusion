@@ -536,38 +536,48 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
             graph_annotate_edge_geometry(merge_a)
             plot_graphs([graph_transform_latlon_to_utm(merge_a)])
 
+    ### Naive merging with duplicate removal.
+    if do_merge_b:
+
+        logger("Naive merging with duplicate removal.")
+
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(simplify_graph(gps), intersection, max_threshold=threshold_computations))
+
+        merge_b = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
+
+        if plot:
+            logger("Plot naive merging with duplicate removal.")
+            merge_b = apply_coloring(merge_b)
+            plot_graphs([merge_b])
+        
+    ### Naive merging with duplicate removal and sat edge reconnection.
+    if do_merge_c:
+        todo()
 
     #### Splitpoint merging.
-    if do_merge_b:
-        print("Splitpoint Merging.")
-        merge_b = None
+    if do_merge_x:
+        logger("Splitpoint Merging.")
+        merge_x = None
         
         # * Split each edge of gps into 10 small pieces.
-        print("Split edges (simplifies and converts to UTM coordinates as well).")
+        logger("Split edges (simplifies and converts to UTM coordinates as well).")
         assert len(duplicated_nodes(gps)) == 0
         gps_splitted = graph_ensure_max_edge_length(gps, max_distance=10)
         # plot_graphs([gps_splitted])
 
-        print("Compute coverage.")
+        logger("Compute coverage.")
         splitted_vs_intersection = _read_and_or_write("splitted_vs_intersection", lambda: edge_graph_coverage(gps_splitted, intersection, vectorized=False, convert_to_utm=False, max_threshold=threshold_computations))
-        print("Merge.")
+        logger("Merge.")
         # TODO: support merging to vectorized graph. 
         intersection = simplify_graph(graph_transform_latlon_to_utm(intersection))
-        merge_b = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
+        merge_x = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
 
         if plot:
             # TODO: When vectorizing add edge properties to each edge which belongs to curvature originally simplified.
-            # merge_b = vectorize_graph(merge_b)
-            merge_b = apply_coloring(merge_b)
-            plot_graphs([merge_b])
+            # merge_x = vectorize_graph(merge_x)
+            merge_x = apply_coloring(merge_x)
+            plot_graphs([merge_x])
 
-    ### Naive merging with duplicate removal.
-    if do_merge_c:
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
-        merge_c = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
-        if plot:
-            merge_c = apply_coloring(merge_c)
-            plot_graphs([merge_c])
 
     
 # Sanity check various graph conversion functions.
