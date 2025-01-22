@@ -609,8 +609,10 @@ def logger(*args):
 
 
 # Assert with a breakpoint, so we can debug if an exception occurs.
-def check(statement):
+def check(statement, expect=None):
     try:
         assert statement
     except:
+        if expect != None:
+            print(f"Assertion failed: {expect}")
         breakpoint()
