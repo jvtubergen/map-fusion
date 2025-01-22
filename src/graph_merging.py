@@ -8,21 +8,18 @@ from utilities import *
 # Prune graph with threshold-annotated edges.
 # * TODO: Only add edge connections with sat if gps edge as adjacent covered edges (thus concatenate with `merge_graph` logic).
 # * Rather than filtering out below threshold, we can as well seek edges above threshold (thus inverting the result).
+@info()
 def prune_coverage_graph(G, prune_threshold=10, invert=False):
 
-    assert not G.graph["simplified"]
+    check(G.graph["simplified"], expect="Expect the graph is simplified when edges have a threshold annotated.")
+    check(prune_threshold <= G.graph['max_threshold'], expect="Expect we are pruning (on a threshold) below the maximum computed.")
 
-    assert G.graph['max_threshold'] > 0 # Make sure thresholds are set.
-    assert prune_threshold <= G.graph['max_threshold'] # Should not try to prune above max threshold used by annotation.
+    if invert:
+        attribute_filter = lambda attrs: attrs["threshold"] > prune_threshold
+    else:
+        attribute_filter = lambda attrs: attrs["threshold"] <= prune_threshold
 
-    retain = []
-    for (a, b, attrs) in G.edges(data=True):
-        # Iterate each edge and drop it if its threshold exceeds prune_threshold.
-        if not invert and attrs["threshold"] <= prune_threshold:
-            # Retain edge
-            retain.append((a, b))
-        elif invert and attrs["threshold"] > prune_threshold:
-            retain.append((a, b))
+    retain = filter_eids_by_attribute(G, filter_func=attribute_filter)
     G = G.edge_subgraph(retain)
 
     return G
