@@ -658,3 +658,8 @@ def check(statement, expect=None):
         if expect != None:
             print(f"Assertion failed: {expect}")
         breakpoint()
+
+# Raises exception at unimplemented code.
+def todo():
+    raise Exception("todo")
+

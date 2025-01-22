@@ -5,10 +5,6 @@ from graph_coordinates import *
 from graph_curvature import *
 from network import *
 
-def todo():
-    raise Exception("todo")
-
-
 # Relate nodes of G to H and inject control points if necessary.
 # If no nearby point on H can be found (in relation to a node `nid` of G), then `H_to_G[nid]` is `None`.
 # Example:
