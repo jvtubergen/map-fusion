@@ -60,13 +60,14 @@ def deduplicate(G):
         for source in duplicated_nids[target]:
             nid_relink[source] = target
 
-    # Delete duplicated nodes.
+    # Obtain duplicated nodes to delete and edges to reconnect.
+    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges() if nid_relink[u] != u or nid_relink[v] != v]
     nids_to_delete = set(flatten([nids[1:] for nids in duplicated_groups]))
+
     logger(f"Dropping {len(nids_to_delete)} duplicated node positions.")
     G.remove_nodes_from(nids_to_delete)
 
     # Link (partially) dangling edges to connect between the remaining nodes.
-    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges() if nid_relink[u] != u or nid_relink[v] != v]
     logger(f"Reconnecting {len(new_edges)} edges.")
     G.add_edges_from(new_edges)
 
