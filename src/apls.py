@@ -140,12 +140,12 @@ def prepare_graph_data(G, H):
     sanity_check_node_positions(G)
     sanity_check_node_positions(H)
 
-    log("Before: ", duplicated_nodes(G))
+    logger("Before: ", duplicated_nodes(G))
 
     # Ensure lengths within 50m.
     G = graph_ensure_max_edge_length(G, max_length=50)
 
-    log("After:  ", duplicated_nodes(G))
+    logger("After:  ", duplicated_nodes(G))
 
     sanity_check_edge_length(G)
     sanity_check_edge_length(H)

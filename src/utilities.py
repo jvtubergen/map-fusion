@@ -604,7 +604,7 @@ def info(print_context=True, timer=False):
 
 
 # `log` is the same as `print`  with function context prepended.
-def log(*args):
+def logger(*args):
     print(f"{" - ".join(current_context)}:", *args)
 
 

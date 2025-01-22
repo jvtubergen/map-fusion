@@ -142,7 +142,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    log("Injecting nodes: ", new_nids)
+    logger("Injecting nodes: ", new_nids)
 
     return G, {"nids": nodes_to_add, "eids": edges_to_add}
 
