@@ -367,6 +367,44 @@ def graph_edges(G):
     else:
         return G.edges(data=True, keys=True)
 
+# Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
+def annotate_nodes(G, new_attrs, nids=None):
+    if nids != None:
+        nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
+    else:
+        nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
+
+# Annotate edges by appending new attributes (optionally to a subselection of edge identifiers.
+def annotate_edges(G, new_attrs, eids=None):
+    if eids != None:
+        nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G) if eid in eids}) 
+    else:
+        nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G)}) 
+
+# Filter out edge attributes either by a collection of attributes or a specific filtering function.
+def filter_eids_by_attribute(G, attributes=None, filter_func=None):
+
+    check(filter_func != None or attributes != None, expect="Expect to filter either by attributes dictionary or a filter function.")
+
+    if filter_func != None:
+
+        return [eid for eid, attrs in iterate_edges(G) if filter_func(attrs)]
+    
+    if attributes != None:
+
+        filtered_eids = []
+        for eid, attrs in iterate_edges(G):
+
+            found = True
+            for filter_attr in filter_attributes.keys():
+                if filter_attr not in attrs or attrs[filter_attr] != filter_attributes[filter_attr]:
+                    found = False
+
+            if found:
+                filtered_eids.append(eid)
+    
+        return filtered_eids
+
 # Compute total graph edge length.
 def graph_length(G):
     return sum([curve_length(attrs["curvature"]) for eid, attrs in iterate_edges(G)])
