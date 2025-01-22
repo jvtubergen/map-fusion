@@ -1,9 +1,16 @@
 from external import *
 from graph_node_extraction import *
+from graph_curvature import *
+from graph_coordinates import *
 from utilities import *
 
 # Group duplicated nodes.
 def duplicated_nodes(G, eps=0.001):
+
+    # Make sure to act on UTM coordinated graph (to make sense of epsilon).
+    if G.graph["coordinates"] != "utm":
+        utm_info = graph_utm_info(G)
+        G = graph_transform_latlon_to_utm(G)
 
     positions = extract_nodes_dict(G)
     tree = graphnodes_to_rtree(G)
@@ -42,11 +49,13 @@ def duplicated_nodes(G, eps=0.001):
 
 # Deduplicates a graph. Reconnects edges of removed nodes (if any). 
 @info()
-def deduplicate(G):
+def deduplicate(G, eps=0.001):
 
     G = G.copy()
 
-    duplicated_groups = duplicated_nodes(G)
+    length = graph_length(G)
+
+    duplicated_groups = duplicated_nodes(G, eps=eps)
 
     # Initiate all nodes to link to themselves (used for rebinding edges).
     nid_relink = {}
@@ -54,11 +63,10 @@ def deduplicate(G):
         nid_relink[nid] = nid
 
     # Link all nids to their unique target nid.
-    duplicated_nids = {nids[0]: nids[1:] for nids in duplicated_groups}
-    for target in duplicated_nids.keys():
-        nid_relink[target] = target
-        for source in duplicated_nids[target]:
-            nid_relink[source] = target
+    for nids_group in duplicated_groups:
+        source = nids_group[0]
+        for nid in nids_group[1:]:
+            nid_relink[nid] = source
 
     # Obtain duplicated nodes to delete and edges to reconnect.
     new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges() if nid_relink[u] != u or nid_relink[v] != v]
@@ -70,5 +78,10 @@ def deduplicate(G):
     # Link (partially) dangling edges to connect between the remaining nodes.
     logger(f"Reconnecting {len(new_edges)} edges.")
     G.add_edges_from(new_edges)
+
+    # Sanity check that total graph edge length remains the same after removing duplicated nodes.
+    graph_annotate_edge_curvature(G)
+    new_length = graph_length(G)
+    check(abs(length - new_length) <= len(nids_to_delete) * eps, expect="Expect total graph edge length remains the same after removing duplicated nodes.")
 
     return G

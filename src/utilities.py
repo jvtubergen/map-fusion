@@ -367,6 +367,10 @@ def graph_edges(G):
     else:
         return G.edges(data=True, keys=True)
 
+# Compute total graph edge length.
+def graph_length(G):
+    return sum([curve_length(attrs["curvature"]) for eid, attrs in iterate_edges(G)])
+
 
 ## Curve-point related logic.
 

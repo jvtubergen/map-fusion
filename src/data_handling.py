@@ -61,10 +61,7 @@ def read_graph(graphset=None, place=None, use_utm=False):
     graph_annotate_edge_geometry(G)
 
     # Drop duplicated nodes.
-    utm_info = graph_utm_info(G)
-    G = graph_transform_latlon_to_utm(G)
     G = deduplicate(G)
-    G = graph_transform_utm_to_latlon(G, "", **utm_info)
 
     return G
 
