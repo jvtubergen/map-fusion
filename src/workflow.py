@@ -481,55 +481,59 @@ def workflow_apls(place, setup=True):
 # * b. Extend sat with gps edges algorithm 1.
 # * c. Extend sat with gps edges algorithm 2.
 # * d. Extend sat with gps edges algorithm 3.
+@info()
 def workflow_network_variants(place=None, plot=False, **storage_props):
 
-    threshold_computations = 50
+    threshold_computations = 30
     prune_thresholds = 30
 
     do_intersect = False
     do_merge_a = True
     do_merge_b = True
     do_merge_c = True
+    do_merge_x = False
 
-    sat = deduplicate(read_graph(place=place, graphset=links["sat"]))
-    gps = deduplicate(read_graph(place=place, graphset=links["gps"]))
-    osm = deduplicate(read_graph(place=place, graphset=links["osm"]))
+    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{filename}", action, **storage_props, **props)
 
-    _read_and_or_write = lambda filename, action: read_and_or_write(f"data/pickled/{filename}", action, **storage_props)
+    logger("Obtaining sat, gps, and osm.")
+    sat = _read_and_or_write("sat", lambda: read_graph(place=place, graphset=links["sat"]))
+    gps = _read_and_or_write("gps", lambda: read_graph(place=place, graphset=links["gps"]))
+    osm = _read_and_or_write("osm", lambda: read_graph(place=place, graphset=links["osm"]))
 
+    check(not sat.graph["simplified"])
+    check(not gps.graph["simplified"])
+    check(not osm.graph["simplified"])
+
+    # plot_graph(simplify_graph(sat))
+    # plot_graph(simplify_graph(osm))
+    # plot_graph(simplify_graph(gps))
 
     #### Intersection.
-    print("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
-    sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(sat, gps, max_threshold=threshold_computations))
-    # gps_vs_sat   = read_and_or_write("gps_vs_sat", lambda: edge_graph_coverage(gps, sat, max_threshold=threshold_computations))
-    print("Pruning Sat-vs-GPS graph.") # Extract edges of sat which are covered by gps.
+    logger("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
+    sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(simplify_graph(sat), gps, max_threshold=threshold_computations))
+
+    logger("Pruning Sat-vs-GPS graph.") # Extract edges of sat which are covered by gps.
     intersection = _read_and_or_write("intersection", lambda: prune_coverage_graph(sat_vs_gps, prune_threshold=prune_thresholds))
 
-    # # Plot graph.
+    ### Plot graph.
     if do_intersect and plot:
         plot_graphs([intersection])
-    
 
     #### Naive merging.
     if do_merge_a:
 
-        print("Naive Merging.")
+        logger("Naive Merging.")
         # * We pick the edges from gps vs sat.
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(simplify_graph(gps), intersection, max_threshold=threshold_computations))
 
         # * Each edge which has a threshold above 20m is inserted into sat.
+        gps = graph_transform_latlon_to_utm(simplify_graph(gps))
         merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
 
         if plot:
-            # Figure out where the erronous edge connection comes from.
-            # print("Plot gps")
-            # plot_graphs([graph_transform_latlon_to_utm(gps)])
-            # print("Plot insersection")
-            # plot_graphs([graph_transform_latlon_to_utm(intersection)])
-            # print("Plot gps_vs_intersection")
-            # plot_graphs([graph_transform_latlon_to_utm(gps_vs_intersection)])
-            print("Plot merge A")
-            merge_a = apply_coloring(G)
+            logger("Plot naive merging (without extensions).")
+            merge_a = apply_coloring(merge_a)
+            graph_annotate_edge_geometry(merge_a)
             plot_graphs([graph_transform_latlon_to_utm(merge_a)])
 
 
