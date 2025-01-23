@@ -113,10 +113,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature, "origin": "B"}))
     
     ## Annotate origin attribute on B and C (Necessary in case we want to apply extensions).
-    # Annotate hitted nids to be origin of B.
-    hits = [connection[1] for connection in connections]
-    annotate_nodes(C, {"origin": "B"}, nids=hits)
-
     # Annotate "origin" of nodes and edges of C.
     annotate_edges(C, {"origin": "C"})
     annotate_nodes(C, {"origin": "C"})
@@ -136,24 +132,36 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # TODO: Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
 
-        # Then find edges of C which are covered by the injected B edges (which are all of them in B_prime) and then remove them.
+        # Extract A_prime (injected subgraph of A with connection edges to C).
+        A_prime_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
+        A_prime_nids = filter_nids_by_attribute(C, filter_attributes={"origin": "B"})
+        A_prime = C.edge_subgraph(A_prime_eids)
+        
+        C_prime = C.edge_subgraph(set(graph_eids(C)) - set(A_prime_eids))
 
-        # TODO: We should take the B edges _with_ their connection to C nodes.
-        #       So inject connections, simplify graph, and extract those edges.
+        # Sanity check that A_prime contains exactly those nodes in A_prime_nids.
+        hits = [connection[1] for connection in connections] # Those nodes endpoints of C connected to injected A edges.
+        check(set(A_prime_nids).union(hits) == set(A_prime.nodes()), expect="Expect nids subgraph from C to match those nodes attributed with origin of B.")
 
-        # Track what nodes and edges are being injected. We need the selection of edges as subgraph to compare against.
-        # ... computing B_prime :)
+        ## Find edges of C which are covered by the injected B edges (which are all of them in A_prime) and then remove them.
 
-        # Compute coverage of C against B (covered edges are to be removed).
-        C_covered_by_B = edge_graph_coverage(C, B, max_threshold=prune_threshold)
-        assert C_covered_by_B.graph['max_threshold'] > 0 # Make sure thresholds are set.
+        # Reset coverage threshold information on a graph.
+        def clear_coverage_threshold_information(G):
+            G.graph.pop("max_threshold") 
+            for eid, attrs in iterate_edges(G):
+                if "threshold" in attrs:
+                    attrs.pop("threshold")
 
-        # Obtain edges of C below the threshold.
-        above = [eid for eid, attrs in iterate_edges(C_covered_by_B) if attrs["threshold"] >  prune_threshold]
-        below = [eid for eid, attrs in iterate_edges(C_covered_by_B) if attrs["threshold"] <= prune_threshold]
+        # Reset coverage threshold information on C.
+        clear_coverage_threshold_information(C_prime)
+        C_prime_covered_by_A_prime = edge_graph_coverage(C_prime, A_prime, max_threshold=prune_threshold)
+
+        # Obtain edges of C covered (or uncovered) by edges of A_prime
+        above = [eid for eid, attrs in iterate_edges(C_prime_covered_by_A_prime) if attrs["threshold"] >  prune_threshold]
+        below = [eid for eid, attrs in iterate_edges(C_prime_covered_by_A_prime) if attrs["threshold"] <= prune_threshold]
         edges_to_be_deleted = below
 
-        # Take all nodes of edges_to_be_deleted, yet without those nodes as well part of uncovered edges.
+        # Obtain nodes to be deleted from C (those nodes which are part of covered edges but of no uncovered edge).
         nodes_above = set([nid for el in above for nid in el[0:2]]) 
         nodes_below = set([nid for el in below for nid in el[0:2]]) 
         nodes_to_be_deleted = nodes_below - nodes_above
@@ -163,13 +171,11 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         for eid in edges_to_be_deleted:
             render_update[eid] = {**C_covered_by_B.edges[eid], "render": "deleted"}
         nx.set_edge_attributes(C, render_update)
+        annotate_edges(C, {"render": "deleted"}, eids=edges_to_be_deleted)
         # C.remove_edges_from(edges_to_be_deleted)
 
-        # Mark nodes that are deleted.
-        render_update = {}
-        for nid in nodes_to_be_deleted:
-            render_update[nid] = {**C_covered_by_B.nodes[nid], "render": "deleted"}
-        nx.set_node_attributes(C, render_update)
+        # Delete nodes (Mark nodes for deletion).
+        annotate_nodes(C, {"render": "deleted"}, nids=nodes_to_be_deleted)
         # C.remove_nodes_from(nodes_to_be_deleted)
 
     # TODO: Extension b: Reconnect edges of C to injected edges of A into B.
