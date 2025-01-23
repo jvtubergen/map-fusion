@@ -324,6 +324,11 @@ def is_partial_curve_undirected(ps, qs, eps, convert=False):
 
 ### Graph related
 
+# Enum to differentiate between node or edge-related task (used by abstract functions).
+class GraphEntity(Enum):
+    Edges = 0
+    Nodes = 1
+
 # Abstract function to iterate edge attributes (works for both simplified and vectorized graphs).
 # Example:
 # ``` 
@@ -381,19 +386,30 @@ def annotate_edges(G, new_attrs, eids=None):
     else:
         nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G)}) 
 
-# Filter out edge attributes either by a collection of attributes or a specific filtering function.
-def filter_eids_by_attribute(G, attributes=None, filter_func=None):
 
-    check(filter_func != None or attributes != None, expect="Expect to filter either by attributes dictionary or a filter function.")
+# Abstract function to filter node/edge identifiers by their attributes (can be both a subset of attributes or a filter function on attributes).
+def abstract_filter_by_attribute(entity, G, filter_attributes=None, filter_func=None):
+
+    check(type(entity) == GraphEntity)
+    check(filter_func != None or filter_attributes != None, expect="Expect to filter either by attributes dictionary or a filter function.")
+
+    logger("entity")
+    match entity:
+        case GraphEntity.Edges:
+            logger("edges")
+            iterator = iterate_edges
+        case GraphEntity.Nodes:
+            logger("nodes")
+            iterator = iterate_nodes
 
     if filter_func != None:
 
-        return [eid for eid, attrs in iterate_edges(G) if filter_func(attrs)]
+        return [identifier for identifier, attrs in iterator(G) if filter_func(attrs)]
     
-    if attributes != None:
+    if filter_attributes != None:
 
-        filtered_eids = []
-        for eid, attrs in iterate_edges(G):
+        filtered_identifiers = []
+        for identifier, attrs in iterator(G):
 
             found = True
             for filter_attr in filter_attributes.keys():
@@ -401,9 +417,15 @@ def filter_eids_by_attribute(G, attributes=None, filter_func=None):
                     found = False
 
             if found:
-                filtered_eids.append(eid)
+                filtered_identifiers.append(identifier)
     
-        return filtered_eids
+        return filtered_identifiers
+
+# Filter out nodes either by a collection of attributes or a specific filtering function.
+filter_nids_by_attribute = lambda *params, **named: abstract_filter_by_attribute(GraphEntity.Nodes, *params, **named)
+
+# Filter out edges either by a collection of attributes or a specific filtering function.
+filter_eids_by_attribute = lambda *params, **named: abstract_filter_by_attribute(GraphEntity.Edges, *params, **named)
 
 # Compute total graph edge length.
 def graph_length(G):

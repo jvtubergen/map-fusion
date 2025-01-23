@@ -29,6 +29,7 @@ from operator import itemgetter
 import traceback
 from time import time
 from copy import deepcopy
+from enum import Enum
 
 # Shortcuts
 cos  = math.cos
