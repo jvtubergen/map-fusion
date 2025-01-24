@@ -22,6 +22,9 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
     retain = filter_eids_by_attribute(G, filter_func=attribute_filter)
     G = G.edge_subgraph(retain)
 
+    # We have to simplify this graph again as some crossroads may have disappeared.
+    G = simplify_graph(G, retain_attributes=True)
+
     return G
 
 
