@@ -49,8 +49,9 @@ def is_endpoint(G, nid):
     # Obtain neighbors for node.
     neighbors = list(G.adj[nid].keys()) # list(G.neighbors(nid))
     n = len(neighbors)
+    d = G.degree[nid]
 
-    return (nid in neighbors) or (n != 2)
+    return (nid in neighbors) or (n != 2) or (d != 2)
     
 
 # Generate all the paths to be simplified between endpoint nodes.
@@ -87,7 +88,10 @@ def graph_paths_to_simplify(G):
 # Simplify graph (fuse edge curvature).
 # Optionally retain attributes on edges.
 @info()
-def simplify_graph(G, retain_attributes=False):
+def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold"]): 
+
+    # Sanity check node position starts/ends at all edge curves.
+    sanity_check_graph_curvature(G)
 
     graph_annotate_edge_curvature(G)
     graph_correctify_edge_curvature(G)
@@ -106,12 +110,6 @@ def simplify_graph(G, retain_attributes=False):
     [check("curvature" in attrs, expect="Expect curvature in all edges to concatenate with simplification (if necessary).") for eid, attrs in iterate_edges(G)]
 
     nid_positions = extract_node_positions_dictionary(G)
-
-    # Sanity check node position starts/ends at all edge curves.
-    sanity_check_graph_curvature(G)
-
-    # We regenerate length and geometry afterwards. Curvature is dealt with separately.
-    attributes_to_ignore = ["length", "curvature", "geometry"]
 
     nids_to_drop = []
     eids_to_drop = []
@@ -147,7 +145,7 @@ def simplify_graph(G, retain_attributes=False):
 
         # Sanity checks on curvature (array shape and length consistency).
         check(curvature.shape[1] == 2, expect="Expect concatenated curvature to be flattened into a sequence of two-dimensional points.")
-        check(curve_length(curvature) == sum([curve_length(get_edge(G, eid=eid)["curvature"]) for eid in visited_eids]), expect="Expect curvature length to be consistent after concatenation.")
+        check(abs(curve_length(curvature) - sum([curve_length(get_edge(G, eid=eid)["curvature"]) for eid in visited_eids]) < 0.001), expect="Expect curvature length to be consistent after concatenation.")
 
         # Reverse curvature if necessary.
         u, v = min(visited_nids[0], visited_nids[-1]), max(visited_nids[0], visited_nids[-1])
@@ -172,10 +170,10 @@ def simplify_graph(G, retain_attributes=False):
                         # If this attribute is already seen in a previous edge.
                         if attr in path_attributes:
                             # Then append this attribute value.
-                            path_attributes[attr].append(edge_data[attr])
+                            path_attributes[attr].append(attrs[attr])
                         else:
                             # Otherwise initiate this attribute with this attritube value.
-                            path_attributes[attr] = [edge_data[attr]]
+                            path_attributes[attr] = [attrs[attr]]
         
             # Expect attribute consistency (The edges do not all need to have the attribute, but the total collection of those is exactly one unique attribute value).
             for attr in path_attributes:
@@ -189,7 +187,7 @@ def simplify_graph(G, retain_attributes=False):
             attributes = {"curvature": curvature, **path_attributes}
 
         # Prepare data for insertion/deletion to/from graph.
-        new_edges.append((visited_nids[0], visited_nids[-1], attributes))
+        new_edges.append((u, v, attributes))
         eids_to_drop.extend(visited_eids)
         nids_to_drop.extend(visited_nids[1:-1])
 
