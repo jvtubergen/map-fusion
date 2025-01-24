@@ -12,7 +12,7 @@ def duplicated_nodes(G, eps=0.001):
         utm_info = graph_utm_info(G)
         G = graph_transform_latlon_to_utm(G)
 
-    positions = extract_nodes_dict(G)
+    positions = extract_node_positions_dictionary(G)
     tree = graphnodes_to_rtree(G)
     bboxs = graphnodes_to_bboxs(G)
 

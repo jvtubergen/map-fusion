@@ -239,7 +239,7 @@ def vectorize_graph(G):
         raise BaseException(msg)
 
     # Extract nodes and edges.
-    nodes = extract_nodes_dict(G)
+    nodes = extract_node_positions_dictionary(G)
     edges = np.array(list(G.edges(data=True, keys=True)))
 
     # Obtain unique (incremental) node ID to use.

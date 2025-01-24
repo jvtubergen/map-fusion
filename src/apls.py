@@ -23,7 +23,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     H_edge_rtree = graphedges_to_rtree(H)
 
     G_node_bboxs = graphnodes_to_bboxs(G)
-    G_node_positions = extract_nodes_dict(G)
+    G_node_positions = extract_node_positions_dictionary(G)
 
     H_with_control_points = H.copy() # The resulting graph of H after injecting control nodes.
 

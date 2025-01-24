@@ -28,7 +28,7 @@ def workflow_reading_raw_gps_trajectories(place):
 def workflow_extract_roi_from_graph(place=None, graphset=None):
 
     G = read_graph(place=place, graphset=graphset)
-    coordinates = extract_node_positions(G)
+    coordinates = extract_node_positions_list(G)
     latlon0 = np.min(coordinates, axis=0)
     latlon1 = np.max(coordinates, axis=0)
     # print(np.max(coordinates, axis=0) - np.min(coordinates, axis=0))

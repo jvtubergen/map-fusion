@@ -32,7 +32,7 @@ def convert_paths_into_graph(pss, nid=1, gid=1):
 
 # Pick two nodes at random (repeat if in disconnected graphs) and find shortest path.
 def gen_random_shortest_path(G):
-    nodedict = extract_nodes_dict(G)
+    nodedict = extract_node_positions_dictionary(G)
     # Pick two nodes from graph at random.
     nodes = random.sample(extract_nodes(G), 2)
     # Extract shortest path.

@@ -552,7 +552,7 @@ def graph_sanity_check(G):
 
     # Nodes.
     sanity_check_node_positions(G)
-    nodes = extract_node_positions(G)
+    nodes = extract_node_positions_dictionary(G)
     if G.graph["coordinates"] == "utm":
         if np.min(nodes) < 100: 
             print(nodes)
@@ -582,7 +582,7 @@ def graph_sanity_check(G):
         raise Exception("Expect node y, x coordinate consistency.") 
     
     # Edges.
-    nodes = extract_nodes_dict(G)
+    nodes = extract_node_positions_dictionary(G)
     if G.graph["simplified"]: 
         for (a, b, k, attrs) in G.edges(data=True, keys=True):
             ps = edge_curvature(G, a, b, k)
@@ -621,7 +621,7 @@ def sanity_check_node_positions(G, eps=0.0001):
 
     assert G.graph["coordinates"] == "utm" # Act only on UTM for epsilon to make sense.
 
-    positions = extract_nodes_dict(G)
+    positions = extract_node_positions_dictionary(G)
     tree = graphnodes_to_rtree(G)
     bboxs = graphnodes_to_bboxs(G)
 

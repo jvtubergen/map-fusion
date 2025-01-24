@@ -7,7 +7,7 @@ def extract_nodes(G):
 
 
 # Extract nodes from a graph as a dictionary `{nid: nparray([x,y])}`.
-def extract_nodes_dict(G):
+def extract_node_positions_dictionary(G):
     d = {}
     for node, data in G.nodes(data = True):
         d[node] = np.asarray([data['y'], data['x']], dtype=np.float64, order='c')
@@ -15,7 +15,7 @@ def extract_nodes_dict(G):
 
 
 # Extract node positions, ignoring node ids.
-def extract_node_positions(G):
+def extract_node_positions_list(G):
     return np.asarray([[data['y'], data['x']] for node, data in G.nodes(data = True)], dtype=np.float64, order='c')
 
 

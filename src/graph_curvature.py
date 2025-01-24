@@ -72,7 +72,7 @@ def graph_annotate_edge_curvature(G):
 @info()
 def graph_correctify_edge_curvature(G):
 
-    nodes = extract_nodes_dict(G)
+    node_positions = extract_node_positions_dictionary(G)
     for eid, attrs in iterate_edges(G):
 
         # We expect to have curvature in the edge, obtain it..
@@ -80,8 +80,8 @@ def graph_correctify_edge_curvature(G):
         ps = attrs["curvature"]
 
         # Check whether the curvature is aligned with the node positions.
-        is_correct_direction = np.all(array(ps[0]) == array(nodes[u])) and np.all(array(ps[-1]) == array(nodes[v]))
-        is_inverted_direction = np.all(array(ps[0]) == array(nodes[v])) and np.all(array(ps[-1]) == array(nodes[u]))
+        is_correct_direction = np.all(array(ps[0]) == array(node_positions[u])) and np.all(array(ps[-1]) == array(node_positions[v]))
+        is_inverted_direction = np.all(array(ps[0]) == array(node_positions[v])) and np.all(array(ps[-1]) == array(node_positions[u]))
 
         # In case the direction of the curvature is inverted.
         if is_inverted_direction: 
