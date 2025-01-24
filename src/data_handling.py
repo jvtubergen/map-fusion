@@ -94,7 +94,7 @@ def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
         vertices = vertices.rename(columns={"x": "lon", "y": "lat"})
         vertices.to_csv(f"{graph_path}/vertices.txt", index=False, columns=["id", "lat", "lon"])    
     # Edges
-    edges = G.edges(data=True)
+    edges = iterate_edges(G)
     edges = pd.DataFrame.from_records(list(edges), columns=['u', 'v', ""])
     edges.to_csv(f"{graph_path}/edges.txt", index_label="id", columns=["u", "v"])
 
@@ -102,15 +102,10 @@ def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
 # Convert graph into dictionary so it can be pickled.
 def graph_to_pickle(G):
 
-    if G.graph["simplified"]:
-        edges = list(G.edges(data=True,keys=True))
-    else:
-        edges = list(G.edges(data=True))
-
     return {
         "graph": G.graph,
-        "nodes": list(G.nodes(data=True)),
-        "edges": edges
+        "nodes": list(iterate_nodes(G)),
+        "edges": list(iterate_edges(G))
     }
 
 

@@ -429,15 +429,15 @@ def linewidth_mapper(render):
 def apply_coloring(G):
 
     # Sanity check each node and edge has the render attribute.
-    for nid, attributes in G.nodes(data=True):
+    for _, attributes in iterate_nodes(G):
         assert "render" in attributes
-    for u, v, attributes in G.edges(data=True):
+    for _, attributes in iterate_edges(G):
         assert "render" in attributes
 
     # Map render type to render styling.
-    for nid, attributes in G.nodes(data=True):
+    for _, attributes in iterate_nodes(G):
         attributes["color"] = color_mapper(attributes["render"])
-    for u, v, attributes in G.edges(data=True):
+    for _, attributes in iterate_edges(G):
         attributes["color"] = color_mapper(attributes["render"])
         attributes["linestyle"] = linestyle_mapper(attributes["render"])
         attributes["linewidth"] = linewidth_mapper(attributes["render"])

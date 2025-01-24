@@ -51,6 +51,9 @@ def duplicated_nodes(G, eps=0.001):
 @info()
 def deduplicate(G, eps=0.001):
 
+    check(not G.graph["simplified"])
+    check(G.graph["coordinates"] == "utm")
+
     G = G.copy()
 
     length = graph_length(G)
@@ -69,7 +72,11 @@ def deduplicate(G, eps=0.001):
             nid_relink[nid] = source
 
     # Obtain duplicated nodes to delete and edges to reconnect.
-    new_edges = [(nid_relink[u], nid_relink[v]) for u, v in G.edges() if nid_relink[u] != u or nid_relink[v] != v]
+    new_edges = []
+    for eid, _ in iterate_edges(G):
+        u, v = eid[:2]
+        if nid_relink[u] != u or nid_relink[v] != v:
+            new_edges.append((nid_relink[u], nid_relink[v]))
     nids_to_delete = set(flatten([nids[1:] for nids in duplicated_groups]))
 
     logger(f"Dropping {len(nids_to_delete)} duplicated node positions.")

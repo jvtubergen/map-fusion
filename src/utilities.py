@@ -301,8 +301,8 @@ def graph_to_rust_graph(G):
     # Extract vertices as Vec<(NID, Vector)>.
     vertices = extract_nodes_list(G)
     # Extract edges as Vec<(NID, NID)>.
-    edges = G.edges()
-    return make_graph(vertices, edges)
+    eids = [eid for eid, _ in iterate_edges(G)]
+    return make_graph(vertices, eids)
 
 # Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
 # If convert is true automatically convert input curves into vector lists.
@@ -329,28 +329,20 @@ class GraphEntity(Enum):
     Edges = 0
     Nodes = 1
 
-# Abstract function to iterate edge attributes (works for both simplified and vectorized graphs).
-# Example:
-# ``` 
-#   for attrs in iterate_edge_attributes(G):
-#       attrs["color"] = (random.random(), random.random(), random.random(), 1)
-# ```
-def iterate_edge_attributes(G):
-    if G.graph["simplified"]:
-        for u, v, k, attrs in G.edges(data=True, keys=True):
-            yield attrs
-    else:
-        for u, v, attrs in G.edges(data=True):
-            yield attrs
-
 # Iterate all edge identifiers alongside their attributes. Iterated element attributes are overwritable.
 def iterate_edges(G):
     if G.graph["simplified"]:
         for u, v, k, attrs in G.edges(data=True, keys=True):
-            yield (u, v, k), attrs
+            if u <= v: 
+                yield (u, v, k), attrs
+            else:
+                yield (v, u, k), attrs
     else:
         for u, v, attrs in G.edges(data=True):
-            yield (u, v), attrs
+            if u <= v: 
+                yield (u, v), attrs
+            else:
+                yield (v, u), attrs
 
 def iterate_nodes(G):
     for nid, attrs in G.nodes(data=True):
@@ -373,20 +365,10 @@ def get_connected_eids(G, nid):
     else:
         return [(u, v) if u <= v else (v, u) for (u, v) in list(G.edges(nid))]
 
-# Iterate graph edges as `(eid, attrs)` pair. Helps generalizing simplified/vectorized graph logic.
-def graph_edges(G):
-    if not G.graph["simplified"]:
-        return G.edges(data=True)
-    else:
-        return G.edges(data=True, keys=True)
-    
-# Obtain graph edge identifiers.
-graph_eids = lambda G: [eid for eid, _ in iterate_edges(G)]
-
 # Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
 def annotate_nodes(G, new_attrs, nids=None):
     if nids != None:
-        check(len(nids[0]) == 1 , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
+        check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
     else:
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
@@ -586,7 +568,8 @@ def graph_sanity_check(G):
     # Edges.
     nodes = extract_node_positions_dictionary(G)
     if G.graph["simplified"]: 
-        for (a, b, k, attrs) in G.edges(data=True, keys=True):
+        for eid, attrs in iterate_edges(G):
+            a, b, k = eid
             ps = edge_curvature(G, a, b, k)
             if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
                 ps = array([latlon_to_coord(latlon) for latlon in ps])

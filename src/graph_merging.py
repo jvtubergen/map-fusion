@@ -66,7 +66,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Sanity check that retain and drop are disjoint.
     # NOTE: Set overlap here is about _edges_, not nodes. Thus therefore we can demand this uniqueness (non-overlapping) constraint.
     assert len(set(above) & set(below)) == 0
-    assert len(set(above) ^ set(below)) == len(A.edges())
+    assert len(set(above) ^ set(below)) == len(list(iterate_edges(A)))
 
     # Retain edges above the coverage threshold (thus those edges of A not being covered by C).
     B = A.edge_subgraph(above)
@@ -123,8 +123,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
     ## Connecting B to C.
     # Inject B into C.
-    C.add_nodes_from(B.nodes(data=True))
-    C.add_edges_from(graph_edges(B))
+    C.add_nodes_from(list(iterate_nodes(B)))
+    C.add_edges_from([(*eid[:2], attrs) for eid, attrs in iterate_edges(B)])
     
     # Add edge connections between B and C.
     C.add_edges_from(connections)
@@ -137,7 +137,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         A_prime_nids = filter_nids_by_attribute(C, filter_attributes={"origin": "B"})
         A_prime = C.edge_subgraph(A_prime_eids)
         
-        C_prime = C.edge_subgraph(set(graph_eids(C)) - set(A_prime_eids))
+        C_prime = C.edge_subgraph(set([eid for eid, _ in iterate_edges(C)]) - set(A_prime_eids))
 
         # Sanity check that A_prime contains exactly those nodes in A_prime_nids.
         hits = [connection[1] for connection in connections] # Those nodes endpoints of C connected to injected A edges.

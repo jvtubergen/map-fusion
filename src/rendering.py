@@ -264,14 +264,14 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
             return data["geometry"] # Always exists on simplified graph.
 
     if not G.graph["simplified"]:
-        u, v, data = zip(*G.edges(data=True))
+        u, v, data = zip(*[(u, v, attrs) for (u, v), attrs in iterate_edges(G)])
         edge_geoms = map(extract_edge_geometry, u, v, data)
         gdf_edges  = gpd.GeoDataFrame(data, geometry=list(edge_geoms))
         gdf_edges["u"] = u
         gdf_edges["v"] = v
         gdf_edges = gdf_edges.set_index(["u", "v"])
     else:
-        u, v, k, data = zip(*G.edges(data=True, keys=True))
+        u, v, k, data = zip(*[(u, v, k, attrs) for (u, v, k), attrs in iterate_edges(G)])
         gdf_edges  = gpd.GeoDataFrame(data) # Simplified edges already have geometry attribute.
         gdf_edges["u"] = u
         gdf_edges["v"] = v
@@ -299,6 +299,10 @@ def preplot_curve(ps, ax, **properties):
 
 
 # Render target graph (dotted gray) + curve (green) + path (blue).
+#   Example usage:
+#   plot_without_projection2([S], [])
+#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1)}) ])
+#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1), "linewidth":1, "linestyle": ":"}), (random_curve(), {"color":(0.1,0.5,0.1,1), "linewidth":3}) ])
 def plot_without_projection(Gs, pss):
 
     fig, ax = plt.subplots()
@@ -325,40 +329,6 @@ def plot_without_projection(Gs, pss):
     fig.canvas.flush_events()
     plt.show()
 
-# Example usage of plot_without_projection:
-#   plot_without_projection2([S], [])
-#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1)}) ])
-#   plot_without_projection2([], [ (random_curve(),{"color":(0,0,0,1), "linewidth":1, "linestyle": ":"}), (random_curve(), {"color":(0.1,0.5,0.1,1), "linewidth":3}) ])
-
-
-# Plot with weights on edges of S defining color intensity.
-def plot_with_weight_without_projection(S, T, max_threshold):
-
-    x_lookup = nx.get_node_attributes(S, "x")
-    y_lookup = nx.get_node_attributes(S, "y")
-    def extract_edge_geometry(u, v):
-        return LineString((Point((x_lookup[u], y_lookup[u])), Point((x_lookup[v], y_lookup[v]))))
-
-    fig, ax = plt.subplots()
-
-    # Render target.
-    preplot_graph(T,  ax, node_properties={"color": (0,0,0,0)}, edge_properties={"color":(0.4,0.4,0.4,1), "linestyle": ":"}) 
-
-    # Render source.
-    thresholds = [S[u][v]['threshold'] for u, v in S.edges()]
-    thresholds = array([max_threshold if x == None else x for x in thresholds]) # Map none to zero.
-    norm_thresholds = thresholds / max_threshold  # Normalize to [0, 1]
-    cmap = plt.cm.Greens
-    u, v, data = zip(*S.edges(data=True))
-    edge_geoms = map(extract_edge_geometry, u, v)
-    edge_coloring = [cmap(threshold) for threshold in norm_thresholds]
-    preplot_graph(S, ax, node_properties={"color": (0,0,0,0)}, edge_properties={"color":edge_coloring, "linewidth": 2})
-
-    # Plot.
-    print("Show plot.")
-    fig.canvas.draw()
-    fig.canvas.flush_events()
-    plt.show()
 
 
 # Plot a list of graphs.

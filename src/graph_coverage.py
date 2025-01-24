@@ -35,7 +35,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
 
     # Sanity checks each edge has a threshold set..
     check("threshold" not in S.graph, expect="Expect the graph to not have a 'max_threshold' attribute set.")
-    for (u, v, attrs) in S.edges(data=True):
+    for _, attrs in iterate_edges(S):
         check("threshold" not in attrs, expect="Expect edge in source to not have the 'threshold' attribute set" \
                                                ", because such existence suggests we are overwriting a previous coverage check" \
                                                ", suggesting some coverage computation is accidentally out of place.")
@@ -56,7 +56,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
     T = graph_to_rust_graph(T)
 
     # Threshold computation iteration variables.
-    leftS  = set(S.edges(keys=True)) # Edges we seek a threshold value for.
+    leftS  = set([eid for eid, _ in iterate_edges(S)]) # Edges we seek a threshold value for.
     lam    = 1 # Start with a threshold of 1 meter.
     thresholds = {} # Currently found thresholds.
     
