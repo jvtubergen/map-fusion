@@ -320,3 +320,21 @@ def vectorize_graph(G):
     G = nx.Graph(G)
 
     return G
+
+
+# Unit test that simplification and vectorization leaves graph length intact.
+@info()
+def test_simplify_vectorize():
+    G = read_graph(place="chicago", graphset=links["sat"])
+    G = graph_transform_latlon_to_utm(G)
+    # a. Simplify graph.
+    G = simplify_graph(G)
+    sanity_check_graph_curvature(G)
+    # b. Compute total graph length.
+    length = graph_length(G)
+    # c. Vectorize graph.
+    G = vectorize_graph(G)
+    check(graph_length(G) == length, expect="Expect no changes in graph length.")
+    # d. Simplify graph.
+    G = simplify_graph(G)
+    check(graph_length(G) == length, expect="Expect no changes in graph length.")
