@@ -107,7 +107,7 @@ def simplify_graph(G):
     nid_positions = extract_node_positions_dictionary(G)
 
     # Sanity check node position starts/ends at all edge curves.
-    sanity_check_curvature(G)
+    sanity_check_graph_curvature(G)
 
     # We regenerate length and geometry afterwards. Curvature is dealt with separately.
     attributes_to_ignore = ["length", "curvature", "geometry"]

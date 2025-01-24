@@ -635,18 +635,17 @@ def sanity_check_node_positions(G, eps=0.0001):
         assert len(nids) == 1 # Expect to only intersect with itself.
 
 
-# Sanity check curvature starts/end at node positions.
-def sanity_check_curvature(G):
+# Sanity check graph curvature starts/end at node positions _and_ in the correct direction (starting at `u` and ending at `v` with `u <= v`).
+def sanity_check_graph_curvature(G):
+
     nid_positions = extract_node_positions_dictionary(G)
-    for nid in G.nodes():
-        for eid in get_connected_eids(G, nid):
-            ps = get_edge(G, eid)["curvature"]
-            q  = nid_positions[nid]
-            if nid == eid[0]:
-                check(np.all(q == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
-            else:
-                check(nid == eid[1])
-                check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
+    for eid, attrs in iterate_edges(G):
+        u, v = eid[:2]
+        ps = attrs["curvature"]
+        check(u <= v)
+        p, q = nid_positions[u], nid_positions[v]
+        check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
+        check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
 
 
 #######################################
