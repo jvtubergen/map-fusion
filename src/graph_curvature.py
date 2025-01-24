@@ -49,7 +49,8 @@ def graph_annotate_edge_curvature(G):
     for eid, attrs in iterate_edges(G):
 
         if "curvature" in attrs:
-            continue
+            if type(attrs["curvature"]) != type(array([])):
+                attrs["curvature"] = array(attrs["curvature"])
 
         elif "geometry" in attrs:
 
@@ -63,9 +64,14 @@ def graph_annotate_edge_curvature(G):
 
             p1 = G.nodes()[u]
             p2 = G.nodes()[v]
-            ps = array([(p1["y"], p1["x"]), (p2["y"], p2["x"])])
+            ps = array([[p1["y"], p1["x"]], [p2["y"], p2["x"]]])
 
             attrs["curvature"] = ps
+
+    # Sanity check all curves got annotated.
+    for eid, attrs in iterate_edges(G):
+        check("curvature" in attrs)
+        check(type(attrs["curvature"]) == type(array([])))
 
 
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).

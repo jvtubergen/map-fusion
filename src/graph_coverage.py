@@ -53,7 +53,6 @@ def edge_graph_coverage(S, T, max_threshold=None):
     if T.graph["simplified"]:
         T = vectorize_graph(T)
 
-
     # Threshold computation iteration variables.
     leftS  = set([eid for eid, _ in iterate_edges(S)]) # Edges we seek a threshold value for.
     lam    = 1 # Start with a threshold of 1 meter.
@@ -67,19 +66,19 @@ def edge_graph_coverage(S, T, max_threshold=None):
         curves[eid] = curve
     
     ## Performance: Construct graph per edge (subgraph with nodes in `threshold` meter radius to edge curvature).
-    node_tree = graphnodes_to_rtree(T)
+    graph_annotate_edge_curvature(T)
+    graph_annotate_edge_curvature(S)
+    edge_tree = graphedges_to_rtree(T)
     edge_bboxs = graphedges_to_bboxs(S, padding=max_threshold)
     subgraphs = {}
+    # Per simplified edge of S, construct a subgraph of nearby edges of T.
     for eid in leftS:
         
         # Obtain nearby node identifiers.
-        nearby_nids = intersect_rtree_bbox(node_tree, edge_bboxs[eid])
-
-        # Find connected edges.
-        eids = set(flatten([get_connected_eids(T, nid) for nid in nearby_nids]))
+        nearby_eids = intersect_rtree_bbox(edge_tree, edge_bboxs[eid])
 
         # Extract subgraph.
-        subgraph = T.edge_subgraph(eids)
+        subgraph = T.edge_subgraph(nearby_eids)
 
         # Convert the subgraph a rust graph.
         subgraph = graph_to_rust_graph(subgraph)
