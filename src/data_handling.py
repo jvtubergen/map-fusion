@@ -116,7 +116,7 @@ def pickle_to_graph(data):
 
     G.graph = data["graph"]
     G.add_nodes_from(data["nodes"])
-    G.add_edges_from(data["edges"])
+    G.add_edges_from([(*eid, attrs) for eid, attrs in data["edges"]])
 
     return G
     
