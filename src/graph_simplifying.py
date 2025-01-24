@@ -233,67 +233,78 @@ def group_multi_edges(G):
 
 
 # Vectorize a network.
+# Note: Edge attributes are propogated to all new subcurve edges.
+# Note: Node attributes are propogated from starting node (index `u`).
+@info()
 def vectorize_graph(G):
-    assert G.graph["simplified"] 
+    
+    check(G.graph["simplified"], expect="Expect graph to be simplified in order to vectorize it.")
 
     G = G.copy()
 
-    if not G.graph.get("simplified"):
-        msg = "Graph has to be simplified in order to vectorize it."
-        raise BaseException(msg)
-    
-    if not type(G) == nx.MultiGraph:
-        msg = "Graph has to be MultiGraph (undirected but potentially multiple connections) for it to work here."
-        raise BaseException(msg)
-
     # Extract nodes and edges.
-    nodes = extract_node_positions_dictionary(G)
-    edges = np.array(list(G.edges(data=True, keys=True)))
+    node_positions = extract_node_positions_dictionary(G)
+    node_attributes = {nid: attrs for nid, attrs in G.nodes(data = True)}
 
     # Obtain unique (incremental) node ID to use.
-    newnodeid = max(G.nodes()) + 1 # Move beyond highest node ID to ensure uniqueness.
+    new_nid = max(G.nodes()) + 1 # Move beyond highest node ID to ensure uniqueness.
 
-    for (a, b, k, attrs) in edges:
+    old_edges = []
+    new_nodes = []
+    new_edges = []
+
+    for eid, old_edge_attrs in iterate_edges(G):
+
+        ps = old_edge_attrs["curvature"]
 
         # We only have to perform work if an edge contains curvature. (If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.)
-        if len(attrs["curvature"]) > 2:
+        if len(ps) > 2:
 
-            # Delete this edge from network.
-            G.remove_edge(a,b,k)
-            # print("Removing edge ", a, b, k)
+            logger("Vectorizing edge ", eid)
 
-            # Add curvature as separate nodes/edges.
-            linestring = attrs["geometry"]
-            ps = array([(y, x) for (x, y) in list(linestring.coords)])
+            # Delete this edge from the network.
+            old_edges.append(eid)
 
-            # Sanity checks. 
-            # try:
-            assert np.all(array(ps[0]) == array(nodes[a])) or np.all(array(ps[-1]) == array(nodes[a])) # Geometry starts at first node coordinate.
-            assert np.all(array(ps[0]) == array(nodes[b])) or np.all(array(ps[-1]) == array(nodes[b])) # Geometry ends at last node coordinate.
-            assert len(ps) >= 1 # We expect at least one point in between start and end node.
-            # except Exception as e:
-            #     print(traceback.format_exc())
-            #     print(e)
-            #     breakpoint()
+            u, v, k = eid
 
-            # Drop first and last point because these are start and end node..
+            # Sanity check curvature goes from `u` to `v`.
+            check(np.all(ps[0] == node_positions[u]), expect="Expect curvature starts at first node position.")
+            check(np.all(ps[-1] == node_positions[v]), expect="Expect curvature ends at final node position.")
+
+            # Don't place a node at the first and last curve point, because these already exist.
             ps = ps[1:-1]
-
-            # Ensured we are adding new curvature.  Add new node ID to each coordinate.
-            pathcoords = list(ps)
-            sequential = np.all(array(ps[0]) == array(nodes[a]))
-            if not sequential:
-                pathcoords.reverse()
                 
-            pathids = list(range(newnodeid, newnodeid + len(ps)))
-            newnodeid += len(ps) # Increment id appropriately.
+            # Construct node identifiers.
+            nids = list(range(new_nid, new_nid + len(ps)))
 
-            for node, coord in zip(pathids, pathcoords):
-                G.add_node(node, y=coord[0], x=coord[1])
+            # Increment node identifier for next iteration.
+            new_nid += len(ps) 
 
-            pathids = [a] + pathids + [b]
-            for a,b in zip(pathids, pathids[1:]):
-                G.add_edge(a, b, 0) # Key can be zero because nodes in curvature implies a single path between nodes.
+            # Inject nodes.
+            old_nid_attrs = node_attributes[u]
+            for nid, p in zip(nids, ps):
+
+                # Inject node to graph.
+                new_nodes.append((nid, {**old_nid_attrs, "y":p[0], "x":p[1]}))
+
+                # Add new node positions (used when retrieving position when injecting edges).
+                node_positions[nid] = p
+
+            # Inject edges.
+            nids = [u] + nids + [v]
+            for u, v in zip(nids, nids[1:]):
+
+                # New curvature-related attributes.
+                curvature = [node_positions[u], node_positions[v]]
+                geometry = to_linestring(curvature)
+                length = curve_length(curvature)
+
+                # Note: Set key at zero, because nodes in curvature implies a single path between nodes.
+                new_edges.append((u, v, {**old_edge_attrs, "curvature": curvature, "geometry": geometry, "length": length}))
+
+    G.remove_edges_from(old_edges)
+    G.add_nodes_from(new_nodes)
+    G.add_edges_from(new_edges)
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
     G = nx.Graph(G)
