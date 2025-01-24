@@ -101,6 +101,9 @@ def graph_correctify_edge_curvature(G):
 @info()
 def graph_cut_edge_subcurves(G, eid, qss):
 
+    # Store graph length for sanity checking graph length consistency.
+    length = graph_length(G)
+
     # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
     ps = get_edge(G, eid)["curvature"]
     assert (ps[0]  == qss[0][0]).all()
@@ -144,6 +147,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
     G.add_edges_from(edges_to_add)
 
     logger("Injecting nodes: ", new_nids)
+    check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length remains consistent after cutting edges into subcurves." )
 
     return G, {"nids": nodes_to_add, "eids": edges_to_add}
 
@@ -176,9 +180,9 @@ def graph_ensure_max_edge_length(G, max_length=50):
         # Sanity check on subcurves.
         if len(qss) > 1:
             for qs in qss:
-                assert curve_length(qs) > 0
+                check(curve_length(qs) > 0, expect="Expect non-zero curvature on subcurve.")
             for a, b in zip(qss, qss[1:]):
-                assert (a[-1] == b[0]).all()
+                check((a[-1] == b[0]).all(), expect="Expect endpoint of previous subcurve matches startpoint of current subcurve.")
 
         # If the edge is being cut (thus more than 1 subcurve), then schedule it for injection.
         if len(qss) > 1:
