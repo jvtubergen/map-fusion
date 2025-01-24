@@ -148,6 +148,16 @@ def simplify_graph(G):
         check(curvature.shape[1] == 2, expect="Expect concatenated curvature to be flattened into a sequence of two-dimensional points.")
         check(curve_length(curvature) == sum([curve_length(get_edge(G, eid=eid)["curvature"]) for eid in visited_eids]), expect="Expect curvature length to be consistent after concatenation.")
 
+        # Reverse curvature if necessary.
+        u, v = min(visited_nids[0], visited_nids[-1]), max(visited_nids[0], visited_nids[-1])
+        if np.all(nid_positions[u] == curvature[-1]):
+            curvature = array(list(reversed(curvature)))
+
+        p, q = nid_positions[u], nid_positions[v]
+        ps = curvature
+        check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
+        check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
+
         attributes = {"curvature": curvature}
 
         # Prepare data for insertion/deletion to/from graph.
