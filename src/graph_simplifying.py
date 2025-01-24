@@ -200,6 +200,14 @@ def graph_sanitize_simplified_edges(G):
     for (u, v, k) in multi_edges:
         edge = get_edge(G, (u, v, 0))
 
+    # Sanity check that no more self-loops exist.
+    self_loops = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u == v]
+    check(len(self_loops) == 0, expect="Expect that no more self-loops exist after dropping self-loops.")
+
+    # Sanity check that no more multi-edges exist.
+    multi_edges = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u != v and k > 0]
+    check(len(multi_edges) == 0, expect="Expect that no more multi-edges exist after dropping multi-edges.")
+
     return G
 
 
