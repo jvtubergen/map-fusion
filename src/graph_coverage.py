@@ -34,6 +34,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
                                         ", nor do we want to restore (vectorized graph with proper edge threshold attribute annotation) in this function.")
 
     # Sanity checks each edge has a threshold set..
+    check("threshold" not in S.graph, expect="Expect the graph to not have a 'max_threshold' attribute set.")
     for (u, v, attrs) in S.edges(data=True):
         check("threshold" not in attrs, expect="Expect edge in source to not have the 'threshold' attribute set" \
                                                ", because such existence suggests we are overwriting a previous coverage check" \

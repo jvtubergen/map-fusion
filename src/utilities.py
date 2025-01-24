@@ -386,6 +386,7 @@ graph_eids = lambda G: [eid for eid, _ in iterate_edges(G)]
 # Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
 def annotate_nodes(G, new_attrs, nids=None):
     if nids != None:
+        check(len(nids[0]) == 1 , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
     else:
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
@@ -393,6 +394,7 @@ def annotate_nodes(G, new_attrs, nids=None):
 # Annotate edges by appending new attributes (optionally to a subselection of edge identifiers.
 def annotate_edges(G, new_attrs, eids=None):
     if eids != None:
+        check(len(eids[0]) == 2 or len(eids[0]) == 3, expect="Expect to receive edge identifiers (it probably has received node identifiers).")
         nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G) if eid in eids}) 
     else:
         nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G)}) 
@@ -631,6 +633,20 @@ def sanity_check_node_positions(G, eps=0.0001):
         bbox = pad_bounding_box(bboxs[nid], eps)
         nids = intersect_rtree_bbox(tree, bbox)
         assert len(nids) == 1 # Expect to only intersect with itself.
+
+
+# Sanity check curvature starts/end at node positions.
+def sanity_check_curvature(G):
+    nid_positions = extract_node_positions_dictionary(G)
+    for nid in G.nodes():
+        for eid in get_connected_eids(G, nid):
+            ps = get_edge(G, eid)["curvature"]
+            q  = nid_positions[nid]
+            if nid == eid[0]:
+                check(np.all(q == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
+            else:
+                check(nid == eid[1])
+                check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
 
 
 #######################################

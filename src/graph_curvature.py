@@ -83,6 +83,8 @@ def graph_correctify_edge_curvature(G):
         is_correct_direction = np.all(array(ps[0]) == array(node_positions[u])) and np.all(array(ps[-1]) == array(node_positions[v]))
         is_inverted_direction = np.all(array(ps[0]) == array(node_positions[v])) and np.all(array(ps[-1]) == array(node_positions[u]))
 
+        check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
+
         # In case the direction of the curvature is inverted.
         if is_inverted_direction: 
             # Then invert the direction back.
