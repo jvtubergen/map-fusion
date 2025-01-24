@@ -128,7 +128,7 @@ def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length",
 
         for eid in visited_eids: 
 
-            subcurve = get_edge(G, eid=eid)["curvature"]
+            subcurve = get_edge_attributes(G, eid=eid)["curvature"]
 
             # Sanity check on subcurve.    
             check((subcurve[0] == curvature[-1]).all() or (subcurve[-1] == curvature[-1]).all(), expect="Expect subcurve to start (or end) at current curvature endpoint.")
@@ -145,7 +145,7 @@ def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length",
 
         # Sanity checks on curvature (array shape and length consistency).
         check(curvature.shape[1] == 2, expect="Expect concatenated curvature to be flattened into a sequence of two-dimensional points.")
-        check(abs(curve_length(curvature) - sum([curve_length(get_edge(G, eid=eid)["curvature"]) for eid in visited_eids]) < 0.001), expect="Expect curvature length to be consistent after concatenation.")
+        check(abs(curve_length(curvature) - sum([curve_length(get_edge_attributes(G, eid=eid)["curvature"]) for eid in visited_eids]) < 0.001), expect="Expect curvature length to be consistent after concatenation.")
 
         # Reverse curvature if necessary.
         u, v = min(visited_nids[0], visited_nids[-1]), max(visited_nids[0], visited_nids[-1])
@@ -164,7 +164,7 @@ def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length",
 
             path_attributes = {}
             for eid in visited_eids:
-                attrs = get_edge(G, eid=eid)
+                attrs = get_edge_attributes(G, eid=eid)
                 for attr in [attr for attr in attrs if attr not in attributes_to_ignore]:
                     if attr not in attributes_to_ignore:
                         # If this attribute is already seen in a previous edge.
@@ -234,7 +234,7 @@ def graph_sanitize_simplified_edges(G):
 
     # Sanity check that we have multi-edge at `k == 0`.
     for (u, v, k) in multi_edges:
-        edge = get_edge(G, (u, v, 0))
+        edge = get_edge_attributes(G, (u, v, 0))
 
     # Sanity check that no more self-loops exist.
     self_loops = [(u, v, k) for (u, v, k), _ in iterate_edges(G) if u == v]

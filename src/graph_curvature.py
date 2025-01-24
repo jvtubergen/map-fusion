@@ -105,7 +105,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
     length = graph_length(G)
 
     # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
-    ps = get_edge(G, eid)["curvature"]
+    ps = get_edge_attributes(G, eid)["curvature"]
     assert (ps[0]  == qss[0][0]).all()
     assert (ps[-1] == qss[-1][-1]).all()
     assert abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001
@@ -156,7 +156,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
 def graph_cut_edge_intervals(G, eid, intervals):
 
     # Obtain the curvature to cut in.
-    curve = get_edge(G, eid)["curvature"]
+    curve = get_edge_attributes(G, eid)["curvature"]
 
     # Compute the subcurves.
     qss = curve_cut_intervals(curve, intervals)
@@ -216,12 +216,12 @@ def path_to_curve(G, path=[], start_node=None, end_node=None):
         if G.graph["simplified"]:
             for a, b, k in path: # Expect key on each edge.
                 eid = (a, b, k)
-                ps = get_edge(G, eid)["curvature"]
+                ps = get_edge_attributes(G, eid)["curvature"]
                 yield a, b, ps
         else: # Graph is vectorized.
             for a, b in path:
                 eid = (a, b)
-                ps = get_edge(G, eid)["curvature"]
+                ps = get_edge_attributes(G, eid)["curvature"]
                 yield a, b, ps
     
     for (a, b, ps) in path_get_curvature(G, path):

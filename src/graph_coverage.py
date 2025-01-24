@@ -63,7 +63,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
     # Link a curve to every simplified edge.
     curves = {}
     for eid in leftS:
-        ps = get_edge(S, eid)["curvature"]
+        ps = get_edge_attributes(S, eid)["curvature"]
         curve = curve_to_vector_list(ps)
         curves[eid] = curve
     

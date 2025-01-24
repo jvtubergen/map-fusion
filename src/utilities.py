@@ -357,7 +357,7 @@ def iterate_nodes(G):
         yield nid, attrs
 
 # Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
-def get_edge(G, eid):
+def get_edge_attributes(G, eid):
     if G.graph["simplified"]:
         u, v, k = eid
         return G.get_edge_data(u, v, k)
