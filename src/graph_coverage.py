@@ -53,7 +53,6 @@ def edge_graph_coverage(S, T, max_threshold=None):
     if T.graph["simplified"]:
         T = vectorize_graph(T)
 
-    T = graph_to_rust_graph(T)
 
     # Threshold computation iteration variables.
     leftS  = set([eid for eid, _ in iterate_edges(S)]) # Edges we seek a threshold value for.
@@ -67,13 +66,35 @@ def edge_graph_coverage(S, T, max_threshold=None):
         curve = curve_to_vector_list(ps)
         curves[eid] = curve
     
+    ## Performance: Construct graph per edge (subgraph with nodes in `threshold` meter radius to edge curvature).
+    node_tree = graphnodes_to_rtree(T)
+    edge_bboxs = graphedges_to_bboxs(S, padding=max_threshold)
+    subgraphs = {}
+    for eid in leftS:
+        
+        # Obtain nearby node identifiers.
+        nearby_nids = intersect_rtree_bbox(node_tree, edge_bboxs[eid])
+
+        # Find connected edges.
+        eids = set(flatten([get_connected_eids(T, nid) for nid in nearby_nids]))
+
+        # Extract subgraph.
+        subgraph = T.edge_subgraph(eids)
+
+        # Convert the subgraph a rust graph.
+        subgraph = graph_to_rust_graph(subgraph)
+        
+        # Store.
+        subgraphs[eid] = subgraph
+
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
     while len(leftS) > 0 and (max_threshold == None or lam <= max_threshold):
         logger(f"Lambda: {lam}. Edges: {len(leftS)}")
 
         for eid in leftS:
             curve = curves[eid]
-            path = partial_curve_graph(T, curve, lam)
+            subgraph = subgraphs[eid]
+            path = partial_curve_graph(subgraph, curve, lam)
 
             # Annotate threshold to edge if applicable.
             if path != None:

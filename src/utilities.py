@@ -35,7 +35,7 @@ def graphedges_to_rtree(G):
 
 # Construct dictionary that links edge id to a bounding box.
 # Note: Padding has to be added manually afterwards if needed.
-def graphedges_to_bboxs(G):
+def graphedges_to_bboxs(G, padding=0):
 
     bboxs = {}
     
@@ -46,7 +46,7 @@ def graphedges_to_bboxs(G):
         minx = min(ps[:,1])
         maxx = max(ps[:,1])
         bbox = array([(miny, minx), (maxy, maxx)])
-        bboxs[eid] = bbox
+        bboxs[eid] = pad_bounding_box(bbox, padding)
 
     return bboxs
 
