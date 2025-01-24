@@ -137,7 +137,8 @@ def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwri
 
     result = None
     file_exists = os.path.exists(filename)
-    is_old = file_age(filename) > reset_time
+    
+    is_old = file_age(filename) > reset_time if reset_time != None else True
 
     # If we provide a reset time, it can set the overwrite and rerun variable.
     if reset_time != None and is_old:
