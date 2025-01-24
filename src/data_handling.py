@@ -60,9 +60,6 @@ def read_graph(graphset=None, place=None, use_utm=False):
     graph_annotate_edge_length(G)
     graph_annotate_edge_geometry(G)
 
-    # Drop duplicated nodes.
-    G = deduplicate(G)
-
     return G
 
 
