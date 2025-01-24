@@ -91,9 +91,6 @@ def edge_graph_coverage(S, T, max_threshold=None):
 
     # Set thresholds for each edge.
     nx.set_edge_attributes(S, {eid: {**attrs, "threshold": thresholds[eid]} for eid, attrs in iterate_edges(S)}) 
-    
-    for eid, attrs in iterate_edges(S):
-        check("threshold" in attrs)
 
     # Restore graph to input state.
     if convert_to_utm:
