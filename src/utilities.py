@@ -365,12 +365,23 @@ def get_edge(G, eid):
         u, v = eid
         return G.get_edge_data(u, v)
 
+# Obtain connected edge identifiers to the provided node identifier.
+# Note: `(u, v)` or `(u, v, k)` always have lowest nid first (thus `u <= v`).
+def get_connected_eids(G, nid):
+    if G.graph["simplified"]:
+        return [(u, v, k) if u <= v else (v, u, k) for (u, v, k) in list(G.edges(nid, keys=True))]
+    else:
+        return [(u, v) if u <= v else (v, u) for (u, v) in list(G.edges(nid))]
+
 # Iterate graph edges as `(eid, attrs)` pair. Helps generalizing simplified/vectorized graph logic.
 def graph_edges(G):
     if not G.graph["simplified"]:
         return G.edges(data=True)
     else:
         return G.edges(data=True, keys=True)
+    
+# Obtain graph edge identifiers.
+graph_eids = lambda G: [eid for eid, _ in iterate_edges(G)]
 
 # Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
 def annotate_nodes(G, new_attrs, nids=None):
