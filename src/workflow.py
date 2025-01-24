@@ -487,72 +487,80 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     threshold_computations = 30
     prune_thresholds = 30
 
-    do_intersect = False
+    do_intersect = True
     do_merge_a = True
     do_merge_b = True
-    do_merge_c = True
+    do_merge_c = False
     do_merge_x = False
 
-    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{filename}", action, **storage_props, **props)
+    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **storage_props, **props)
 
     logger("Obtaining sat, gps, and osm.")
-    sat = _read_and_or_write("sat", lambda: read_graph(place=place, graphset=links["sat"]))
-    gps = _read_and_or_write("gps", lambda: read_graph(place=place, graphset=links["gps"]))
-    osm = _read_and_or_write("osm", lambda: read_graph(place=place, graphset=links["osm"]))
+    # sat = _read_and_or_write("sat", lambda: read_graph(place=place, graphset=links["sat"]))
+    # gps = _read_and_or_write("gps", lambda: read_graph(place=place, graphset=links["gps"]))
+    # osm = _read_and_or_write("osm", lambda: read_graph(place=place, graphset=links["osm"]))
 
-    check(not sat.graph["simplified"])
-    check(not gps.graph["simplified"])
-    check(not osm.graph["simplified"])
+    # check(not sat.graph["simplified"])
+    # check(not gps.graph["simplified"])
+    # check(not osm.graph["simplified"])
 
     # plot_graph(simplify_graph(sat))
     # plot_graph(simplify_graph(osm))
     # plot_graph(simplify_graph(gps))
 
+    simp = simplify_graph
+    dedup = graph_deduplicate
+    to_utm = graph_transform_latlon_to_utm
+
+    sat = _read_and_or_write("sat", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))))
+    gps = _read_and_or_write("gps", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))))
+    osm = _read_and_or_write("osm", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))))
+
+
     #### Intersection.
     logger("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
-    sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(simplify_graph(sat), gps, max_threshold=threshold_computations))
+    sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(sat, gps, max_threshold=threshold_computations))
 
     logger("Pruning Sat-vs-GPS graph.") # Extract edges of sat which are covered by gps.
     intersection = _read_and_or_write("intersection", lambda: prune_coverage_graph(sat_vs_gps, prune_threshold=prune_thresholds))
 
     ### Plot graph.
     if do_intersect and plot:
-        plot_graphs([intersection])
+        plot_graph(intersection)
 
     #### Naive merging.
     if do_merge_a:
 
         logger("Naive Merging.")
         # * We pick the edges from gps vs sat.
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(simplify_graph(gps), intersection, max_threshold=threshold_computations))
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
         # * Each edge which has a threshold above 20m is inserted into sat.
-        gps = graph_transform_latlon_to_utm(simplify_graph(gps))
         merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
 
         if plot:
             logger("Plot naive merging (without extensions).")
             merge_a = apply_coloring(merge_a)
             graph_annotate_edge_geometry(merge_a)
-            plot_graphs([graph_transform_latlon_to_utm(merge_a)])
+            plot_graph(merge_a)
 
     ### Naive merging with duplicate removal.
     if do_merge_b:
 
         logger("Naive merging with duplicate removal.")
 
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(simplify_graph(gps), intersection, max_threshold=threshold_computations))
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
         merge_b = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
 
         if plot:
             logger("Plot naive merging with duplicate removal.")
             merge_b = apply_coloring(merge_b)
-            plot_graphs([merge_b])
+            plot_graph(merge_b)
         
     ### Naive merging with duplicate removal and sat edge reconnection.
     if do_merge_c:
-        todo()
+        todo("Implement naive merge extension 2.")
 
     #### Splitpoint merging.
     if do_merge_x:
