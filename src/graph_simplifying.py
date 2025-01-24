@@ -85,8 +85,9 @@ def graph_paths_to_simplify(G):
 
 
 # Simplify graph (fuse edge curvature).
+# Optionally retain attributes on edges.
 @info()
-def simplify_graph(G):
+def simplify_graph(G, retain_attributes=False):
 
     graph_annotate_edge_curvature(G)
     graph_correctify_edge_curvature(G)
@@ -159,6 +160,33 @@ def simplify_graph(G):
         check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
 
         attributes = {"curvature": curvature}
+
+        ## Collecting edge attributes.
+        if retain_attributes:
+
+            path_attributes = {}
+            for eid in visited_eids:
+                attrs = get_edge(G, eid=eid)
+                for attr in [attr for attr in attrs if attr not in attributes_to_ignore]:
+                    if attr not in attributes_to_ignore:
+                        # If this attribute is already seen in a previous edge.
+                        if attr in path_attributes:
+                            # Then append this attribute value.
+                            path_attributes[attr].append(edge_data[attr])
+                        else:
+                            # Otherwise initiate this attribute with this attritube value.
+                            path_attributes[attr] = [edge_data[attr]]
+        
+            # Expect attribute consistency (The edges do not all need to have the attribute, but the total collection of those is exactly one unique attribute value).
+            for attr in path_attributes:
+                check(len(set(path_attributes[attr])) == 1, expect="Expect for any edge attribute to be identical among all subedges.")
+            
+            # Set the path attribute to this single unique value.
+            for attr in path_attributes:
+                path_attributes[attr] = path_attributes[attr][0]
+
+            # Add these attributes alongside the curvature.
+            attributes = {"curvature": curvature, **path_attributes}
 
         # Prepare data for insertion/deletion to/from graph.
         new_edges.append((visited_nids[0], visited_nids[-1], attributes))
