@@ -503,6 +503,59 @@ nearest_position_on_curve_to_point = lambda curve, point: nearest_position_and_i
 nearest_interval_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[1]
 
 
+### Graph distance
+
+# Compute distance between node and edge.
+def graph_distance_node_edge(G, nid, eid):
+    point = graphnode_position(G, nid)
+    curve = graphedge_curvature(G, eid)
+    # Seek distance between point and curve.
+    curvepoint = nearest_position_on_curve_to_point(curve, point)
+    return norm(point - curvepoint)
+
+# Obtain nearest node for nid in a graph.
+def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
+
+    if node_tree == None:
+        node_tree = graphnodes_to_rtree(G)
+
+    bbox = graphnode_to_bbox(G, nid)
+
+    # Iterate node tree till we find a nid not excluded.
+    for found in node_tree.nearest(bbox):
+        if found not in excluded_nids:
+            return found
+
+# Obtain nearest edge for 
+def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
+
+    if edge_tree == None:
+        edge_tree = graphedges_to_rtree(G)
+
+    # Seek distance to edge of first hit.
+    bbox = graphnode_to_bbox(G, nid)
+
+    eid = None
+    for found in edge_tree.nearest(bbox):
+        if found not in excluded_eids:
+            eid = found
+            break
+
+    distance = graph_distance_node_edge(G, nid, eid)
+
+    # Use this distance to find all edge bounding boxes within that distance.
+    bbox = graphnode_to_bbox(G, nid, padding=distance)
+    eids = intersect_rtree_bbox(edge_tree, bbox)
+
+    # Rerun against all edges and return lowest.
+    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in excluded_eids]
+
+    # Obtain lowest
+    eid, distance = min(distances, key=lambda x: x[1])
+
+    return eid
+
+
 ## Arbitrary
 
 # Unzip a list of pairs into a pair of lists.
