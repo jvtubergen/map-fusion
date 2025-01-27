@@ -88,7 +88,7 @@ def graph_paths_to_simplify(G):
 # Simplify graph (fuse edge curvature).
 # Optionally retain attributes on edges.
 @info()
-def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold"]): 
+def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold", "vectorized_from"]): 
 
     # Sanity check node position starts/ends at all edge curves.
     sanity_check_graph_curvature(G)
@@ -268,7 +268,7 @@ def group_multi_edges(G):
     return groups
 
 
-# Vectorize a network.
+# Vectorize a network and annotate every vectorized edge with its original simplified edge.
 # Note: Edge attributes are propogated to all new subcurve edges.
 # Note: Node attributes are propogated from starting node (index `u`).
 @info()
@@ -288,10 +288,15 @@ def vectorize_graph(G):
     old_edges = []
     new_nodes = []
     new_edges = []
+    
+    vectorized_from = {}
 
     for eid, old_edge_attrs in iterate_edges(G):
 
         ps = old_edge_attrs["curvature"]
+
+        if len(ps) == 2:
+            vectorized_from[eid[:2]] = eid # Drop eid key for linking.
 
         # We only have to perform work if an edge contains curvature. (If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.)
         if len(ps) > 2:
@@ -338,12 +343,18 @@ def vectorize_graph(G):
                 # Note: Set key at zero, because nodes in curvature implies a single path between nodes.
                 new_edges.append((u, v, {**old_edge_attrs, "curvature": curvature, "geometry": geometry, "length": length}))
 
+                # Track "vectorized_by".
+                vectorized_from[(u, v)] = eid
+
     G.remove_edges_from(old_edges)
     G.add_nodes_from(new_nodes)
     G.add_edges_from(new_edges)
 
     G.graph["simplified"] = False # Mark the graph as no longer being simplified.
     G = nx.Graph(G)
+
+    # Annotate edges with the "vectorized_from" attribute.
+    nx.set_edge_attributes(G, {(u, v): {"vectorized_from": simplified_eid} for (u, v), simplified_eid in vectorized_from.items()})
 
     return G
 
