@@ -54,7 +54,7 @@ def graphedges_to_bboxs(G, padding=0):
 
 def graphnode_position(G, nid):
     position = y, x = G._node[nid]['y'], G._node[nid]['x'],
-    return position
+    return array(position)
 
 # Construct bounding box around node position.
 def graphnode_to_bbox(G, nid, padding=0):
@@ -513,6 +513,11 @@ def graph_distance_node_edge(G, nid, eid):
     curvepoint = nearest_position_on_curve_to_point(curve, point)
     return norm(point - curvepoint)
 
+def graph_distance_node_node(G, u, v):
+    p = graphnode_position(G, u)
+    q = graphnode_position(G, v)
+    return norm(p - q)
+
 # Obtain nearest node for nid in a graph.
 def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 
@@ -522,9 +527,12 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
     bbox = graphnode_to_bbox(G, nid)
 
     # Iterate node tree till we find a nid not excluded.
+    excluded_nids = excluded_nids.union(nid)
     for found in node_tree.nearest(bbox):
         if found not in excluded_nids:
             return found
+    
+    check(False, expect="Expect to find nearest node.")
 
 # Obtain nearest edge for 
 def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
@@ -534,6 +542,9 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
 
     # Seek distance to edge of first hit.
     bbox = graphnode_to_bbox(G, nid)
+
+    # Extend excluded eids with those connected to nid.
+    excluded_eids = excluded_eids.union(set([eid for eid, _ in iterate_edges(G) if nid in set(eid[:2])]))
 
     eid = None
     for found in edge_tree.nearest(bbox):
