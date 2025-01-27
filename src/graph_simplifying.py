@@ -88,7 +88,7 @@ def graph_paths_to_simplify(G):
 # Simplify graph (fuse edge curvature).
 # Optionally retain attributes on edges.
 @info()
-def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold", "vectorized_from"]): 
+def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold", "covered_by", "vectorized_from"]): 
 
     # Sanity check node position starts/ends at all edge curves.
     sanity_check_graph_curvature(G)

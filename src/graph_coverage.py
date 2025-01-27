@@ -50,6 +50,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
         T = graph_transform_latlon_to_utm(T)
 
     # We allow target to be vectorized, it causes no loss of information (since target is not being adjusted).
+    was_simplified = T.graph["simplified"]
     if T.graph["simplified"]:
         T = vectorize_graph(T)
 
@@ -57,6 +58,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
     leftS  = set([eid for eid, _ in iterate_edges(S)]) # Edges we seek a threshold value for.
     lam    = 1 # Start with a threshold of 1 meter.
     thresholds = {} # Currently found thresholds.
+    covered_by = {} # Track (collection of) edges of T which covers the edge of S.
     
     # Link a curve to every simplified edge.
     curves = {}
@@ -110,15 +112,37 @@ def edge_graph_coverage(S, T, max_threshold=None):
                 leftS = leftS - set([eid]) 
                 # Save threshold to apply later.
                 thresholds[eid] = lam
+                # Store the path (edge identifiers) which curvature is used to cover this edge of S.
+                # NOTE: Path is a sequence of node identifiers traversed. This represents thereby as well the traversed edges (and thus the curvature).
+                #       These eids are always `(u, v)` because T is vectorized at this point.
+                #       If T was originally a simplified graph, we will reconstruct the simplified edges involved at the end of this function
+                covered_by[eid] = list(zip(path[:-1], path[1:]))
 
         lam += 1 # Increment lambda.
 
-    # Set unprocessed edges to have infinite threshold.
+    # Set unprocessed edges to have infinite threshold and no coverage edge identifiers.
     for eid in leftS:
         thresholds[eid] = inf
+        covered_by[eid] = []
+    
+    # If T was simplified at input.
+    if was_simplified:
+        # Then transform the "covered_by" of vectorized edges into its simplified edges origin.
 
-    # Set thresholds for each edge.
-    nx.set_edge_attributes(S, {eid: {**attrs, "threshold": thresholds[eid]} for eid, attrs in iterate_edges(S)}) 
+        new_covered_by = {}
+        for S_eid, _ in iterate_edges(S): # We want to annotate every edge of S.
+
+            new_covered_by[S_eid] = set()
+
+            for T_eid in covered_by[S_eid]: # We extract simplified edges from all vectorized edges that participated.
+
+                related_simplified_edge = get_edge_attributes(T, T_eid)["vectorized_from"]
+                new_covered_by[S_eid] = new_covered_by[S_eid].union(set(related_simplified_edge))
+        
+        covered_by = new_covered_by
+
+    # Set threshold and covered_by for each edge.
+    nx.set_edge_attributes(S, {eid: {**attrs, "threshold": thresholds[eid], "covered_by": covered_by[eid]} for eid, attrs in iterate_edges(S)}) 
 
     # Restore graph to input state.
     if convert_to_utm:
