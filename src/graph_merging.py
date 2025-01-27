@@ -135,18 +135,19 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
 
-        # Extract A_prime (injected subgraph of A with connection edges to C).
-        A_prime_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
-        A_prime_nids = filter_nids_by_attribute(C, filter_attributes={"origin": "B"})
-        A_prime = C.edge_subgraph(A_prime_eids)
-        
-        C_prime = C.edge_subgraph(set([eid for eid, _ in iterate_edges(C)]) - set(A_prime_eids))
+        # Update B: It now includes connection edges (the injected subgraph of A with connection edges to C).
+        B_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
+        B_nids = filter_nids_by_attribute(C, filter_attributes={"origin": "B"})
+        B = C.edge_subgraph(B_eids)
 
-        # Sanity check that A_prime contains exactly those nodes in A_prime_nids.
+        # Sanity check that B contains exactly those nodes in B_nids.
         hits = [connection[1] for connection in connections] # Those nodes endpoints of C connected to injected A edges.
-        check(set(A_prime_nids).union(hits) == set(A_prime.nodes()), expect="Expect nids subgraph from C to match those nodes attributed with origin of B.")
+        check(set(B_nids).union(hits) == set(B.nodes()), expect="Expect nids subgraph from C to match those nodes attributed with origin of B.")
+        
+        # Obtain C graph before we injected edges.
+        C_original = C.edge_subgraph(set([eid for eid, _ in iterate_edges(C)]) - set(B_eids))
 
-        ## Find edges of C which are covered by the injected B edges (which are all of them in A_prime) and then remove them.
+        ## Find edges of C which are covered by the injected B edges (which are all of them in B) and then remove them.
 
         # Reset coverage threshold information on a graph.
         def clear_coverage_threshold_information(G):
@@ -156,12 +157,12 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
                     attrs.pop("threshold")
 
         # Reset coverage threshold information on C.
-        clear_coverage_threshold_information(C_prime)
-        C_prime_covered_by_A_prime = edge_graph_coverage(C_prime, A_prime, max_threshold=prune_threshold)
+        clear_coverage_threshold_information(C_original)
+        C_original_covered_by_B = edge_graph_coverage(C_original, B, max_threshold=prune_threshold)
 
-        # Obtain edges of C covered (or uncovered) by edges of A_prime
-        above = [eid for eid, attrs in iterate_edges(C_prime_covered_by_A_prime) if attrs["threshold"] >  prune_threshold]
-        below = [eid for eid, attrs in iterate_edges(C_prime_covered_by_A_prime) if attrs["threshold"] <= prune_threshold]
+        # Obtain edges of C covered (or uncovered) by edges of B
+        above = [eid for eid, attrs in iterate_edges(C_original_covered_by_B) if attrs["threshold"] >  prune_threshold]
+        below = [eid for eid, attrs in iterate_edges(C_original_covered_by_B) if attrs["threshold"] <= prune_threshold]
         edges_to_be_deleted = below
 
         # Obtain nodes to be deleted from C (those nodes which are part of covered edges but of no uncovered edge).
