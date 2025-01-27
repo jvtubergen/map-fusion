@@ -132,7 +132,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Add edge connections between B and C.
     C.add_edges_from(connections)
 
-    # TODO: Extension a: Remove duplicated edges of C.
+    # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
 
         # Extract A_prime (injected subgraph of A with connection edges to C).
@@ -169,16 +169,12 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         nodes_below = set([nid for el in below for nid in el[0:2]]) 
         nodes_to_be_deleted = nodes_below - nodes_above
 
-        # Mark edges that are deleted.
-        render_update = {}
-        for eid in edges_to_be_deleted:
-            render_update[eid] = {**C_covered_by_B.edges[eid], "render": "deleted"}
-        nx.set_edge_attributes(C, render_update)
-        annotate_edges(C, {"render": "deleted"}, eids=edges_to_be_deleted)
+        # Mark edges for deletion.
+        annotate_edges(C, {"render": "deleted"}, eids=list(edges_to_be_deleted))
         # C.remove_edges_from(edges_to_be_deleted)
 
         # Delete nodes (Mark nodes for deletion).
-        annotate_nodes(C, {"render": "deleted"}, nids=nodes_to_be_deleted)
+        annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
         # C.remove_nodes_from(nodes_to_be_deleted)
 
     # TODO: Extension b: Reconnect edges of C to injected edges of A into B.
@@ -214,6 +210,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         # Apply nearest_edge injection.
         for nid in nodes_to_connect:
             connect_nearest_edge(C, nid)
+    
+    # TODO: Remove nodes and edges with "render": "deleted" attribute.
 
     # Convert back graph to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
