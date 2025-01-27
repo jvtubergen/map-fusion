@@ -85,6 +85,14 @@ def edge_graph_coverage(S, T, max_threshold=None):
         
         # Store.
         subgraphs[eid] = subgraph
+    
+    # Sanity check subgraphs make sense.
+    node_tree = graphnodes_to_rtree(S)
+    edge_bboxs = graphedges_to_bboxs(S, padding=1)
+    for eid in leftS:
+        nearby_nids = intersect_rtree_bbox(node_tree, edge_bboxs[eid])
+        eids = set(flatten([get_connected_eids(S, nid) for nid in nearby_nids]))
+        check(eid in eids, expect="Expect the eid to be present within the set: The edges adjacent to nodes captured by the edgebbox of eid.")
 
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
     while len(leftS) > 0 and (max_threshold == None or lam <= max_threshold):
