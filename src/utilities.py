@@ -33,35 +33,39 @@ def graphedges_to_rtree(G):
 
 ### Bounding boxes
 
+def graphedge_curvature(G, eid):
+    attrs = get_edge_attributes(G, eid)
+    ps = attrs["curvature"]
+    return ps
+
+def graphedge_to_bbox(G, eid, padding=0):
+    ps = graphedge_curvature(G, eid)
+    miny = min(ps[:,0])
+    maxy = max(ps[:,0])
+    minx = min(ps[:,1])
+    maxx = max(ps[:,1])
+    bbox = array([(miny, minx), (maxy, maxx)])
+    return pad_bounding_box(bbox, padding)
+
 # Construct dictionary that links edge id to a bounding box.
 # Note: Padding has to be added manually afterwards if needed.
 def graphedges_to_bboxs(G, padding=0):
+    return {eid: graphedge_to_bbox(G, eid, padding=padding) for eid, _ in iterate_edges(G)}
 
-    bboxs = {}
-    
-    for eid, attrs in iterate_edges(G):
-        ps = attrs["curvature"]
-        miny = min(ps[:,0])
-        maxy = max(ps[:,0])
-        minx = min(ps[:,1])
-        maxx = max(ps[:,1])
-        bbox = array([(miny, minx), (maxy, maxx)])
-        bboxs[eid] = pad_bounding_box(bbox, padding)
+def graphnode_position(G, nid):
+    position = y, x = G._node[nid]['y'], G._node[nid]['x'],
+    return position
 
-    return bboxs
+# Construct bounding box around node position.
+def graphnode_to_bbox(G, nid, padding=0):
+    position = y, x = G._node[nid]['y'], G._node[nid]['x'],
+    bbox = bounding_box(array([position]))
+    return pad_bounding_box(bbox, padding)
 
 # Construct dictionary that links node id to a bounding box.
 # Note: Padding has to be added manually afterwards if needed.
-def graphnodes_to_bboxs(G):
-
-    bboxs = {}
-    
-    for nid, attrs in G.nodes(data=True):
-        position = [attrs["y"], attrs["x"]]
-        bboxs[nid] = bounding_box(array([position]))
-
-    return bboxs
-
+def graphnodes_to_bboxs(G, padding=0):
+    return {nid: graphnode_to_bbox(G, nid, padding=padding) for nid in G.nodes()}
 
 # Extract bounding box on a curve. Use padding to lambda pad.
 def bounding_box(ps, padding=0):
