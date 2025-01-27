@@ -490,7 +490,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     do_intersect = True
     do_merge_a = True
     do_merge_b = True
-    do_merge_c = False
+    do_merge_c = True
     do_merge_x = False
 
     _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **storage_props, **props)
@@ -562,8 +562,20 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     if do_merge_c:
         todo("Implement naive merge extension 2.")
 
+        logger("Naive merging with duplicate removal.")
+
+        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
+
+        merge_c = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
+
+        if plot:
+            logger("Plot naive merging with duplicate removal and reconnection.")
+            merge_c = apply_coloring(merge_c)
+            plot_graph(merge_c)
+
     #### Splitpoint merging.
     if do_merge_x:
+        todo("Re-iterate logic on splitpoint merging")
         logger("Splitpoint Merging.")
         merge_x = None
         
