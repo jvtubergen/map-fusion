@@ -56,6 +56,7 @@ array = np.array
 dataframe = gpd.GeoDataFrame
 
 flatten = itertools.chain.from_iterable
+combinations = itertools.combinations
 
 
 # Configurations.

@@ -1,6 +1,57 @@
 from external import * 
 from graph_node_extraction import *
 
+#######################################
+### Printing stuff with decorators.
+#######################################
+
+# Tracks current context (function stack).
+current_context = []
+
+# Track times.
+times = []
+
+# Decorator function to set context for printing debugging information.
+# Optionally print context on function launch.
+def info(print_context=True, timer=False):
+
+    # The decorator to return.
+    def decorator(func):
+
+        def wrapper(*args, **kwargs):
+
+            current_context.append(func.__name__)
+
+            context = " - ".join(current_context)
+
+            if print_context:
+                print(context)
+
+            if timer:
+                start_time = time()
+
+            result = func(*args, **kwargs)
+
+            if timer:
+                end_time = time()
+                execution_time = end_time - start_time
+                times.append([context, execution_time])
+
+            current_context.pop()
+
+            return result
+
+        return wrapper
+
+    return decorator
+
+
+# `log` is the same as `print`  with function context prepended.
+def logger(*args):
+    print(f"{" - ".join(current_context)}:", *args)
+
+
+
 ### R-Tree
 
 # Construct R-Tree on graph nodes.
@@ -8,7 +59,7 @@ def graphnodes_to_rtree(G):
 
     tree = rtree.index.Index()
 
-    for nid, attrs in G.nodes(data = True):
+    for nid, attrs in iterate_nodes(G):
         y, x = attrs['y'], attrs['x']
         tree.insert(nid, (y, x, y, x))
 
@@ -79,7 +130,11 @@ def pad_bounding_box(bb, padding):
     padding = array([padding, padding])
     return array([bb[0] - padding, bb[1] + padding])
 
-intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection((bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1])))
+flatten_bbox         = lambda bbox: (bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1])
+del_rtree_bbox       = lambda tree, value: tree.delete(value, tree.bounds)
+add_rtree_bbox       = lambda tree, bbox, value: tree.insert(value, flatten_bbox(bbox))
+intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection(flatten_bbox(bbox)))
+nearest_rtree_bbox   = lambda tree, bbox: list(tree.nearest(flatten_bbox(bbox), num_results=len(tree)))
 
 ## Curves
 
@@ -333,6 +388,9 @@ class GraphEntity(Enum):
     Edges = 0
     Nodes = 1
 
+get_eids = lambda G: [eid for eid, _ in iterate_edges(G)]
+get_nids = lambda G: list(G.nodes())
+
 # Iterate all edge identifiers alongside their attributes. Iterated element attributes are overwritable.
 def iterate_edges(G):
     if G.graph["simplified"]:
@@ -352,14 +410,40 @@ def iterate_nodes(G):
     for nid, attrs in G.nodes(data=True):
         yield nid, attrs
 
-# Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
-def get_edge_attributes(G, eid):
-    if G.graph["simplified"]:
+
+def format_eid(G, eid):
+
+    if len(eid) == 3:
         u, v, k = eid
-        return G.get_edge_data(u, v, k)
     else:
         u, v = eid
-        return G.get_edge_data(u, v)
+        k = 0
+
+    if G.graph["simplified"]:
+        eid = u, v, k 
+    else:
+        eid = u, v
+    
+    return eid
+
+
+# Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
+def get_edge_attributes(G, eid):
+    # eid = format_eid(G, eid)
+    return G.get_edge_data(*eid)
+
+# Set edge attribute.
+def set_edge_attributes(G, eid, attrs):
+    # eid = format_eid(G, eid)
+    nx.set_edge_attributes(G, {eid: attrs})
+
+
+def get_node_attributes(G, nid):
+    return G.get_node_data(nid)
+
+def set_node_attributes(G, nid, attrs):
+    nx.set_node_attributes(G, {nid: attrs})
+
 
 # Obtain connected edge identifiers to the provided node identifier.
 # Note: `(u, v)` or `(u, v, k)` always have lowest nid first (thus `u <= v`).
@@ -506,6 +590,7 @@ nearest_interval_on_curve_to_point = lambda curve, point: nearest_position_and_i
 ### Graph distance
 
 # Compute distance between node and edge.
+@info()
 def graph_distance_node_edge(G, nid, eid):
     point = graphnode_position(G, nid)
     curve = graphedge_curvature(G, eid)
@@ -513,12 +598,14 @@ def graph_distance_node_edge(G, nid, eid):
     curvepoint = nearest_position_on_curve_to_point(curve, point)
     return norm(point - curvepoint)
 
+@info()
 def graph_distance_node_node(G, u, v):
     p = graphnode_position(G, u)
     q = graphnode_position(G, v)
     return norm(p - q)
 
 # Obtain nearest node for nid in a graph.
+@info()
 def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 
     if node_tree == None:
@@ -526,15 +613,18 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 
     bbox = graphnode_to_bbox(G, nid)
 
+    # Exclude target nid from hitting.
+    excluded_nids = excluded_nids.union([nid])
+
     # Iterate node tree till we find a nid not excluded.
-    excluded_nids = excluded_nids.union(nid)
-    for found in node_tree.nearest(bbox):
+    for found in nearest_rtree_bbox(node_tree, bbox):
         if found not in excluded_nids:
             return found
     
     check(False, expect="Expect to find nearest node.")
 
 # Obtain nearest edge for 
+@info()
 def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
 
     if edge_tree == None:
@@ -547,10 +637,12 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
     excluded_eids = excluded_eids.union(set([eid for eid, _ in iterate_edges(G) if nid in set(eid[:2])]))
 
     eid = None
-    for found in edge_tree.nearest(bbox):
+    for found in nearest_rtree_bbox(edge_tree, bbox):
         if found not in excluded_eids:
             eid = found
             break
+    
+    check(eid != None, expect="Expect to find nearby edge.")
 
     distance = graph_distance_node_edge(G, nid, eid)
 
@@ -697,57 +789,6 @@ def sanity_check_graph_curvature(G):
         p, q = nid_positions[u], nid_positions[v]
         check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
         check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
-
-
-#######################################
-### Printing stuff with decorators.
-#######################################
-
-# Tracks current context (function stack).
-current_context = []
-
-# Track times.
-times = []
-
-# Decorator function to set context for printing debugging information.
-# Optionally print context on function launch.
-def info(print_context=True, timer=False):
-
-    # The decorator to return.
-    def decorator(func):
-
-        def wrapper(*args, **kwargs):
-
-            current_context.append(func.__name__)
-
-            context = " - ".join(current_context)
-
-            if print_context:
-                print(context)
-
-            if timer:
-                start_time = time()
-
-            result = func(*args, **kwargs)
-
-            if timer:
-                end_time = time()
-                execution_time = end_time - start_time
-                times.append([context, execution_time])
-
-            current_context.pop()
-
-            return result
-
-        return wrapper
-
-    return decorator
-
-
-# `log` is the same as `print`  with function context prepended.
-def logger(*args):
-    print(f"{" - ".join(current_context)}:", *args)
-
 
 # Assert with a breakpoint, so we can debug if an exception occurs.
 def check(statement, expect=None):

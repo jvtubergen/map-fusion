@@ -100,20 +100,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
     # Construct rtree on nodes in C.
     nodetree = graphnodes_to_rtree(C)
-
-    # Register edge connections for A to C. (Node-based inserted.)
-    connections = [] 
-    for nid in connect_nodes: # In case of `nearest_node` strategy we only care for node, ignore edge.
-
-        # Draw edge between nearest node in C and edge endpoint at w in B.
-        y, x = B._node[nid]['y'], A._node[nid]['x'],
-        hit = list(nodetree.nearest((y, x, y, x)))[0] # Seek nearest node.
-
-        # Add straight line curvature and geometry 
-        y2, x2 = C._node[hit]['y'], C._node[hit]['x'],
-        curvature = array([(y, x), (y2, x2)])
-        geometry = to_linestring(curvature)
-        connections.append((nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature, "origin": "B"}))
     
     ## Annotate origin attribute on B and C (Necessary in case we want to apply extensions).
     # Annotate "origin" of nodes and edges of C.
@@ -128,10 +114,27 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Inject B into C.
     C.add_nodes_from(list(iterate_nodes(B)))
     C.add_edges_from([(*eid[:2], attrs) for eid, attrs in iterate_edges(B)])
-    
-    # Add edge connections between B and C.
-    C.add_edges_from(connections)
 
+    ## Add edge connections between B and C.
+
+    # We want to connect edge endpoints (of B) to arbitrary node/edge of C.
+    # Therefore the node and edge tree we seek to search for are defined by C only.
+    node_tree = graphnodes_to_rtree(C)
+    edge_tree = graphedges_to_rtree(C)
+
+    # Iterate all nids which have to be connected (from B to C).
+    connections = []
+    logger("Connecting nodes.")
+    for nid in connect_nodes:
+
+        # Add new edge connection from nid (potentially cuts an edge in half).
+        new_eid, injection_data = reconnect_node(C, nid, excluded_nids=set(get_nids(B)), excluded_eids=set(get_eids(B)).union(connections)) 
+        set_edge_attributes(C, new_eid, {"render": "connection", "origin": "B"})
+        connections.append(new_eid)
+
+        if injection_data != None:
+            # Update attributes of injected node as well.
+            set_node_attributes(C, injection_data["new_nid"], {"render": "connection", "origin": "B"})
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
 
@@ -141,8 +144,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         B = C.edge_subgraph(B_eids)
 
         # Sanity check that B contains exactly those nodes in B_nids.
-        hits = [connection[1] for connection in connections] # Those nodes endpoints of C connected to injected A edges.
-        check(set(B_nids).union(hits) == set(B.nodes()), expect="Expect nids subgraph from C to match those nodes attributed with origin of B.")
+        hits = [nid for connection in connections for nid in connection[:2]] # Those nodes endpoints of C connected to injected A edges.
+        check(set(B_nids).union(hits) == set(get_nids(B)), expect="Expect nids subgraph from C to match those nodes attributed with origin of B.")
         
         # Obtain C graph before we injected edges.
         C_original = C.edge_subgraph(set([eid for eid, _ in iterate_edges(C)]) - set(B_eids))
@@ -166,8 +169,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         edges_to_be_deleted = below
 
         # Obtain nodes to be deleted from C (those nodes which are part of covered edges but of no uncovered edge).
-        nodes_above = set([nid for el in above for nid in el[0:2]]) 
-        nodes_below = set([nid for el in below for nid in el[0:2]]) 
+        nodes_above = set([nid for eid in above for nid in eid[0:2]]) 
+        nodes_below = set([nid for eid in below for nid in eid[0:2]]) 
         nodes_to_be_deleted = nodes_below - nodes_above
 
         # Mark edges for deletion.
@@ -222,38 +225,60 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     return C
 
 
-def connect_nearest_edge(G, nid):
-    position = G.nodes(data=True)[nid]
-    y, x = position["y"], position["x"]
+# Reconnect node to graph.
+# * Returns inject eid.
+# * Optionally allow only to reconnect to a subselection of nodes and/or edges.
+# * Pass forward node_tree and edge_tree to significantly improve performance.
+@info()
+def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excluded_nids=set(), excluded_eids=set()):
+
+    # Injection data (Set if we cut edge).
+    injection_data = None
 
     # Find nearest node.
-    hit, distance = osmnx.distance.nearest_nodes(G, x, y, return_dist=True)
-    if distance < 10: # simply connect to node.
-        if not G.graph["simplified"]:
-            G.add_edges_from([(nid, hit, {"render": "connection"})])
-        else:
-            y2, x2 = G._node[hit]['y'], G._node[hit]['x'],
-            curvature = array([(y, x), (y2, x2)])
-            geometry = to_linestring(curvature)
-            G.add_edges_from([(nid, hit, {"render": "connection", "geometry": geometry, "curvature": curvature})])
-        return G
+    hit = nearest_node(G, nid, node_tree=node_tree, excluded_nids=excluded_nids)
+    eid = nearest_edge(G, nid, edge_tree=edge_tree, excluded_eids=excluded_eids)
 
-    # TODO: Optimization: Prefilter out edges within `distance` bounding box.
-    # relevant_edges = [] # [(eid, attrs)]
-    # Convert edges into curve_points, eid
-    curves = G
-        # TODO: Link eids to identifiers.
-    # TODO: Find nearest edge and point of intersection.
-    # TODO: Cut nearest edge at point of intersection, connect new node, resolve.
-    nid = max(G.nodes()) + 1 
-    return G
+    # Check distance below `nid_distance`.
+    hit_distance = graph_distance_node_node(G, nid, hit)
+    eid_distance = graph_distance_node_edge(G, nid, eid)
 
+    # If eid is significantly more nearby than hid.
+    if hit_distance - eid_distance > nid_distance:
 
-# Functionality for merging an edge with the `nearest_edge` strategy.
-# Inject edge at endpoint with G.
-# Find edge in G that is most suitable for injection.
-# Apply 
-def merge_nearest_edge(G, nidstart, edge, endpoint):
-    nid = max(G.nodes()) + 1
-    # Naive approach: 
-    # Take curvature 
+        ## Then add a cutpoint to the edge and use that cutpoint as the connection point.
+
+        # Find curve interval nearest to nid.
+        point = graphnode_position(G, nid)
+        attrs = get_edge_attributes(G, eid)
+        curve = attrs["curvature"]
+        interval = nearest_interval_on_curve_to_point(curve, point)
+        # check(interval > 0.001 and interval < 0.999, expect="Expect to have interval not nearby edge endpoints, ")
+
+        # Cut at interval.
+        G, data = graph_cut_edge_intervals(G, eid, [interval])
+        new_nid = data["nids"][0]
+        new_eids = data["eids"]
+
+        # Annotate both subedges with original edge attributes (`graph_cut_edge_intervals` has already annotated curvature, geometry, length).
+        nx.set_edge_attributes(G, {new_eid: {**attrs, **get_edge_attributes(G, new_eid)} for new_eid in new_eids})
+
+        hit = new_nid
+
+        # Set injection data for post-processing in caller.
+        injection_data = {
+            "new_nid": new_nid,
+            "new_eids": new_eids,
+            "old_eid": eid
+        }
+    
+    # Inject new edge and annotate it.
+    u, v = min(nid, hit), max(nid, hit)
+    eid = format_eid(G, (u, v)) # Format eid to with/without key (thus double or triplet).
+
+    # TODO: Sanity check no edge exists between nodes.
+    # Ensure injected edge has curvature etcetera set.
+    G.add_edge(*eid)
+    graph_annotate_edge(G, eid)
+
+    return eid, injection_data

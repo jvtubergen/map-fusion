@@ -74,6 +74,23 @@ def graph_annotate_edge_curvature(G):
         check(type(attrs["curvature"]) == type(array([])))
 
 
+# Annotate edge with basic attribute information (curvature, geometry and length).
+def graph_annotate_edge(G, eid):
+    
+    attrs = get_edge_attributes(G, eid)
+
+    if "curvature" in attrs:
+        curvature = attrs["curvature"]
+    else:
+        p = graphnode_position(G, eid[0])
+        q = graphnode_position(G, eid[1])
+        curvature = array([p, q])
+
+    geometry = to_linestring(curvature)
+    length = curve_length(curvature)
+
+    set_edge_attributes(G, eid, {"curvature": curvature, "geometry": geometry, "length": length})
+
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
 @info()
 def graph_correctify_edge_curvature(G):
@@ -145,9 +162,12 @@ def graph_cut_edge_subcurves(G, eid, qss):
 
     # Schedule new edges for injection.
     u, v = eid[0:2]
-    edge_links = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
-    for (u, v), curvature in zip(edge_links, qss):
-        edges_to_add.append((u, v, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
+    # BUG: Reorganize `eid` to respect `u <= v`.
+    new_eids = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
+    new_eids = [format_eid(G, eid) for eid in new_eids]
+    for eid, curvature in zip(new_eids, qss):
+        # BUG: Fix curvature to match with `eid` order.
+        edges_to_add.append((*eid, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
 
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
@@ -155,7 +175,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
     logger("Injecting nodes: ", new_nids)
     check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length remains consistent after cutting edges into subcurves." )
 
-    return G, {"nids": nodes_to_add, "eids": edges_to_add}
+    return G, {"nids": new_nids, "eids": new_eids}
 
 
 # Replace edge with subedges at provided intervals.
