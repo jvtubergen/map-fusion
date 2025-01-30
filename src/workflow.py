@@ -425,6 +425,14 @@ def linewidth_mapper(render):
         case "original":
             return 1
 
+# Remove nodes and edges with `{"render": "deleted"}` attribute.
+def remove_deleted(G):
+    G = G.copy()
+    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+    G.remove_edges_from(edges_to_be_deleted)
+    G.remove_nodes_from(nodes_to_be_deleted)
+    return G
 
 def apply_coloring(G):
 
@@ -541,6 +549,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         if plot:
             logger("Plot naive merging (without extensions).")
             merge_a = apply_coloring(merge_a)
+            # merge_a = remove_deleted(merge_a)
             graph_annotate_edge_geometry(merge_a)
             plot_graph(merge_a)
 
@@ -556,6 +565,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         if plot:
             logger("Plot naive merging with duplicate removal.")
             merge_b = apply_coloring(merge_b)
+            # merge_b = remove_deleted(merge_b)
             plot_graph(merge_b)
         
     ### Naive merging with duplicate removal and sat edge reconnection.
@@ -571,6 +581,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         if plot:
             logger("Plot naive merging with duplicate removal and reconnection.")
             merge_c = apply_coloring(merge_c)
+            # merge_c = remove_deleted(merge_c)
             plot_graph(merge_c)
 
     #### Splitpoint merging.

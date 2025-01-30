@@ -198,12 +198,10 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
         # Mark edges for deletion.
         annotate_edges(C, {"render": "deleted"}, eids=list(edges_to_be_deleted))
-        # C.remove_edges_from(edges_to_be_deleted)
 
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
-        # C.remove_nodes_from(nodes_to_be_deleted)
-
+    
     # TODO: Extension b: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
 
@@ -238,8 +236,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         for nid in nodes_to_connect:
             connect_nearest_edge(C, nid)
     
-    # TODO: Remove nodes and edges with "render": "deleted" attribute.
-
     # Convert back graph to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
         utm_info = graph_utm_info(_C)
