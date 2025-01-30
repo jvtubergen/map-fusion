@@ -109,9 +109,12 @@ def graph_correctify_edge_curvature(G):
         check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
 
         # In case the direction of the curvature is inverted.
-        if is_inverted_direction: 
+        if u != v and is_inverted_direction: 
+
+            k = 0 if len(eid) == 2 else eid[2]
+
             # Then invert the direction back.
-            # print("flip around geometry", (u, v, k))
+            logger("Invert curvature of edge ", (u, v, k))
             ps = ps[::-1]
             geometry = to_linestring(ps)
             nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
@@ -162,17 +165,17 @@ def graph_cut_edge_subcurves(G, eid, qss):
 
     # Schedule new edges for injection.
     u, v = eid[0:2]
-    # BUG: Reorganize `eid` to respect `u <= v`.
+    # Reorganize `eid` to respect `u <= v`.
     new_eids = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
     new_eids = [format_eid(G, eid) for eid in new_eids]
     for eid, curvature in zip(new_eids, qss):
-        # BUG: Fix curvature to match with `eid` order.
+        # Fix curvature to match with `eid` order.
         edges_to_add.append((*eid, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
 
+    # Injected nodes and edges.
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    logger("Injecting nodes: ", new_nids)
     check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length remains consistent after cutting edges into subcurves." )
 
     return G, {"nids": new_nids, "eids": new_eids}

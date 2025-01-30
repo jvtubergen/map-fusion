@@ -122,19 +122,42 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     node_tree = graphnodes_to_rtree(C)
     edge_tree = graphedges_to_rtree(C)
 
+    excluded_eids = set(get_eids(B))
+    excluded_nids = set(get_nids(B))
+
     # Iterate all nids which have to be connected (from B to C).
     connections = []
     logger("Connecting nodes.")
     for nid in connect_nodes:
 
         # Add new edge connection from nid (potentially cuts an edge in half).
-        new_eid, injection_data = reconnect_node(C, nid, excluded_nids=set(get_nids(B)), excluded_eids=set(get_eids(B)).union(connections)) 
+        new_eid, injection_data = reconnect_node(C, nid, node_tree=node_tree, edge_tree=edge_tree, excluded_nids=excluded_nids, excluded_eids=excluded_eids.union(connections)) 
         set_edge_attributes(C, new_eid, {"render": "connection", "origin": "B"})
         connections.append(new_eid)
 
+        # If we had to inject a node (to C) for a connection.
         if injection_data != None:
+
+            # Then update the node-tree and edge-tree.
+            new_nid, new_eids, old_eid = injection_data["new_nid"], injection_data["new_eids"], injection_data["old_eid"]
+
             # Update attributes of injected node as well.
-            set_node_attributes(C, injection_data["new_nid"], {"render": "connection", "origin": "B"})
+            set_node_attributes(C, new_nid, {"render": "connection", "origin": "B"})
+
+            # (Updating node tree.)
+            bbox = graphnode_to_bbox(C, new_nid)
+            add_rtree_bbox(node_tree, bbox, new_nid)
+
+            # (Insert new subedges to edge tree.)
+            add_rtree_bbox(edge_tree, graphedge_to_bbox(C, new_eids[0]), new_eids[0])
+            add_rtree_bbox(edge_tree, graphedge_to_bbox(C, new_eids[1]), new_eids[1])
+
+            # Exclude removed eid from intersection set.
+            # (Don't remove old edge from edge tree: Bug in rtree software causing error on subsequent hits.)
+            excluded_eids.add(old_eid)
+    # Correctify edge curvature.
+    graph_correctify_edge_curvature(C)
+    
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
 
@@ -257,8 +280,8 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
 
         # Cut at interval.
         G, data = graph_cut_edge_intervals(G, eid, [interval])
-        new_nid = data["nids"][0]
-        new_eids = data["eids"]
+        new_nid  = data["nids"][0]
+        new_eids = [format_eid(G, eid) for eid in data["eids"]]
 
         # Annotate both subedges with original edge attributes (`graph_cut_edge_intervals` has already annotated curvature, geometry, length).
         nx.set_edge_attributes(G, {new_eid: {**attrs, **get_edge_attributes(G, new_eid)} for new_eid in new_eids})
@@ -273,8 +296,7 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
         }
     
     # Inject new edge and annotate it.
-    u, v = min(nid, hit), max(nid, hit)
-    eid = format_eid(G, (u, v)) # Format eid to with/without key (thus double or triplet).
+    eid = format_eid(G, (nid, hit)) # Format eid to with/without key (thus double or triplet).
 
     # TODO: Sanity check no edge exists between nodes.
     # Ensure injected edge has curvature etcetera set.

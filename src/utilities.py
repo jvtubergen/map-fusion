@@ -411,18 +411,20 @@ def iterate_nodes(G):
         yield nid, attrs
 
 
+# Format edge identifier to graph type.
 def format_eid(G, eid):
 
-    if len(eid) == 3:
-        u, v, k = eid
-    else:
-        u, v = eid
-        k = 0
+    u, v = sorted(eid[:2])
 
+    # Obtain `k`.
+    k = 0
+    if len(eid) == 3:
+        k = eid[2]
+
+    # Pair or triplet.
+    eid = u, v
     if G.graph["simplified"]:
         eid = u, v, k 
-    else:
-        eid = u, v
     
     return eid
 
