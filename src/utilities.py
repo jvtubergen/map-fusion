@@ -588,6 +588,13 @@ nearest_position_on_curve_to_point = lambda curve, point: nearest_position_and_i
 # Wrapper function to only obtain nearest curve interval on curve to point.
 nearest_interval_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[1]
 
+def test_nearest_position_and_interval_on_curve_to_point():
+
+    curve = array([[i, 0.0] for i in range(11)])
+    point = array([5, 5])
+    check(abs(nearest_interval_on_curve_to_point(curve, point) - 0.5) < 0.001)
+    check(abs(norm(nearest_position_on_curve_to_point(curve, point) - point) - 5) < 0.001)
+
 
 ### Graph distance
 
@@ -616,11 +623,11 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
     bbox = graphnode_to_bbox(G, nid)
 
     # Exclude target nid from hitting.
-    excluded_nids = excluded_nids.union([nid])
+    to_exclude = excluded_nids.union([nid])
 
     # Iterate node tree till we find a nid not excluded.
     for found in nearest_rtree_bbox(node_tree, bbox):
-        if found not in excluded_nids:
+        if found not in to_exclude:
             return found
     
     check(False, expect="Expect to find nearest node.")
@@ -636,11 +643,11 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
     bbox = graphnode_to_bbox(G, nid)
 
     # Extend excluded eids with those connected to nid.
-    excluded_eids = excluded_eids.union(set([eid for eid, _ in iterate_edges(G) if nid in set(eid[:2])]))
+    to_exclude = excluded_eids.union(set([format_eid(G, eid) for eid in G.edges(nid, keys=True)]))
 
     eid = None
     for found in nearest_rtree_bbox(edge_tree, bbox):
-        if found not in excluded_eids:
+        if found not in to_exclude:
             eid = found
             break
     
@@ -653,7 +660,7 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
     eids = intersect_rtree_bbox(edge_tree, bbox)
 
     # Rerun against all edges and return lowest.
-    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in excluded_eids]
+    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in to_exclude]
 
     # Obtain lowest
     eid, distance = min(distances, key=lambda x: x[1])
