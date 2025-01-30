@@ -285,6 +285,8 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
 
         # Annotate both subedges with original edge attributes (`graph_cut_edge_intervals` has already annotated curvature, geometry, length).
         nx.set_edge_attributes(G, {new_eid: {**attrs, **get_edge_attributes(G, new_eid)} for new_eid in new_eids})
+        graph_correctify_edge_curvature_single(G, new_eids[0])
+        graph_correctify_edge_curvature_single(G, new_eids[1])
 
         hit = new_nid
 
@@ -298,9 +300,9 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
     # Inject new edge and annotate it.
     eid = format_eid(G, (nid, hit)) # Format eid to with/without key (thus double or triplet).
 
-    # TODO: Sanity check no edge exists between nodes.
     # Ensure injected edge has curvature etcetera set.
     G.add_edge(*eid)
     graph_annotate_edge(G, eid)
+    graph_correctify_edge_curvature_single(G, eid)
 
     return eid, injection_data

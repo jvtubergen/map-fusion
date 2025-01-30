@@ -92,32 +92,38 @@ def graph_annotate_edge(G, eid):
     set_edge_attributes(G, eid, {"curvature": curvature, "geometry": geometry, "length": length})
 
 # Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
+
+def graph_correctify_edge_curvature_single(G, eid):
+
+    # We expect to have curvature in the edge, obtain it..
+    u, v = eid[0:2]
+    check(u <= v)
+
+    attrs = get_edge_attributes(G, eid)  
+    ps = attrs["curvature"]
+
+    is_correct_direction = np.all(array(ps[0]) == array(graphnode_position(G, u))) and np.all(array(ps[-1]) == array(graphnode_position(G, v)))
+    is_inverted_direction = np.all(array(ps[0]) == array(graphnode_position(G, v))) and np.all(array(ps[-1]) == array(graphnode_position(G, u)))
+
+    check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
+
+    # In case the direction of the curvature is inverted.
+    if u != v and is_inverted_direction: 
+
+        k = 0 if len(eid) == 2 else eid[2]
+
+        # Then invert the direction back.
+        logger("Invert curvature of edge ", (u, v, k))
+        ps = ps[::-1]
+        geometry = to_linestring(ps)
+        nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
+
+
 @info()
-def graph_correctify_edge_curvature(G):
+def graph_correctify_edge_curvature(G, eid=None):
 
-    node_positions = extract_node_positions_dictionary(G)
     for eid, attrs in iterate_edges(G):
-
-        # We expect to have curvature in the edge, obtain it..
-        u, v = eid[0:2]
-        ps = attrs["curvature"]
-
-        # Check whether the curvature is aligned with the node positions.
-        is_correct_direction = np.all(array(ps[0]) == array(node_positions[u])) and np.all(array(ps[-1]) == array(node_positions[v]))
-        is_inverted_direction = np.all(array(ps[0]) == array(node_positions[v])) and np.all(array(ps[-1]) == array(node_positions[u]))
-
-        check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
-
-        # In case the direction of the curvature is inverted.
-        if u != v and is_inverted_direction: 
-
-            k = 0 if len(eid) == 2 else eid[2]
-
-            # Then invert the direction back.
-            logger("Invert curvature of edge ", (u, v, k))
-            ps = ps[::-1]
-            geometry = to_linestring(ps)
-            nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
+        graph_correctify_edge_curvature_single(G, eid)
 
 
 ## Graph edge curvature cutting.
