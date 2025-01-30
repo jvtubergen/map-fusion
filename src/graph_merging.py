@@ -142,7 +142,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
             new_nid, new_eids, old_eid = injection_data["new_nid"], injection_data["new_eids"], injection_data["old_eid"]
 
             # Update attributes of injected node as well.
-            set_node_attributes(C, new_nid, {"render": "connection", "origin": "B"})
+            set_node_attributes(C, new_nid, {"render": "connection", "origin": "C"})
 
             # (Updating node tree.)
             bbox = graphnode_to_bbox(C, new_nid)
@@ -155,6 +155,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
             # Exclude removed eid from intersection set.
             # (Don't remove old edge from edge tree: Bug in rtree software causing error on subsequent hits.)
             excluded_eids.add(old_eid)
+
     # Correctify edge curvature.
     graph_correctify_edge_curvature(C)
     
@@ -162,8 +163,14 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     if remove_duplicates: 
 
         # Update B: It now includes connection edges (the injected subgraph of A with connection edges to C).
-        B_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
-        B_nids = filter_nids_by_attribute(C, filter_attributes={"origin": "B"})
+        B_eids = set(filter_eids_by_attribute(C, filter_attributes={"origin": "B"}))
+        B_eids = B_eids.union(set(filter_eids_by_attribute(C, filter_attributes={"render": "connection"})))
+        B_eids = list(B_eids)
+
+        B_nids = set(filter_nids_by_attribute(C, filter_attributes={"origin": "B"}))
+        B_nids = B_nids.union(set(filter_nids_by_attribute(C, filter_attributes={"render": "connection"})))
+        B_nids = list(B_nids)
+
         B = C.edge_subgraph(B_eids)
 
         # Sanity check that B contains exactly those nodes in B_nids.
@@ -196,13 +203,19 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         nodes_below = set([nid for eid in below for nid in eid[0:2]]) 
         nodes_to_be_deleted = nodes_below - nodes_above
 
+        # Exclude edges covered by connection nodes: These edges are unrelated to curvature of injected node.
+        B_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
+        subgraph = C.edge_subgraph(B_eids)
+        connect_nodes = [nid for nid, _ in iterate_nodes(subgraph) if subgraph.degree[nid] == 1] # Nodes of B with a degree of 1.
+        edges_to_ignore = [eid for nid in connect_nodes for eid in edges_covered_by_nid(C, nid, prune_threshold)] # Edges of C covered by these connect nodes.
+
         # Mark edges for deletion.
-        annotate_edges(C, {"render": "deleted"}, eids=list(edges_to_be_deleted))
+        annotate_edges(C, {"render": "deleted"}, eids=list(set(edges_to_be_deleted) - set(edges_to_ignore)))
 
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
     
-    # TODO: Extension b: Reconnect edges of C to injected edges of A into B.
+    # Extension b: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
 
         # We require a list of removed sat edges (or what sat edges have a sat edge removed) _and_ a list of injected gps edges (B_prime).

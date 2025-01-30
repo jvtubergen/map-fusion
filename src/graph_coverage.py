@@ -20,6 +20,26 @@ def curve_by_curveset_coverage(ps, qss, lam):
     return False
 
 
+# Obtain edges covered by specific node.
+def edges_covered_by_nid(G, nid, threshold):
+
+    # Find nearby edges.
+    edge_tree = graphedges_to_rtree(G)
+    node_bbox = graphnode_to_bbox(G, nid, padding=threshold)
+    nearby_eids = intersect_rtree_bbox(edge_tree, node_bbox)
+
+    # Obtain max distance.
+    point = graphnode_position(G, nid)
+
+    # Max distance per edge to node.
+    distances = [max([norm(vec) for vec in graphedge_curvature(G, eid) - point]) for eid in nearby_eids]
+
+    # Return those below threshold.
+    eids_below_threshold = [eid for eid, distance in zip(nearby_eids, distances) if distance <= threshold]
+
+    return eids_below_threshold
+
+
 ###  Curve by network coverage
 
 # Obtain threshold per simplified edge of S in comparison to T.
