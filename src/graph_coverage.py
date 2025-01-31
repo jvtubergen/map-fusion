@@ -157,7 +157,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
             for T_eid in covered_by[S_eid]: # We extract simplified edges from all vectorized edges that participated.
 
                 related_simplified_edge = get_edge_attributes(T, T_eid)["vectorized_from"]
-                new_covered_by[S_eid] = new_covered_by[S_eid].union(set(related_simplified_edge))
+                new_covered_by[S_eid] = new_covered_by[S_eid].union(set([related_simplified_edge]))
         
         covered_by = new_covered_by
 
