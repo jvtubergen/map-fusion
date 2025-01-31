@@ -159,6 +159,10 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
     # Correctify edge curvature.
     graph_correctify_edge_curvature(C)
+
+    graphs = {
+        "a": C.copy()
+    }
     
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
@@ -215,6 +219,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
+    
+    graphs["b"] = C.copy()
     
     # Extension b: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
@@ -294,12 +300,14 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
     
+    graphs["c"] = C.copy()
+    
     # Convert back graph to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
         utm_info = graph_utm_info(_C)
         C = graph_transform_utm_to_latlon(C, "", **utm_info) 
 
-    return C
+    return graphs
 
 
 # Reconnect node to graph.

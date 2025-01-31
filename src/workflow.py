@@ -544,7 +544,8 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
         # * Each edge which has a threshold above 20m is inserted into sat.
-        merge_a = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
+        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
+        merge_a = graphs["a"]
 
         if plot:
             logger("Plot naive merging (without extensions).")
@@ -560,7 +561,8 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
-        merge_b = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
+        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
+        merge_b = graphs["b"]
 
         if plot:
             logger("Plot naive merging with duplicate removal.")
@@ -576,7 +578,8 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
-        merge_c = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
+        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
+        merge_c = graphs["c"]
 
         if plot:
             logger("Plot naive merging with duplicate removal and reconnection.")
@@ -601,7 +604,8 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         logger("Merge.")
         # TODO: support merging to vectorized graph. 
         intersection = simplify_graph(graph_transform_latlon_to_utm(intersection))
-        merge_x = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
+        graphs = merge_graphs(C=intersection, A=splitted_vs_intersection, prune_threshold=prune_thresholds)
+        merge_x = graphs["a"]
 
         if plot:
             # TODO: When vectorizing add edge properties to each edge which belongs to curvature originally simplified.
