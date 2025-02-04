@@ -163,5 +163,127 @@ def apply_measurements_maps(prepared_maps, threshold=30):
 # Construct typst table out of measurements data.
 @info()
 def measurements_to_table(measurements):
-    todo("Implement measurements to table.")
+    
+    # Construct a list of elements to print.
+    data = {}
+    for place in ["berlin", "chicago"]:
 
+        rows = []
+
+        for map_variant in set(measurements[place].keys()) - set(["osm"]):
+
+            row = []
+            row.append(measurements[place][map_variant]["topo"][1]["recall"])
+            row.append(measurements[place][map_variant]["topo"][1]["precision"])
+            row.append(measurements[place][map_variant]["topo"][1]["f1"])
+            row.append(measurements[place][map_variant]["apls"])
+
+            row.append(measurements[place][map_variant]["topo_prime"][1]["recall"])
+            row.append(measurements[place][map_variant]["topo_prime"][1]["precision"])
+            row.append(measurements[place][map_variant]["topo_prime"][1]["f1"])
+            row.append(measurements[place][map_variant]["apls_prime"])
+        
+            rows.append((map_variant, row))
+    
+        data[place] = rows
+
+
+    print(before)
+
+    # TODO: Upper-case and correct order.
+    # Print berlin results.
+    for rows in data["berlin"]:
+        print(f"[{rows[0]}], ", end="")
+        for row in rows[1]:
+            print(f"[{row:.3f}], ", end="")
+        print()
+
+    print(between)
+    
+    # Print chicago results.
+    for rows in data["chicago"]:
+        print(f"[{rows[0]}], ", end="")
+        for row in rows[1]:
+            print(f"[{row:.3f}], ", end="")
+        print()
+
+    print(after)
+
+
+
+
+
+
+before = """
+#show table.cell.where(y: 0): strong
+#set table(
+  stroke: (x, y) => 
+    if y == 0 {
+      if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
+      else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
+      else { ( bottom: 0.7pt + black)}
+    } else if x == 5 {
+      ( right: 0.7pt + black)
+    } else if x == 6 {
+      ( left: 0.7pt + black)
+    },
+  align: (x, y) => (
+    if x > 0 { center }
+    else { left }
+  ),
+  column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
+)
+
+#let pat = pattern(size: (30pt, 30pt))[
+  #place(line(start: (0%, 0%), end: (100%, 100%)))
+  #place(line(start: (0%, 100%), end: (100%, 0%)))
+]
+
+#table(
+  columns: 10,
+  table.header(
+    [],
+    [],
+    [Acc],
+    [Prec],
+    [$F_1$],
+    [APLS],
+    [Acc#super[$star$]],
+    [Prec#super[$star$]],
+    [$F_1$#super[$star$]],
+    [APLS#super[$star$]],
+  ),
+  table.cell(
+    rowspan: 2,
+    align: horizon,
+    [Berlin]
+  ),
+"""
+
+between = """
+  table.hline(
+    stroke: (
+      paint: luma(100),
+      dash: "dashed"
+    ),
+    start: 1,
+    end: 6
+  ),
+  table.hline(
+    stroke: (
+      paint: luma(100),
+      dash: "dashed"
+    ),
+    start: 6,
+    end:10 
+  ),
+  table.cell(
+    rowspan: 2,
+    align: horizon,
+    [Chicago]
+  ),
+"""
+
+after = """
+)
+"""
