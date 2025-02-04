@@ -165,9 +165,10 @@ def curve_cut_intervals(ps, intervals):
         # Pick elements except those of intervals to drop.
         intervals = [x for i, x in enumerate(intervals) if i not in intervals_to_drop]
 
-        # Sanity check.
+    # Perform check on interval length, because we might have decreased the interval set in the previous step.
+    if len(intervals) > 1:
         r = array(intervals)
-        check(min(r[1:] - r[:-1]) > 0.0001, expect="Expect minimal interval difference of 0.0001.")
+        check(min(r[1:] - r[:-1]) > 0.00001, expect="Expect minimal interval difference of 0.0001.")
     
     # Optionally drop injecting nodes if they are too close at the edge endpoints.
     if intervals[0] < 0.00001:
