@@ -97,34 +97,50 @@ def compute_topo(truth, proposed):
     return topo_score, topo_prime_score
 
 
-# Compute TOPO/APLS results on maps.
-@info()
-def measurements_maps(maps, threshold=30):
+# Precompute maps for measurements.
+def precompute_measurements_maps(maps):
 
-    measurements_results = {}
+    result = {}
 
     for place in ["chicago", "berlin"]:
 
-        measurements_results[place] = {}
-
-        osm = maps[place]["osm"]
-        truth = osm
-
-        # Note: We can re-use the precomputed graph data of the 'osm' graph on all computations.
-        #       All other graphs prepared only once.
-        truth_apls = prepare_graph_for_apls(truth)
-        truth_topo = prepare_graph_for_topo(truth)
+        result[place] = {}
 
         for map_variant in set(maps[place].keys()) - set(["osm"]):
 
             logger(f"{place} - {map_variant}.")
+            
+            graph = maps[place][map_variant]
 
-            _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{place}-{map_variant}-{filename}", action, **props)
+            result[place][map_variant] = {
+                "original": graph,
+                "topo": prepare_graph_for_topo(graph),
+                "apls": prepare_graph_for_apls(graph),
+            }
+    
+    return result
 
-            proposed = maps[place][map_variant]
 
-            apls, apls_prime = _read_and_or_write("apls", lambda: compute_apls(truth_apls, proposed), is_graph=False)
-            topo, topo_prime = _read_and_or_write("topo", lambda: compute_topo(truth_topo, proposed), is_graph=False)
+# Compute TOPO/APLS results on maps.
+@info(timer=True)
+def apply_measurements_maps(prepared_maps, threshold=30):
+
+    result = {}
+
+    for place in ["chicago", "berlin"]:
+
+        result[place] = {}
+
+        truth_apls = prepared_maps[place]["osm"]["apls"]
+        truth_topo = prepared_maps[place]["osm"]["topo"]
+
+        for map_variant in set(maps[place].keys()) - set(["osm"]):
+
+            proposed_apls = prepared_maps[place][map_variant]["apls"]
+            proposed_topo = prepared_maps[place][map_variant]["topo"]
+
+            apls, apls_prime = compute_apls(truth_apls, proposed_apls)
+            topo, topo_prime = compute_topo(truth_topo, proposed_topo)
 
             measurements_results[place][map_variant] = {
                 "apls": apls,
