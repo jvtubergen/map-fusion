@@ -65,23 +65,30 @@ def compute_apls(truth, proposed):
     return apls_score, apls_prime_score
 
 
+# Prepare graph for TOPO computations.
+@info()
+def prepare_graph_for_topo(G):
+
+    if "prepared" in G and G.graph["prepared"] == "topo":
+        return G
+
+    G = G.copy()
+
+    G = simplify_graph(G)
+    G = G.to_directed(G)
+    G = nx.MultiGraph(G)
+
+    graph_annotate_edge_curvature(G)
+    graph_annotate_edge_geometry(G)
+    graph_annotate_edge_length(G)
+
+    G.graph["prepared"] = "topo"
+
+    return G
+
 # Copmute TOPO metric between two graphs.
 @info()
 def compute_topo(truth, proposed):
-
-    def prepare_graph_for_topo(G):
-
-        G = G.copy()
-
-        G = simplify_graph(G)
-        G = G.to_directed(G)
-        G = nx.MultiGraph(G)
-
-        graph_annotate_edge_curvature(G)
-        graph_annotate_edge_geometry(G)
-        graph_annotate_edge_length(G)
-
-        return G
 
     truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
     topo_score = compute_topo_on_prepared_graph(truth, proposed)
@@ -103,6 +110,11 @@ def measurements_maps(maps, threshold=30):
         osm = maps[place]["osm"]
         truth = osm
 
+        # Note: We can re-use the precomputed graph data of the 'osm' graph on all computations.
+        #       All other graphs prepared only once.
+        truth_apls = prepare_graph_for_apls(truth)
+        truth_topo = prepare_graph_for_topo(truth)
+
         for map_variant in set(maps[place].keys()) - set(["osm"]):
 
             logger(f"{place} - {map_variant}.")
@@ -111,8 +123,8 @@ def measurements_maps(maps, threshold=30):
 
             proposed = maps[place][map_variant]
 
-            apls, apls_prime = _read_and_or_write("apls", lambda: compute_apls(truth, proposed), is_graph=False)
-            topo, topo_prime = _read_and_or_write("topo", lambda: compute_topo(truth, proposed), is_graph=False)
+            apls, apls_prime = _read_and_or_write("apls", lambda: compute_apls(truth_apls, proposed), is_graph=False)
+            topo, topo_prime = _read_and_or_write("topo", lambda: compute_topo(truth_topo, proposed), is_graph=False)
 
             measurements_results[place][map_variant] = {
                 "apls": apls,

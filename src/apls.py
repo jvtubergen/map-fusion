@@ -101,6 +101,34 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     return H_with_control_points, G_to_H
 
 
+# Prepare graph for APLS computations.
+# Note: Checks for the "prepared" attribute on whether it is already prepared.
+#       This can be a great performance gain on e.g. re-using a ground truth graph.
+def prepare_graph_for_apls(G):
+
+    if "prepared" in G and G.graph["prepared"] == "apls":
+
+        return G
+
+    G = G.copy()
+
+    if not G.graph["coordinates"] == "utm":
+        G = graph_transform_latlon_to_utm(G)
+
+    if not G.graph["simplified"]:
+        G = simplify_graph(G)
+
+    sanity_check_edge_length(G)
+    sanity_check_node_positions(G)
+
+    G = graph_ensure_max_edge_length(G, max_length=50)
+
+    sanity_check_edge_length(G)
+    sanity_check_node_positions(G)
+
+    G.graph["prepared"] = "apls"
+
+
 # Prepare graph data to be sampled for APLS.
 # * G has edges of max 50m length.
 # * H has nearby control points injected.
@@ -109,44 +137,8 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 @info(timer=True)
 def prepare_graph_data(G, H):
 
-    G = G.copy()
-    H = H.copy()
-
-    graph_annotate_edge_curvature(G)
-    graph_annotate_edge_curvature(H)
-
-    if not G.graph["coordinates"] == "utm":
-        G = graph_transform_latlon_to_utm(G)
-    if not H.graph["coordinates"] == "utm":
-        H = graph_transform_latlon_to_utm(H)
-
-    if not G.graph["simplified"]:
-        G = simplify_graph(G)
-    if not H.graph["simplified"]:
-        H = simplify_graph(H)
-
-    assert G.graph["simplified"]
-    assert H.graph["simplified"]
-
-    assert G.graph["coordinates"] == "utm"
-    assert H.graph["coordinates"] == "utm"
-
-    sanity_check_edge_length(G)
-    sanity_check_edge_length(H)
-    sanity_check_node_positions(G)
-    sanity_check_node_positions(H)
-
-    logger("Before: ", duplicated_nodes(G))
-
-    # Ensure lengths within 50m.
-    G = graph_ensure_max_edge_length(G, max_length=50)
-
-    logger("After:  ", duplicated_nodes(G))
-
-    sanity_check_edge_length(G)
-    sanity_check_edge_length(H)
-    sanity_check_node_positions(G)
-    sanity_check_node_positions(H)
+    G = prepare_graph_for_apls(G)
+    H = prepare_graph_for_apls(H)
 
     # Find and relate control points of G to H.
     # Note: All nodes (of the simplified graph) are control points.
