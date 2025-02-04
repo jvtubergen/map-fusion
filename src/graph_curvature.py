@@ -130,20 +130,20 @@ def graph_correctify_edge_curvature(G, eid=None):
 
 # Replace edge with subedges with provided subcurves.
 # * Allow to provide either curve intervals to cut at or the actual subcurves to replace the edge with.
-@info()
-def graph_cut_edge_subcurves(G, eid, qss):
+def graph_cut_edge_subcurves(G, eid, qss, sanity_checks=False):
 
-    # Store graph length for sanity checking graph length consistency.
-    length = graph_length(G)
+    if sanity_checks:
+        # Store graph length for afterwards sanity checking graph length consistency.
+        length = graph_length(G)
 
-    # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
-    ps = get_edge_attributes(G, eid)["curvature"]
-    check((ps[0]  == qss[0][0]).all(), expect="Expect first point of first subcurve to match eid curvature.")
-    check((ps[-1] == qss[-1][-1]).all(), expect="Expect last point of final subcurve to match eid curvature.")
-    check(abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001)
-    if len(ps) > 1:
-        for diff in ps[1:] - ps[:-1]:
-            check(norm(diff) > 0.0001, expect="Expect the replacement of curves by subcurves results in same curve length.")
+        # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
+        ps = get_edge_attributes(G, eid)["curvature"]
+        check((ps[0]  == qss[0][0]).all(), expect="Expect first point of first subcurve to match eid curvature.")
+        check((ps[-1] == qss[-1][-1]).all(), expect="Expect last point of final subcurve to match eid curvature.")
+        check(abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001)
+        if len(ps) > 1:
+            for diff in ps[1:] - ps[:-1]:
+                check(norm(diff) > 0.0001, expect="Expect the replacement of curves by subcurves results in same curve length.")
 
     # Remove the original edge.
     G.remove_edges_from([eid])
@@ -186,7 +186,8 @@ def graph_cut_edge_subcurves(G, eid, qss):
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length to remain consistent after cutting edges into subcurves." )
+    if sanity_checks:
+        check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length to remain consistent after cutting edges into subcurves." )
 
     return G, {"nids": new_nids, "eids": new_eids}
 
