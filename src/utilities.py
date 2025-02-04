@@ -627,9 +627,11 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 
     # Iterate node tree till we find a nid not excluded.
     for found in nearest_rtree_bbox(node_tree, bbox):
+        check(found != None, expect="Expect non-null node identifier found on seeking nearest element in rtree.")
         if found not in to_exclude:
             return found
     
+    logger(f"Checked {len(nearest_rtree_bbox(node_tree, bbox))} nearest elements out of {len(node_tree)} node-tree elements.")
     check(False, expect="Expect to find nearest node.")
 
 # Obtain nearest edge for 
@@ -792,9 +794,10 @@ def sanity_check_graph_curvature(G):
 
     nid_positions = extract_node_positions_dictionary(G)
     for eid, attrs in iterate_edges(G):
+        check("curvature" in attrs, expect="Expect every edge to have 'curvature' attribute annotation.")
         u, v = eid[:2]
         ps = attrs["curvature"]
-        check(u <= v)
+        check(u <= v, expect="Expect `u < v` for all edges.")
         p, q = nid_positions[u], nid_positions[v]
         check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
         check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
@@ -809,6 +812,6 @@ def check(statement, expect=None):
         breakpoint()
 
 # Raises exception at unimplemented code.
-def todo():
-    raise Exception("todo")
+def todo(task):
+    raise Exception(f"TODO: {task}")
 
