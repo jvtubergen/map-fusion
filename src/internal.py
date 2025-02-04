@@ -18,7 +18,6 @@ from graph_coverage import *
 from graph_merging import *
 
 from apls import *
-from topo.topo_metric import compute_topo as topo
 
 from network import *
 

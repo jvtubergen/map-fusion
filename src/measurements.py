@@ -3,6 +3,8 @@ from graph_merging import *
 from graph_simplifying import *
 from graph_deduplicating import *
 from graph_curvature import * 
+from apls import *
+from topo.topo_metric import compute_topo as compute_topo_on_prepared_graph
 
 # Generate all maps related to thesis.
 # TODO: Add split-point merging graph.
@@ -69,7 +71,7 @@ def compute_topo(truth, proposed):
         G = G.copy()
 
         G = simplify_graph(G)
-        G = graph.to_directed(G)
+        G = G.to_directed(G)
         G = nx.MultiGraph(G)
 
         graph_annotate_edge_curvature(G)
@@ -78,9 +80,9 @@ def compute_topo(truth, proposed):
 
         return G
 
-    truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(propsed)
-    topo_score = topo(truth, proposed)
-    topo_prime_score = topo(truth, proposed, prime=True)
+    truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
+    topo_score = compute_topo_on_prepared_graph(truth, proposed)
+    topo_prime_score = compute_topo_on_prepared_graph(truth, proposed, prime=True)
 
     return topo_score, topo_prime_score
 
