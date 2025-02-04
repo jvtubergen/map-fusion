@@ -138,12 +138,12 @@ def graph_cut_edge_subcurves(G, eid, qss):
 
     # Sanity check: First point of first subcurve and last point of final subcurve match eid curvature.
     ps = get_edge_attributes(G, eid)["curvature"]
-    assert (ps[0]  == qss[0][0]).all()
-    assert (ps[-1] == qss[-1][-1]).all()
-    assert abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001
+    check((ps[0]  == qss[0][0]).all(), expect="Expect first point of first subcurve to match eid curvature.")
+    check((ps[-1] == qss[-1][-1]).all(), expect="Expect last point of final subcurve to match eid curvature.")
+    check(abs(curve_length(ps) - sum([curve_length(qs) for qs in qss])) < 0.0001)
     if len(ps) > 1:
         for diff in ps[1:] - ps[:-1]:
-            assert norm(diff) > 0.0001
+            check(norm(diff) > 0.0001, expect="Expect the replacement of curves by subcurves results in same curve length.")
 
     # Remove the original edge.
     G.remove_edges_from([eid])
@@ -155,7 +155,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
 
     # Number of edges to inject.
     n = len(qss)
-    assert n > 1 # Expect at least two subcurves here.
+    check(n > 1, expect="Expect at least two subcurves.")
 
     # Obtain node positions.
     new_points = [qs[-1] for qs in qss[:-1]]
@@ -171,9 +171,13 @@ def graph_cut_edge_subcurves(G, eid, qss):
 
     # Schedule new edges for injection.
     u, v = eid[0:2]
+
     # Reorganize `eid` to respect `u <= v`.
     new_eids = [(u, new_nids[0])] + list(zip(new_nids, new_nids[1:])) + [(new_nids[-1], v)]
-    new_eids = [format_eid(G, eid) for eid in new_eids]
+    # Note: We do not apply `format_eid`, because with a self-loop we might end up with `[(u, v, 0), (u, v, 0)]`.
+    #       When inserting with `add_edges_from` this will cause the second edge to overwrite (thus drop) the first.
+    new_eids = [(u, v) if u <= v else (v, u) for (u, v) in new_eids]
+
     for eid, curvature in zip(new_eids, qss):
         # Fix curvature to match with `eid` order.
         edges_to_add.append((*eid, {"curvature": curvature, "length": curve_length(curvature), "geometry": to_linestring(curvature)}))
@@ -182,7 +186,7 @@ def graph_cut_edge_subcurves(G, eid, qss):
     G.add_nodes_from(nodes_to_add)
     G.add_edges_from(edges_to_add)
 
-    check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length remains consistent after cutting edges into subcurves." )
+    check(abs(graph_length(G) - length) < 0.001, expect="Expect graph length to remain consistent after cutting edges into subcurves." )
 
     return G, {"nids": new_nids, "eids": new_eids}
 
