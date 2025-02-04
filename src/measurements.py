@@ -8,6 +8,7 @@ from topo.topo_metric import compute_topo as compute_topo_on_prepared_graph
 
 # Generate all maps related to thesis.
 # TODO: Add split-point merging graph.
+@info()
 def generate_maps(threshold = 30):
 
     maps = {}
@@ -35,7 +36,7 @@ def generate_maps(threshold = 30):
 
         # Three merging graphs.
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold))
-        graphs              = _read_and_or_write("graphs", lambda: merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=threshold))
+        graphs              = _read_and_or_write("graphs", lambda: merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=threshold), is_graph=False)
 
         maps[place] = {
             "osm": osm,
@@ -50,6 +51,7 @@ def generate_maps(threshold = 30):
 
 
 # Copmute TOPO metric between two graphs.
+@info()
 def compute_apls(truth, proposed):
 
     prepared_graph_data = {
@@ -64,6 +66,7 @@ def compute_apls(truth, proposed):
 
 
 # Copmute TOPO metric between two graphs.
+@info()
 def compute_topo(truth, proposed):
 
     def prepare_graph_for_topo(G):
@@ -88,7 +91,8 @@ def compute_topo(truth, proposed):
 
 
 # Compute TOPO/APLS results on maps.
-def measurements_maps(maps):
+@info()
+def measurements_maps(maps, threshold=30):
 
     measurements_results = {}
 
@@ -101,10 +105,14 @@ def measurements_maps(maps):
 
         for map_variant in set(maps[place].keys()) - set(["osm"]):
 
+            logger(f"{place} - {map_variant}.")
+
+            _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{place}-{map_variant}-{filename}", action, **props)
+
             proposed = maps[place][map_variant]
 
-            apls, apls_prime = compute_apls(truth, proposed)
-            topo, topo_prime = compute_topo(truth, proposed)
+            apls, apls_prime = _read_and_or_write("apls", lambda: compute_apls(truth, proposed), is_graph=False)
+            topo, topo_prime = _read_and_or_write("topo", lambda: compute_topo(truth, proposed), is_graph=False)
 
             measurements_results[place][map_variant] = {
                 "apls": apls,
@@ -117,6 +125,7 @@ def measurements_maps(maps):
 
 
 # Construct typst table out of measurements data.
+@info()
 def measurements_to_table(measurements):
     todo("Implement measurements to table.")
 

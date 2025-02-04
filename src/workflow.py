@@ -1,12 +1,6 @@
 from external import *
 from internal import *
 
-links = {
-    "gps": "roadster",
-    "osm": "openstreetmaps",
-    "sat": "sat2graph"
-}
-
 def workflow_converting_stored_graphs_from_utm_into_latlon_coordinate_system():
 
     for graphset in graphsets:

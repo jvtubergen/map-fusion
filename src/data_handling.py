@@ -8,6 +8,12 @@ from utilities import *
 graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merge_A", "merge_B", "merge_C"]
 places    = ["athens", "berlin", "chicago"]
 
+# Link active graphset to representative of gps, sat, and truth.
+links = {
+    "gps": "roadster",
+    "osm": "openstreetmaps",
+    "sat": "sat2graph"
+}
 
 ### Reading graph information.
 
