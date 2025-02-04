@@ -106,7 +106,7 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 #       This can be a great performance gain on e.g. re-using a ground truth graph.
 def prepare_graph_for_apls(G):
 
-    if "prepared" in G and G.graph["prepared"] == "apls":
+    if "prepared" in G.graph and G.graph["prepared"] == "apls":
 
         return G
 
@@ -127,6 +127,8 @@ def prepare_graph_for_apls(G):
     sanity_check_node_positions(G)
 
     G.graph["prepared"] = "apls"
+
+    return G
 
 
 # Prepare graph data to be sampled for APLS.

@@ -69,7 +69,7 @@ def compute_apls(truth, proposed):
 @info()
 def prepare_graph_for_topo(G):
 
-    if "prepared" in G and G.graph["prepared"] == "topo":
+    if "prepared" in G.graph and G.graph["prepared"] == "topo":
         return G
 
     G = G.copy()
@@ -106,7 +106,7 @@ def precompute_measurements_maps(maps):
 
         result[place] = {}
 
-        for map_variant in set(maps[place].keys()) - set(["osm"]):
+        for map_variant in set(maps[place].keys()):
 
             logger(f"{place} - {map_variant}.")
             
@@ -134,22 +134,30 @@ def apply_measurements_maps(prepared_maps, threshold=30):
         truth_apls = prepared_maps[place]["osm"]["apls"]
         truth_topo = prepared_maps[place]["osm"]["topo"]
 
-        for map_variant in set(maps[place].keys()) - set(["osm"]):
+        check("prepared" in truth_apls.graph and truth_apls.graph["prepared"] == "apls", expect="Expect prepared truth graph when computing apls metric.")
+        check("prepared" in truth_topo.graph and truth_topo.graph["prepared"] == "topo", expect="Expect prepared truth graph when computing topo metric.")
+
+        for map_variant in set(prepared_maps[place].keys()) - set(["osm"]):
+
+            logger(f"{place} - {map_variant}.")
 
             proposed_apls = prepared_maps[place][map_variant]["apls"]
             proposed_topo = prepared_maps[place][map_variant]["topo"]
 
+            check("prepared" in proposed_apls.graph and proposed_apls.graph["prepared"] == "apls", expect="Expect prepared proposed graph when computing apls metric.")
+            check("prepared" in proposed_topo.graph and proposed_topo.graph["prepared"] == "topo", expect="Expect prepared proposed graph when computing topo metric.")
+
             apls, apls_prime = compute_apls(truth_apls, proposed_apls)
             topo, topo_prime = compute_topo(truth_topo, proposed_topo)
 
-            measurements_results[place][map_variant] = {
+            result[place][map_variant] = {
                 "apls": apls,
                 "apls_prime": apls_prime,
                 "topo": topo,
                 "topo_prime": topo_prime,
             }
 
-    return measurements_results
+    return result
 
 
 # Construct typst table out of measurements data.
