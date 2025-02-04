@@ -152,15 +152,32 @@ def curve_length(ps):
 # Cut curve at specified intervals.
 def curve_cut_intervals(ps, intervals):
 
+    # No need to cut if no intervals provided.
     if len(intervals) == 0:
         return [ps]
 
-    # Ensure minimal interval difference of 0.001.
-    assert intervals[0]  > 0.0001
-    assert intervals[-1] < 1 - 0.0001
+    # Ensure minimal interval difference of at least 0.0001.
     if len(intervals) > 1:
+        arr = array(intervals)
+        interval_steps = arr[1:] - arr[:-1]
+        intervals_to_drop = [i for i, x in enumerate(interval_steps) if x < 0.00001]
+
+        # Pick elements except those of intervals to drop.
+        intervals = [x for i, x in enumerate(intervals) if i not in intervals_to_drop]
+
+        # Sanity check.
         r = array(intervals)
-        assert min(r[1:] - r[:-1]) > 0.0001
+        check(min(r[1:] - r[:-1]) > 0.0001, expect="Expect minimal interval difference of 0.0001.")
+    
+    # Optionally drop injecting nodes if they are too close at the edge endpoints.
+    if intervals[0] < 0.00001:
+        intervals = intervals[1:]
+
+    if intervals[-1] < 1 - 0.00001:
+        intervals = intervals[:1]
+
+    check(intervals[0] > 0.00001     , expect="Expect first interval to be greater than 0.0001.")
+    check(intervals[-1] < 1 - 0.00001, expect="Expect final interval to be less than 0.9999.")
 
     n = len(ps)
     m = len(intervals)
