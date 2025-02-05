@@ -608,7 +608,28 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
             plot_graphs([merge_x])
 
 
+# Full workflow on computing generated graph variants versus the ground truth:
+# 1. Collect and generate related maps (osm, gps, sat, a, b, c)
+# 2. Precompute prepared maps for computing TOPO and APLS.
+# 3. Compute the similarity metric values for the variants
+# 4. Converting the results into a typst table for presentation.
+def workflow_full_run_metrics(threshold=30):
+
+    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{filename}", action, **props)
+    reading_props = {
+        "is_graph": False,
+        "overwrite_if_old": True,
+        "reset_time": 8*60*60
+    }
+
+    maps         = _read_and_or_write("maps"                        , lambda: generate_maps(threshold=threshold), **reading_props)
+    precomputed  = _read_and_or_write("precomputed maps for metrics", lambda: precompute_measurements_maps(maps), **reading_props)
+    measurements = _read_and_or_write("apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
+    table_string = measurements_to_table(measurements)
+
+    return table_string
     
+
 # Sanity check various graph conversion functions.
 def workflow_sanity_check_graph_conversion_functions():
     osm = read_graph(graphset=links['osm'], place='chicago')
