@@ -456,6 +456,16 @@ def plot_graphs_interactively(graphs):
 
     ax.legend()
 
+    labels = list(plotted_graphs.keys())
+
+    # Only render first element at startup.
+    for label in labels:
+        plotted_graphs[label][0].set_visible(False)
+        plotted_graphs[label][1].set_visible(False)
+
+    plotted_graphs[labels[0]][0].set_visible(True)
+    plotted_graphs[labels[0]][1].set_visible(True)
+
     # Create CheckButtons
     rax = plt.axes([0.05, 0.4, 0.2, 0.2])  # Position of buttons
     labels = list(plotted_graphs.keys())
@@ -464,9 +474,13 @@ def plot_graphs_interactively(graphs):
 
     # Toggle function based on label
     def toggle_visibility(label):
-        plotted_graph = plotted_graphs[label]  # Get the corresponding line
-        plotted_graph[0].set_visible(not plotted_graph[0].get_visible())
-        plotted_graph[1].set_visible(not plotted_graph[1].get_visible())
+        for lbl in labels:
+            plotted_graphs[lbl][0].set_visible(False)
+            plotted_graphs[lbl][1].set_visible(False)
+
+        plotted_graphs[label][0].set_visible(True)
+        plotted_graphs[label][1].set_visible(True)
+
         ax.legend()  # Update legend
         plt.draw()
 
