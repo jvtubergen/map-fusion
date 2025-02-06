@@ -251,7 +251,7 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
             if prop in gdf_nodes.keys():
                 render_attributes["color"] = gdf_nodes["color"]
 
-    ax.scatter(**render_attributes, x=gdf_nodes["x"], y=gdf_nodes["y"])
+    plotted_nodes = ax.scatter(**render_attributes, x=gdf_nodes["x"], y=gdf_nodes["y"])
     
     print("Plotting edges.")
     # Edges.
@@ -289,7 +289,9 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
             if prop in gdf_edges.keys():
                 render_attributes[prop] = gdf_edges[prop]
 
-    gdf_edges.plot(ax=ax, **render_attributes)
+    plotted_edges = gdf_edges.plot(ax=ax, **render_attributes)
+
+    return plotted_nodes, plotted_edges
 
 
 def preplot_curve(ps, ax, **properties):
@@ -404,3 +406,43 @@ def apply_coloring(G):
         attributes["linewidth"] = linewidth_mapper(attributes["render"])
     
     return G
+
+
+def plot_graphs_interactively(graph):
+
+    fig, ax = plt.subplots(figsize=(100, 100))
+    fig.subplots_adjust(left=0.3)  # Leave space for check buttons
+
+    nodes, edges = preplot_graph(graph, ax)
+
+    lines = {
+        "nodes": nodes,
+        "edges": edges
+    }
+
+    ax.legend()
+
+    # Create CheckButtons
+    rax = plt.axes([0.05, 0.4, 0.2, 0.2])  # Position of buttons
+    labels = list(lines.keys())
+    visibility = [line.get_visible() for line in lines.values()]
+    check = CheckButtons(rax, labels, visibility)
+
+    # Toggle function based on label
+    def toggle_visibility(label):
+        line = lines[label]  # Get the corresponding line
+        line.set_visible(not line.get_visible())  # Toggle visibility
+        ax.legend()  # Update legend
+        plt.draw()
+
+    # Connect check buttons to toggle function
+    check.on_clicked(toggle_visibility)
+
+    # fig.canvas.draw()
+    # fig.canvas.flush_events()
+
+    manager = plt.get_current_fig_manager()
+    manager.full_screen_toggle()  # Full-screen mode
+
+    plt.tight_layout()
+    plt.show()
