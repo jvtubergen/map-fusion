@@ -485,11 +485,26 @@ def plot_graphs_interactively(graphs):
 
         ax.legend()  # Update legend
         plt.draw()
+    
+    key_label_map = {str(i+1): label for i, label in enumerate(labels)}
+        
+    def on_key_generator(label_map):
+
+        def on_key(event):
+
+            if event.key in label_map.keys():
+                label = label_map[event.key]
+                toggle_visibility(label)
+                ax.legend()
+                plt.draw()
+        
+        return on_key
 
     # Connect check buttons to toggle function
     check.on_clicked(toggle_visibility)
 
     fig.canvas.draw()
+    fig.canvas.mpl_connect("key_press_event", on_key_generator(key_label_map))
     fig.canvas.flush_events()
 
     manager = plt.get_current_fig_manager()
