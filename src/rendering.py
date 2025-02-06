@@ -512,3 +512,16 @@ def plot_graphs_interactively(graphs):
 
     plt.tight_layout()
     plt.show()
+
+
+# Render each map as a high and low-quality image.
+@info()
+def render_maps_to_images(maps):
+
+    for quality in ["low", "high"]:
+        for place in maps.keys():
+            for map_variant in maps[place]:
+                logger(f"{quality} - {place} - {map_variant}.")
+                graph = maps[place][map_variant]
+                graph = apply_coloring(graph)
+                render_graph(graph, f"data/graph_images/{quality}-{place}-{map_variant}.png", quality=quality, title=f"{quality}-{place}-{map_variant}")
