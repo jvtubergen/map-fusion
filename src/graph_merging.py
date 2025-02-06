@@ -194,7 +194,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
         # Reset coverage threshold information on a graph.
         def clear_coverage_threshold_information(G):
-            G.graph.pop("max_threshold") 
+            if "max_threshold" in G.graph:
+                G.graph.pop("max_threshold") 
             for eid, attrs in iterate_edges(G):
                 if "threshold" in attrs:
                     attrs.pop("threshold")
