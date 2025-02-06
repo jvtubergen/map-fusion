@@ -391,11 +391,13 @@ def linewidth_mapper(render):
 # Apply coloring and styling to nodes and edges by their "render" attribute.
 def apply_coloring(G):
 
-    # Sanity check each node and edge has the render attribute.
+    # Fill in "render" attribute for those nodes/edges missing it.
     for _, attributes in iterate_nodes(G):
-        assert "render" in attributes
+        if "render" not in attributes:
+            attributes["render"] = "original"
     for _, attributes in iterate_edges(G):
-        assert "render" in attributes
+        if "render" not in attributes:
+            attributes["render"] = "original"
 
     # Map render type to render styling.
     for _, attributes in iterate_nodes(G):
@@ -452,7 +454,7 @@ def plot_graphs_interactively(graphs):
     fig, ax = plt.subplots(figsize=(100, 100))
     fig.subplots_adjust(left=0.3)  # Leave space for check buttons
 
-    plotted_graphs = {key: preplot_graph(value, ax) for key, value in graphs.items()}
+    plotted_graphs = {label: preplot_graph(apply_coloring(graph), ax) for label, graph in graphs.items()}
 
     ax.legend()
 
