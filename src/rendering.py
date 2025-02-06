@@ -1,5 +1,6 @@
 from external import *
 from graph_deduplicating import *
+from utilities import *
 
 # Convert a collection of paths into gid-annotated nodes and edges to thereby render with different colors.
 def render_paths(pss):
@@ -351,3 +352,55 @@ def annotate_duplicated_nodes(G):
             # print("Found duplicate", nid)
         else:
             attrs["color"] = (0, 0, 0, 1)
+
+
+# Map each "render" attribute to a "color" and 
+def color_mapper(render):
+    match render:
+        case "injected":
+            return (0.3, 1, 0.3, 1) # green
+        case "deleted":
+            return (1, 0.3, 0.3, 1) # red
+        case "connection":
+            return (0.3, 0.3, 1, 1) # blue
+        case "original":
+            return (0, 0, 0, 1) # black
+def linestyle_mapper(render):
+    match render:
+        case "injected":
+            return "-" 
+        case "deleted":
+            return "-" 
+        case "connection":
+            return ":"
+        case "original":
+            return "-"
+def linewidth_mapper(render):
+    match render:
+        case "injected":
+            return 2 
+        case "deleted":
+            return 2
+        case "connection":
+            return 2 
+        case "original":
+            return 1
+
+# Apply coloring and styling to nodes and edges by their "render" attribute.
+def apply_coloring(G):
+
+    # Sanity check each node and edge has the render attribute.
+    for _, attributes in iterate_nodes(G):
+        assert "render" in attributes
+    for _, attributes in iterate_edges(G):
+        assert "render" in attributes
+
+    # Map render type to render styling.
+    for _, attributes in iterate_nodes(G):
+        attributes["color"] = color_mapper(attributes["render"])
+    for _, attributes in iterate_edges(G):
+        attributes["color"] = color_mapper(attributes["render"])
+        attributes["linestyle"] = linestyle_mapper(attributes["render"])
+        attributes["linewidth"] = linewidth_mapper(attributes["render"])
+    
+    return G

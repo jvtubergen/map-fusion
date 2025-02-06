@@ -387,38 +387,6 @@ def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, devi
     gmaps.write_image(image, f"data/satellite images and the pixel coordinates/{place}.png")
     pickle.dump(coordinates, open(f"data/satellite images and the pixel coordinates/{place}.pkl", "wb"))
 
-# Map each "render" attribute to a "color" and 
-def color_mapper(render):
-    match render:
-        case "injected":
-            return (0.3, 1, 0.3, 1) # green
-        case "deleted":
-            return (1, 0.3, 0.3, 1) # red
-        case "connection":
-            return (0.3, 0.3, 1, 1) # blue
-        case "original":
-            return (0, 0, 0, 1) # black
-def linestyle_mapper(render):
-    match render:
-        case "injected":
-            return "-" 
-        case "deleted":
-            return "-" 
-        case "connection":
-            return ":"
-        case "original":
-            return "-"
-def linewidth_mapper(render):
-    match render:
-        case "injected":
-            return 2 
-        case "deleted":
-            return 2
-        case "connection":
-            return 2 
-        case "original":
-            return 1
-
 # Remove nodes and edges with `{"render": "deleted"}` attribute.
 def remove_deleted(G):
     G = G.copy()
@@ -427,25 +395,6 @@ def remove_deleted(G):
     G.remove_edges_from(edges_to_be_deleted)
     G.remove_nodes_from(nodes_to_be_deleted)
     return G
-
-def apply_coloring(G):
-
-    # Sanity check each node and edge has the render attribute.
-    for _, attributes in iterate_nodes(G):
-        assert "render" in attributes
-    for _, attributes in iterate_edges(G):
-        assert "render" in attributes
-
-    # Map render type to render styling.
-    for _, attributes in iterate_nodes(G):
-        attributes["color"] = color_mapper(attributes["render"])
-    for _, attributes in iterate_edges(G):
-        attributes["color"] = color_mapper(attributes["render"])
-        attributes["linestyle"] = linestyle_mapper(attributes["render"])
-        attributes["linewidth"] = linewidth_mapper(attributes["render"])
-    
-    return G
-
 
 # Workflow to check apls
 @info(timer=True)
