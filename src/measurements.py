@@ -46,7 +46,7 @@ def generate_maps(threshold = 30, debugging=False, **reading_props):
         # Three merging graphs.
         logger(f"Generating merging graphs.")
         gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
-        graphs     = merge_graphs(C=sat, A=gps_vs_sat, prune_threshold=threshold)
+        graphs     = merge_graphs(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
         maps[place] = {
             "osm": osm,
