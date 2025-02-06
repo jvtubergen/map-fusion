@@ -8,8 +8,10 @@ from topo.topo_metric import compute_topo as compute_topo_on_prepared_graph
 
 # Generate all maps related to thesis.
 # TODO: Add split-point merging graph.
+# * Allow to customize the coverage threshold.
+# * Allow to instead of gps against sat to act on subselection of sat which is nearby gps edges (easier to look at merging effect).
 @info()
-def generate_maps(threshold = 30):
+def generate_maps(threshold = 30, debugging=False, **reading_props):
 
     maps = {}
 
@@ -19,24 +21,32 @@ def generate_maps(threshold = 30):
 
     for place in ["chicago", "berlin"]: # First run chicago (that one goes faster, so earlier error detection).
 
-        _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{place}-{filename}", action, **props)
+        logger(f"{place}.")
+        logger("Preparing input graphs (osm, sat, gps).")
+
+        _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **props)
 
         # Source graph.
-        osm = _read_and_or_write("osm", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))))
+        osm = _read_and_or_write("osm", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))), **reading_props)
 
         # Starting graphs.
-        sat = _read_and_or_write("sat", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))))
-        gps = _read_and_or_write("gps", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))))
+        sat = _read_and_or_write("sat", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))), **reading_props)
+        gps = _read_and_or_write("gps", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))), **reading_props)
 
-        # Intermediate graph representation.
-        logger("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
-        sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(sat, gps, max_threshold=threshold))
-        logger("Pruning Sat-vs-GPS graph.") # Extract edges of sat which are covered by gps.
-        intersection = _read_and_or_write("intersection", lambda: prune_coverage_graph(sat_vs_gps, prune_threshold=threshold))
+        # If we are debugging on the merging logic.
+        if debugging:
+            # Then (it is convenient) to only act around sat edges nearby gps edges (where the action happens).
+
+            logger("DEBUGGING: Pruning Sat graph for relevant edges concerning merging.")
+
+            sat_vs_gps   = edge_graph_coverage(sat, gps, max_threshold=threshold)
+            intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=threshold)
+            sat = intersection # (Update sat so we can continue further logic.)
 
         # Three merging graphs.
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold))
-        graphs              = _read_and_or_write("graphs", lambda: merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=threshold), is_graph=False)
+        logger(f"Generating merging graphs.")
+        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
+        graphs     = merge_graphs(C=sat, A=gps_vs_sat, prune_threshold=threshold)
 
         maps[place] = {
             "osm": osm,
