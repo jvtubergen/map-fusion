@@ -307,10 +307,12 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     
         graphs["c"] = C.copy()
     
-    # Convert back graph to latlon coordinates if necessary.
+    # Convert back graphs to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
         utm_info = graph_utm_info(_C)
-        C = graph_transform_utm_to_latlon(C, "", **utm_info) 
+        graphs["a"] = graph_transform_utm_to_latlon(graphs["a"], "", **utm_info) 
+        graphs["b"] = graph_transform_utm_to_latlon(graphs["b"], "", **utm_info) 
+        graphs["c"] = graph_transform_utm_to_latlon(graphs["c"], "", **utm_info) 
 
     return graphs
 
