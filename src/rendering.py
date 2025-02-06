@@ -447,6 +447,35 @@ def plot_graph_interactively(graph):
     plt.show()
 
 
+def plot_graphs_interactively(graphs):
+
+    fig, ax = plt.subplots(figsize=(100, 100))
+    fig.subplots_adjust(left=0.3)  # Leave space for check buttons
+
+    plotted_graphs = {key: preplot_graph(value, ax) for key, value in graphs.items()}
+
+    ax.legend()
+
+    # Create CheckButtons
+    rax = plt.axes([0.05, 0.4, 0.2, 0.2])  # Position of buttons
+    labels = list(plotted_graphs.keys())
+    visibility = [plotted_graph[0].get_visible() for plotted_graph in plotted_graphs.values()]
+    check = CheckButtons(rax, labels, visibility)
+
+    # Toggle function based on label
+    def toggle_visibility(label):
+        plotted_graph = plotted_graphs[label]  # Get the corresponding line
+        plotted_graph[0].set_visible(not plotted_graph[0].get_visible())
+        plotted_graph[1].set_visible(not plotted_graph[1].get_visible())
+        ax.legend()  # Update legend
+        plt.draw()
+
+    # Connect check buttons to toggle function
+    check.on_clicked(toggle_visibility)
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()  # Full-screen mode
 
