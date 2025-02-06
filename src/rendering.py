@@ -289,7 +289,7 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
             if prop in gdf_edges.keys():
                 render_attributes[prop] = gdf_edges[prop]
 
-    plotted_edges = gdf_edges.plot(ax=ax, **render_attributes)
+    plotted_edges = gdf_edges.plot(ax=ax, **render_attributes).collections[-1]
 
     return plotted_nodes, plotted_edges
 
@@ -407,8 +407,7 @@ def apply_coloring(G):
     
     return G
 
-
-def plot_graphs_interactively(graph):
+def plot_graph_interactively(graph):
 
     fig, ax = plt.subplots(figsize=(100, 100))
     fig.subplots_adjust(left=0.3)  # Leave space for check buttons
@@ -440,6 +439,13 @@ def plot_graphs_interactively(graph):
 
     # fig.canvas.draw()
     # fig.canvas.flush_events()
+
+    manager = plt.get_current_fig_manager()
+    manager.full_screen_toggle()  # Full-screen mode
+
+    plt.tight_layout()
+    plt.show()
+
 
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()  # Full-screen mode
