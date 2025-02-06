@@ -120,10 +120,23 @@ def precompute_measurements_maps(maps):
 
             logger(f"{place} - {map_variant}.")
             
+            # Drop deleted edges before continuing.
+            def remove_deleted(G):
+
+                G = G.copy()
+
+                edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+                nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+
+                G.remove_edges_from(edges_to_be_deleted)
+                G.remove_nodes_from(nodes_to_be_deleted)
+
+                return G
+
             graph = maps[place][map_variant]
+            graph = remove_deleted(graph)
 
             result[place][map_variant] = {
-                "original": graph,
                 "topo": prepare_graph_for_topo(graph),
                 "apls": prepare_graph_for_apls(graph),
             }
