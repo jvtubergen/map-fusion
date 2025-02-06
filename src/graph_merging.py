@@ -36,6 +36,13 @@ def prune_coverage_graph(G, prune_threshold=10, invert=False):
 @info()
 def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
 
+    # Result object where the merge variants are stored under.
+    graphs = {
+        "a": None,
+        "b": None,
+        "c": None
+    }
+
     # Sanity checks.
     check(A.graph["simplified"], expect="Expect the graph is simplified for merging.")
     check(C.graph["simplified"], expect="Expect the graph is simplified for merging.")
@@ -160,9 +167,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Correctify edge curvature.
     graph_correctify_edge_curvature(C)
 
-    graphs = {
-        "a": C.copy()
-    }
+    graphs["a"] = C.copy()
     
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
@@ -220,7 +225,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
     
-    graphs["b"] = C.copy()
+        graphs["b"] = C.copy()
     
     # Extension b: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
@@ -300,7 +305,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
     
-    graphs["c"] = C.copy()
+        graphs["c"] = C.copy()
     
     # Convert back graph to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
