@@ -171,6 +171,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     
     # Extension a: Remove duplicated edges of C.
     if remove_duplicates: 
+        logger("Extension a: Remove duplicated edges of C.")
 
         # Update B: It now includes connection edges (the injected subgraph of A with connection edges to C).
         B_eids = set(filter_eids_by_attribute(C, filter_attributes={"origin": "B"}))
@@ -230,6 +231,13 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     
     # Extension b: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
+        logger("Extension b: Reconnect edges of C to injected edges of A into B.")
+
+        # Categories of edges:
+        # * "origin": "B" (injected GPS edges)
+        # * "origin": "C" (original Sat edges)
+        # * "render": "connection" (connection edge between GPS and Sat edge)
+        # * "render": "deleted" (Sat edges removed from graph)
 
         # Obtain the graph of C with B edges injected and duplicated C edges removed.
         # This means dropping edges with attribute `{"render": "deleted"}`.
@@ -251,6 +259,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         relevant_nids = nids_connected_to_C_deleted_eids & nids_connected_to_C_original_eids
 
         # Connected to two deleted edges covered by the same eid.
+        logger("Finding nids to reconnect.")
         nids_to_reconnect = []
         for nid in relevant_nids:
             
@@ -287,6 +296,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         excluded_eids = set(get_eids(C)) - set(filter_eids_by_attribute(C, filter_attributes={"origin": "B"}))
         excluded_nids = set(get_nids(C)) - set(filter_nids_by_attribute(C, filter_attributes={"origin": "B"}))
 
+        logger("Reconnecting nids.")
         for nid in nids_to_reconnect:
             sanity_check_graph_curvature(C)
             new_eid, injection_data = reconnect_node(C, nid, edge_tree=edge_tree, node_tree=node_tree, excluded_eids=excluded_eids, excluded_nids=excluded_nids, update_trees=True)

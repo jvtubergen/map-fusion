@@ -117,6 +117,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
         check(eid in eids, expect="Expect the eid to be present within the set: The edges adjacent to nodes captured by the edgebbox of eid.")
 
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
+    logger("Seek path for threshold.")
     while len(leftS) > 0 and (max_threshold == None or lam <= max_threshold):
         logger(f"Lambda: {lam}. Edges: {len(leftS)}")
 
@@ -141,6 +142,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
         lam += 1 # Increment lambda.
 
     # Set unprocessed edges to have infinite threshold and no coverage edge identifiers.
+    logger("Set unprocessed edges to have infinite threshold and no coverage edge identifiers.")
     for eid in leftS:
         thresholds[eid] = inf
         covered_by[eid] = []
@@ -149,6 +151,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
     if was_simplified:
         # Then transform the "covered_by" of vectorized edges into its simplified edges origin.
 
+        logger('Transform the "covered_by" of vectorized edges into its simplified edges origin.')
         new_covered_by = {}
         for S_eid, _ in iterate_edges(S): # We want to annotate every edge of S.
 
@@ -171,5 +174,6 @@ def edge_graph_coverage(S, T, max_threshold=None):
     # Apply threshold annotation.
     S.graph['max_threshold'] = max_threshold # Mention till what threshold we have searched.
 
+    logger("Coverage computation done.")
     return S
 

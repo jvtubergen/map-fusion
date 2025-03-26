@@ -476,7 +476,8 @@ def get_connected_eids(G, nid):
 # Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
 def annotate_nodes(G, new_attrs, nids=None):
     if nids != None:
-        check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
+        if len(nids) > 0:
+            check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
     else:
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
@@ -496,13 +497,10 @@ def abstract_filter_by_attribute(entity, G, filter_attributes=None, filter_func=
     check(type(entity) == GraphEntity)
     check(filter_func != None or filter_attributes != None, expect="Expect to filter either by attributes dictionary or a filter function.")
 
-    logger("entity")
     match entity:
         case GraphEntity.Edges:
-            logger("edges")
             iterator = iterate_edges
         case GraphEntity.Nodes:
-            logger("nodes")
             iterator = iterate_nodes
 
     if filter_func != None:

@@ -234,9 +234,6 @@ def measurements_to_table(measurements):
 
 
 
-
-
-
 before = """
 #show table.cell.where(y: 0): strong
 #set table(
@@ -310,3 +307,115 @@ between = """
 after = """
 )
 """
+
+
+# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago.
+def measure_threshold_values(lowest = 1, highest = 50, step = 1):
+
+    reading_props = {
+        "is_graph": False,
+        "overwrite_if_old": True,
+        "reset_time": 7*24*60*60, # Keep it for a week.
+    }
+
+    # Prepare map for TOPO and APLS computation.
+    def precompute_measurement_map(graph):
+        # Drop deleted edges before continuing.
+        def remove_deleted(G):
+
+            G = G.copy()
+
+            edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+            nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+
+            G.remove_edges_from(edges_to_be_deleted)
+            G.remove_nodes_from(nodes_to_be_deleted)
+
+            return G
+    
+        graph = remove_deleted(graph)
+        return {
+            "topo": prepare_graph_for_topo(graph),
+            "apls": prepare_graph_for_apls(graph),
+        }
+
+    # Generate threshold_maps for thresholds.
+    # def compute_threshold_maps():
+    threshold_maps = {}
+    for threshold in range(lowest, highest, step):
+        print(f"Generating map with threshold {threshold}.")
+        maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
+        threshold_maps[threshold] = {}
+        threshold_maps[threshold]["berlin"]  = maps["berlin"]["c"]
+        threshold_maps[threshold]["chicago"] = maps["chicago"]["c"]
+    
+    
+    # Prepare graphs for TOPO and APLS.
+    def precompute_graphs(threshold_maps):
+        precomputed_graphs = {}
+        for threshold in range(lowest, highest, step):
+            print(f"Preparing graph for topo and apls ({threshold}).")
+            precomputed_graphs[threshold] = {}
+            precomputed_graphs[threshold]["berlin"]  = precompute_measurement_map(threshold_maps[threshold]["berlin"])
+            precomputed_graphs[threshold]["chicago"] = precompute_measurement_map(threshold_maps[threshold]["chicago"])
+        return precomputed_graphs
+
+    precomputed_graphs = read_and_or_write(f"data/pickled/precomputed_graphs", lambda: precompute_graphs(threshold_maps), **reading_props)
+    
+    # Compute TOPO and APLS.
+    def compute_metrics(precomputed_graphs):
+
+        # We need prepared APLS and TOPO on Berlin and Chicago.
+        # (Read out truth on Berlin and Chicago and preprocess.)
+        simp = simplify_graph
+        dedup = graph_deduplicate
+        to_utm = graph_transform_latlon_to_utm
+        osm_berlin = simp(dedup(to_utm(read_graph(place="berlin", graphset=links["osm"]))))
+        osm_chicago = simp(dedup(to_utm(read_graph(place="chicago", graphset=links["osm"]))))
+        truth = {}
+        truth["berlin"] = {}
+        truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)
+        truth["berlin"]["topo"]  = prepare_graph_for_topo(osm_berlin)
+        truth["chicago"] = {}
+        truth["chicago"]["apls"] = prepare_graph_for_apls(osm_chicago)
+        truth["chicago"]["topo"] = prepare_graph_for_topo(osm_chicago)
+
+        result = {}
+        result["berlin"] = {}
+        result["chicago"] = {}
+        # Compute similarity for every map.
+        for threshold in range(lowest, highest, step):
+            print(f"Computing metric for threshold {threshold}.")
+
+            def compute_metric(threshold):
+                metric_result = {}
+                for place in ["berlin", "chicago"]:
+            
+                    # Compute apls 
+                    truth_apls = truth[place]["apls"]
+                    truth_topo = truth[place]["topo"]
+
+                    proposed_apls = precomputed_graphs[threshold][place]["apls"]
+                    proposed_topo = precomputed_graphs[threshold][place]["topo"]
+
+                    apls, apls_prime = compute_apls(truth_apls, proposed_apls)
+                    topo, topo_prime = compute_topo(truth_topo, proposed_topo)
+
+                    metric_result[place] = {
+                        "apls": apls,
+                        "apls_prime": apls_prime,
+                        "topo": topo,
+                        "topo_prime": topo_prime,
+                    }
+                return metric_result
+            
+            result[threshold] = read_and_or_write(f"data/pickled/metric_result-{threshold}", lambda: compute_metric(threshold), **reading_props)
+            
+        
+        return result
+    
+    measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
+
+    return measure_results
+
+
