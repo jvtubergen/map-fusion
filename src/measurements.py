@@ -309,13 +309,14 @@ after = """
 """
 
 
+# Second experiment.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago.
 def measure_threshold_values(lowest = 1, highest = 50, step = 1):
 
     reading_props = {
         "is_graph": False,
         "overwrite_if_old": True,
-        "reset_time": 7*24*60*60, # Keep it for a week.
+        "reset_time": 365*24*60*60, # Keep it for a year.
     }
 
     # Prepare map for TOPO and APLS computation.
@@ -416,100 +417,95 @@ def measure_threshold_values(lowest = 1, highest = 50, step = 1):
     
     measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
 
-    return measure_results
+
+    # Plot threshold values on Berlin and Chicago.
+    def render_thresholds(measure_results):
 
 
-# Plot threshold values on Berlin and Chicago.
-def render_thresholds():
+        # Data format: `data[threshold][place][apls/topo]`
+        # 
+        # We want `threshold` on the x-axis, place and metric as different coloring/line style, value on the y-axis.
+        measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
 
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 365*24*60*60, # Keep it for a year.
-    }
+        data = {}
+        for i in range(1, 50):
+            data[i] = {}
+            for place in ["berlin", "chicago"]:
+                data[i][place] = {
+                    "apls"      : float(measure_results[i][place]["apls"]),
+                    "apls_prime": float(measure_results[i][place]["apls_prime"]),
+                    "topo"      : float(measure_results[i][place]["topo"][0]),
+                    "topo_prime": float(measure_results[i][place]["topo_prime"][0]),
+                }
+        
+        # Convert to DataFrame
+        rows = []
+        for i in data:
+            for place in data[i]:
+                for metric_type, value in data[i][place].items():
+                    rows.append({
+                        "threshold": i,
+                        "place": place,
+                        "metric_type": metric_type,
+                        "value": value
+                    })
+        
+        df = pd.DataFrame(rows)
 
-    # Data format: `data[threshold][place][apls/topo]`
-    # 
-    # We want `threshold` on the x-axis, place and metric as different coloring/line style, value on the y-axis.
-    measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
+        # Define colors for better differentiation
+        colors = {
+            "berlin_apls": "#1f77b4",       # blue
+            "berlin_apls_prime": "#9467bd",  # purple
+            "berlin_topo": "#2ca02c",        # green
+            "berlin_topo_prime": "#d62728",  # red
+            "chicago_apls": "#ff7f0e",       # orange
+            "chicago_apls_prime": "#8c564b", # brown
+            "chicago_topo": "#e377c2",       # pink
+            "chicago_topo_prime": "#7f7f7f"  # gray
+        }
 
-    data = {}
-    for i in range(1, 50):
-        data[i] = {}
+        # Create combined category for legend
+        df['place_metric'] = df['place'] + "_" + df['metric_type']
+
+        # Line styles to differentiate further
+        line_styles = {
+            "berlin": "-",    # solid line
+            "chicago": "--"   # dashed line
+        }
+
+        # Plot each place-metric combination
         for place in ["berlin", "chicago"]:
-            data[i][place] = {
-                "apls"      : float(measure_results[i][place]["apls"]),
-                "apls_prime": float(measure_results[i][place]["apls_prime"]),
-                "topo"      : float(measure_results[i][place]["topo"][0]),
-                "topo_prime": float(measure_results[i][place]["topo_prime"][0]),
-            }
-    
-    # Convert to DataFrame
-    rows = []
-    for i in data:
-        for place in data[i]:
-            for metric_type, value in data[i][place].items():
-                rows.append({
-                    "threshold": i,
-                    "place": place,
-                    "metric_type": metric_type,
-                    "value": value
-                })
-    
-    df = pd.DataFrame(rows)
+            for metric in ["apls", "apls_prime", "topo", "topo_prime"]:
+                subset = df[(df["place"] == place) & (df["metric_type"] == metric)]
+                place_metric = f"{place}_{metric}"
+                
+                # Sort by threshold to ensure correct line drawing
+                subset = subset.sort_values("threshold")
+                
+                plt.plot(
+                    subset["threshold"], 
+                    subset["value"], 
+                    marker="o", 
+                    linestyle=line_styles[place], 
+                    color=colors[place_metric],
+                    label=f"{place.capitalize()} - {metric}", 
+                    alpha=0.9, 
+                    markersize=5
+                )
 
-    # Define colors for better differentiation
-    colors = {
-        "berlin_apls": "#1f77b4",       # blue
-        "berlin_apls_prime": "#9467bd",  # purple
-        "berlin_topo": "#2ca02c",        # green
-        "berlin_topo_prime": "#d62728",  # red
-        "chicago_apls": "#ff7f0e",       # orange
-        "chicago_apls_prime": "#8c564b", # brown
-        "chicago_topo": "#e377c2",       # pink
-        "chicago_topo_prime": "#7f7f7f"  # gray
-    }
+        plt.title("Performance Metrics Across Thresholds", fontsize=16)
+        plt.xlabel("Threshold", fontsize=14)
+        plt.ylabel("Value", fontsize=14)
+        plt.ylim(0, 1)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(loc="best", frameon=True, fancybox=True, shadow=True)
 
-    # Create combined category for legend
-    df['place_metric'] = df['place'] + "_" + df['metric_type']
+        # Add a horizontal line at y=0.5 for reference
+        plt.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5)
 
-    # Line styles to differentiate further
-    line_styles = {
-        "berlin": "-",    # solid line
-        "chicago": "--"   # dashed line
-    }
+        plt.tight_layout()
+        plt.show()
 
-    # Plot each place-metric combination
-    for place in ["berlin", "chicago"]:
-        for metric in ["apls", "apls_prime", "topo", "topo_prime"]:
-            subset = df[(df["place"] == place) & (df["metric_type"] == metric)]
-            place_metric = f"{place}_{metric}"
-            
-            # Sort by threshold to ensure correct line drawing
-            subset = subset.sort_values("threshold")
-            
-            plt.plot(
-                subset["threshold"], 
-                subset["value"], 
-                marker="o", 
-                linestyle=line_styles[place], 
-                color=colors[place_metric],
-                label=f"{place.capitalize()} - {metric}", 
-                alpha=0.9, 
-                markersize=5
-            )
-
-    plt.title("Performance Metrics Across Thresholds", fontsize=16)
-    plt.xlabel("Threshold", fontsize=14)
-    plt.ylabel("Value", fontsize=14)
-    plt.ylim(0, 1)
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(loc="best", frameon=True, fancybox=True, shadow=True)
-
-    # Add a horizontal line at y=0.5 for reference
-    plt.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5)
-
-    plt.tight_layout()
-    plt.show()
+    render_thresholds(measure_results)
 
 
