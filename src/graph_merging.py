@@ -40,7 +40,12 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     graphs = {
         "a": None,
         "b": None,
-        "c": None
+        "c": None,
+        "metadata": { # Metadata on injection/deletion/reconnection.
+            "1.injected": 0,
+            "2.deleted" : 0,
+            "3.reconnected": 0
+        }
     }
 
     # Sanity checks.
@@ -69,7 +74,10 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         nid += 1
     A = nx.relabel_nodes(A, relabel_mapping)
 
-    # Edges above and below the prune threshold. We retain edges below the prune threshold.
+    # Step 1: Inject edges of A into C.
+    logger("Step 1: Inject edges of A into C.")
+
+    # Edges above and below the prune threshold. 
     above = [eid for eid, attrs in iterate_edges(A) if attrs["threshold"] >  prune_threshold]
     below = [eid for eid, attrs in iterate_edges(A) if attrs["threshold"] <= prune_threshold]
 
@@ -84,6 +92,8 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     # Extract nids which are connected to an edge above and below threshold.
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
     nodes_below = set([nid for el in below for nid in el[0:2]]) 
+
+    graphs["metadata"]["1.injected"] = len(iterate_edges(B))
 
     ## Annotating render attribute on B and C.
     # Obtain what nodes of B to connect with C (those nodes of A which are connected to both a covered and uncovered edge).
@@ -169,9 +179,9 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
 
     graphs["a"] = C.copy()
     
-    # Extension a: Remove duplicated edges of C.
+    # Step 2: Remove duplicated edges of C.
     if remove_duplicates: 
-        logger("Extension a: Remove duplicated edges of C.")
+        logger("Step 2: Remove duplicated edges of C.")
 
         # Update B: It now includes connection edges (the injected subgraph of A with connection edges to C).
         B_eids = set(filter_eids_by_attribute(C, filter_attributes={"origin": "B"}))
@@ -224,14 +234,16 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         # Mark edges for deletion.
         annotate_edges(C, {"render": "deleted"}, eids=list(set(edges_to_be_deleted) - set(edges_to_ignore)))
 
+        graphs["metadata"]["2.deleted"] = len(list(set(edges_to_be_deleted) - set(edges_to_ignore)))
+
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
     
         graphs["b"] = C.copy()
     
-    # Extension b: Reconnect edges of C to injected edges of A into B.
+    # Step 3: Reconnect edges of C to injected edges of A into B.
     if reconnect_after:
-        logger("Extension b: Reconnect edges of C to injected edges of A into B.")
+        logger("Step 3: Reconnect edges of C to injected edges of A into B.")
 
         # Categories of edges:
         # * "origin": "B" (injected GPS edges)
@@ -316,6 +328,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
     
+        graphs["metadata"]["3.reconnected"] = len(nids_to_reconnect)
         graphs["c"] = C.copy()
     
     # Convert back graphs to latlon coordinates if necessary.
@@ -325,7 +338,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         graphs["b"] = graph_transform_utm_to_latlon(graphs["b"], "", **utm_info) 
         graphs["c"] = graph_transform_utm_to_latlon(graphs["c"], "", **utm_info) 
 
-    return graphs
+    return graphs 
 
 
 # Reconnect node to graph.
