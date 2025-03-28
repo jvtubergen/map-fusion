@@ -715,6 +715,8 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
     true_pos_count_l, false_pos_count_l, false_neg_count_l = [], [], []
     # precision_l, recall_l, f1_l = [], [], []
 
+    samples_metadata = [] # Capture samples.
+
     if not prime: # In case of normal we can deal with missing start or end nodes.
         origin_nodes = G_gt_.nodes()
     else: # In case of prime, we prefilter origin nodes which have a proposed node nearby.
@@ -791,6 +793,7 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
             true_pos_count_l.append(0)
             false_pos_count_l.append(0)
             false_neg_count_l.append(len(G_holes.nodes()))
+            samples_metadata.append(0)
             continue
 
         # get closest node
@@ -841,6 +844,8 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         true_pos_count_l.append(true_pos_count)
         false_pos_count_l.append(false_pos_count)
         false_neg_count_l.append(false_neg_count)
+
+        samples_metadata.append(f1)
 
         # plot if i == 0:
         if i == 0 and make_plots:
@@ -966,7 +971,8 @@ def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         "fn_tot"   : fn_tot,
         "precision": precision,
         "recall"   : recall,
-        "f1"       : f1
+        "f1"       : f1,
+        "samples"  : samples_metadata
     }
 
     return f1, data
