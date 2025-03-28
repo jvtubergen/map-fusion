@@ -631,6 +631,18 @@ def experiment_sample_histogram():
 
         flat_df = pd.DataFrame(flat_data)
 
+        # Calculate sample counts for each category
+        sample_counts = {}
+        for maptype in flat_df['maptype'].unique():
+            sample_counts[maptype] = {}
+            for place in flat_df['place'].unique():
+                sample_counts[maptype][place] = {}
+                for metric in flat_df['metric'].unique():
+                    count = len(flat_df[(flat_df['maptype'] == maptype) & 
+                                    (flat_df['place'] == place) & 
+                                    (flat_df['metric'] == metric)])
+                    sample_counts[maptype][place][metric] = count
+
         # Get unique combinations
         unique_place_metrics = sorted(flat_df['place_metric'].unique())
         # unique_maptypes = sorted(flat_df['maptype'].unique())
@@ -687,6 +699,9 @@ def experiment_sample_histogram():
         plt.xlim(0, 1)
         plt.ylim(bottom=0)  # Make sure y-axis starts at 0
 
+        # Set x-axis ticks to display in proper 0-1 format
+        plt.xticks(np.arange(0, 1.1, 0.1))
+
         # Add grid for better readability
         plt.grid(axis='both', alpha=0.3)
 
@@ -733,7 +748,7 @@ def experiment_sample_histogram():
                     if len(combo_data) > 0:
                         mean = combo_data['score'].mean()
                         std = combo_data['score'].std()
-                        stats_rows.append(f"{maptype} - {place} ({metric}): {mean:.1f} ± {std:.1f}")
+                        stats_rows.append(f"{maptype} - {place} ({metric}): {mean:.2f} ± {std:.2f}")
 
         # Sort stats for better readability
         stats_rows.sort()
@@ -743,6 +758,31 @@ def experiment_sample_histogram():
         plt.annotate(
             stats_text,
             xy=(0.01, 0.99),
+            xycoords='axes fraction',
+            fontsize=10,
+            ha='left',
+            va='top',
+            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.9)
+        )
+    
+        # Create a second statistics box for sample counts
+        sample_counts_text = "Sample Counts:\n"
+        sample_rows = []
+
+        for maptype in unique_maptypes:
+            for place in ["berlin", "chicago"]:
+                for metric in ["apls", "topo"]:
+                    count = sample_counts[maptype][place][metric]
+                    sample_rows.append(f"{maptype} - {place} ({metric}): {count:,d} samples")
+        
+        # Sort sample count rows for better readability
+        sample_rows.sort()
+        sample_counts_text += "\n".join(sample_rows)
+
+        # Add sample counts text box
+        plt.annotate(
+            sample_counts_text,
+            xy=(0.01, 0.60),  # Position below the first statistics box
             xycoords='axes fraction',
             fontsize=10,
             ha='left',
