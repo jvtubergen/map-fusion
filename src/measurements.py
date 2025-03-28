@@ -321,40 +321,42 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         "reset_time": 365*24*60*60, # Keep it for a year.
     }
 
-    # Prepare map for TOPO and APLS computation.
-    def precompute_measurement_map(graph):
-        # Drop deleted edges before continuing.
-        def remove_deleted(G):
-
-            G = G.copy()
-
-            edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
-            nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
-
-            G.remove_edges_from(edges_to_be_deleted)
-            G.remove_nodes_from(nodes_to_be_deleted)
-
-            return G
-    
-        graph = remove_deleted(graph)
-        return {
-            "topo": prepare_graph_for_topo(graph),
-            "apls": prepare_graph_for_apls(graph),
-        }
-
     # Generate threshold_maps for thresholds.
-    # def compute_threshold_maps():
-    threshold_maps = {}
-    for threshold in range(lowest, highest, step):
-        print(f"Generating map with threshold {threshold}.")
-        maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
-        threshold_maps[threshold] = {}
-        threshold_maps[threshold]["berlin"]  = maps["berlin"]["c"]
-        threshold_maps[threshold]["chicago"] = maps["chicago"]["c"]
+    def compute_threshold_maps():
+        threshold_maps = {}
+        for threshold in range(lowest, highest, step):
+            print(f"Generating map with threshold {threshold}.")
+            maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
+            threshold_maps[threshold] = {}
+            threshold_maps[threshold]["berlin"]  = maps["berlin"]["c"]
+            threshold_maps[threshold]["chicago"] = maps["chicago"]["c"]
+        return threshold_maps
     
-    
+
     # Prepare graphs for TOPO and APLS.
-    def precompute_graphs(threshold_maps):
+    def precompute_graphs_for_metrics(threshold_maps):
+
+        # Prepare map for TOPO and APLS computation.
+        def precompute_measurement_map(graph):
+            # Drop deleted edges before continuing.
+            def remove_deleted(G):
+
+                G = G.copy()
+
+                edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+                nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+
+                G.remove_edges_from(edges_to_be_deleted)
+                G.remove_nodes_from(nodes_to_be_deleted)
+
+                return G
+        
+            graph = remove_deleted(graph)
+            return {
+                "topo": prepare_graph_for_topo(graph),
+                "apls": prepare_graph_for_apls(graph),
+            }
+
         precomputed_graphs = {}
         for threshold in range(lowest, highest, step):
             print(f"Preparing graph for topo and apls ({threshold}).")
@@ -363,9 +365,8 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
             precomputed_graphs[threshold]["chicago"] = precompute_measurement_map(threshold_maps[threshold]["chicago"])
         return precomputed_graphs
 
-    precomputed_graphs = read_and_or_write(f"data/pickled/precomputed_graphs", lambda: precompute_graphs(threshold_maps), **reading_props)
-    
-    # Compute TOPO and APLS.
+
+    # Compute TOPO and APLS on graphs.
     def compute_metrics(precomputed_graphs):
 
         # We need prepared APLS and TOPO on Berlin and Chicago.
@@ -417,8 +418,6 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         
         return result
     
-    measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
-
 
     # Plot threshold values on Berlin and Chicago.
     def render_thresholds(measure_results):
@@ -507,6 +506,10 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         # plt.show()
         plt.savefig("Experiment 2 - Thresholds metric results.svg")
 
+
+    threshold_maps     = compute_threshold_maps()
+    precomputed_graphs = read_and_or_write(f"data/pickled/precomputed_graphs", lambda: precompute_graphs_for_metrics(threshold_maps), **reading_props)
+    measure_results    = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
     render_thresholds(measure_results)
 
 
