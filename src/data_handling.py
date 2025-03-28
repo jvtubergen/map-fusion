@@ -166,7 +166,7 @@ def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwri
             logger(f"Failed to read {filename}. Running instead.")
         
     # Rerunning result.
-    if result == None:
+    if type(result) == type(None):
         logger("Performing action.")
         result = action()
 
