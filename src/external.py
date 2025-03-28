@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.widgets import CheckButtons
 import PIL as pil
+import seaborn as sns
 # Geometry
 from shapely.geometry import LineString, Point
 import utm
