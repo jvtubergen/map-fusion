@@ -421,11 +421,9 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
     # Plot threshold values on Berlin and Chicago.
     def render_thresholds(measure_results):
 
-
         # Data format: `data[threshold][place][apls/topo]`
         # 
         # We want `threshold` on the x-axis, place and metric as different coloring/line style, value on the y-axis.
-        measure_results = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
 
         data = {}
         for i in range(1, 50):
@@ -504,7 +502,8 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         plt.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5)
 
         plt.tight_layout()
-        plt.show()
+        # plt.show()
+        plt.savefig("Experiment 2 - Thresholds metric results.svg")
 
     render_thresholds(measure_results)
 
