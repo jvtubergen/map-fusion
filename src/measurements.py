@@ -5,6 +5,7 @@ from graph_deduplicating import *
 from graph_curvature import * 
 from apls import *
 from topo.topo_metric import compute_topo as compute_topo_on_prepared_graph
+from rendering import * 
 
 # Generate all maps related to thesis.
 # TODO: Add split-point merging graph.
@@ -506,6 +507,23 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         plt.savefig("Experiment 2 - Thresholds metric results.svg")
 
     render_thresholds(measure_results)
+
+
+# Render three thresholds to see impact of different threshold values.
+def experiment_two_render_minimal_and_maximal_thresholds():
+
+    reading_props = {
+        "is_graph": False,
+        "overwrite_if_old": True,
+        "reset_time": 365*24*60*60, # Keep it for a year.
+        # "reset_time": 60, # Keep it for a minute.
+    }
+
+    # Render chicago with threshold of 1 and 50 as svg.
+    for threshold in [1, 25, 50]:
+        maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
+        fusion_map = maps["chicago"]["c"]
+        render_graph_as_svg(fusion_map, f"Experiment 2 - fusion map threshold {threshold}m.svg")
 
 
 # Third experiment.

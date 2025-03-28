@@ -525,3 +525,17 @@ def render_maps_to_images(maps):
                 graph = maps[place][map_variant]
                 graph = apply_coloring(graph)
                 render_graph(graph, f"data/graph_images/{quality}-{place}-{map_variant}.png", quality=quality, title=f"{quality}-{place}-{map_variant}")
+
+
+# Render graph as an SVG.
+def render_graph_as_svg(graph, filename):
+    graph = apply_coloring(graph)
+
+    fig, ax = plt.subplots(figsize=(100, 100))  # 20 inches * 100 dpi = 2000 pixels
+
+    preplot_graph(graph,  ax) 
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    plt.savefig(filename)
