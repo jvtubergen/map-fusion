@@ -311,7 +311,7 @@ after = """
 
 # Second experiment.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago.
-def measure_threshold_values(lowest = 1, highest = 50, step = 1):
+def experiment_measure_threshold_values(lowest = 1, highest = 50, step = 1):
 
     reading_props = {
         "is_graph": False,
@@ -509,3 +509,279 @@ def measure_threshold_values(lowest = 1, highest = 50, step = 1):
     render_thresholds(measure_results)
 
 
+# Third experiment.
+# Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
+def experiment_sample_histogram():
+
+    reading_props = {
+        "is_graph": False,
+        "overwrite_if_old": True,
+        "reset_time": 365*24*60*60, # Keep it for a year.
+    }
+
+    # Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, c.
+    def compute_data_apls_topo():
+
+        threshold = 30
+
+        simp = simplify_graph
+        dedup = graph_deduplicate
+        to_utm = graph_transform_latlon_to_utm
+        osm_berlin = simp(dedup(to_utm(read_graph(place="berlin", graphset=links["osm"]))))
+        osm_chicago = simp(dedup(to_utm(read_graph(place="chicago", graphset=links["osm"]))))
+        truth = {}
+        truth["berlin"] = {}
+        truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)
+        truth["berlin"]["topo"]  = prepare_graph_for_topo(osm_berlin)
+        truth["chicago"] = {}
+        truth["chicago"]["apls"] = prepare_graph_for_apls(osm_chicago)
+        truth["chicago"]["topo"] = prepare_graph_for_topo(osm_chicago)
+
+        # Load Sat, GPS, merged.
+        maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
+
+        # Compute TOPO and APLS.
+        result = {}
+        for place in ["berlin", "chicago"]:
+            result[place] = {}
+            for maptype in ["sat", "gps", "a", "b", "c"]:
+                logger(f"Computing TOPO and APLS on {place}-{maptype}.")
+                result[place][maptype] = {}
+
+                # Samples APLS (bins 0 to 100).
+                apls_samples = apls(maps[place][maptype], maps[place]["osm"])[1]
+                result[place][maptype]["apls"] = {i: 0 for i in range(101)}
+                #. samples["A"] # No control point in the proposed graph.
+                #. samples["B"] # Control nodes exist and a path exists in the ground truth, but not in the proposed graph.
+                #. samples["C"] # Both graphs have control points and a path between them.
+                #. A and B both move to zero.
+                #. C moves to path_scores `[float(v) for v in data["left"]["path_scores"]]`
+                result[place][maptype]["apls"][0] = len(apls_samples["left"]["samples"]["A"]) + len(apls_samples["left"]["samples"]["B"]) \
+                                                    + len(apls_samples["right"]["samples"]["A"]) + len(apls_samples["right"]["samples"]["B"])
+                for v in [floor(float(v) * 100) for v in apls_samples["left"]["path_scores"]]:
+                    result[place][maptype]["apls"][v] += 1
+                for v in [floor(float(v) * 100) for v in apls_samples["right"]["path_scores"]]:
+                    result[place][maptype]["apls"][v] += 1
+
+                # Samples TOPO (bins 0 to 100).
+                truth = maps[place]["osm"]
+                proposed = maps[place][maptype]
+                truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
+                topo_samples = compute_topo_on_prepared_graph(truth, proposed)[1]["samples"]
+                result[place][maptype]["topo"] = {i: 0 for i in range(101)}
+                for v in topo_samples:
+                    result[place][maptype]["topo"][floor(100* v)] += 1
+        
+        return result
+    
+    result = read_and_or_write(f"data/pickled/experiment 3 - topo and apls bins", lambda: compute_data_apls_topo(), **reading_props)
+    
+    # Convert the nested dictionaries to a DataFrame for easier plotting
+    def convert_to_dataframe():
+        logger("Convert the nested dictionaries to a DataFrame for easier plotting")
+        data_rows = []
+        for place in result:
+            for maptype in result[place]:
+                for metric in result[place][maptype]:
+                    for score, count in result[place][maptype][metric].items():
+                        if count > 0:  # Only include non-zero counts
+                            data_rows.append({
+                                'place': place,
+                                'maptype': maptype,
+                                'metric': metric,
+                                'score': score,
+                                'count': count
+                            })
+        df = pd.DataFrame(data_rows)
+        return df
+
+    df = read_and_or_write(f"data/pickled/experiment 3 - topo and apls bins dataframe", lambda: convert_to_dataframe(), **reading_props)
+
+    # Render dataframe as a KDE.
+    def render_dataframe_KDE(df):
+        # Create a single figure for the histogram
+        plt.figure(figsize=(14, 10))
+        sns.set_style("whitegrid")
+        sns.set_context("notebook", font_scale=1.2)
+
+        # Create a new column combining place and metric for better visualization
+        df['place_metric'] = df['place'] + '_' + df['metric']
+
+        # Create a color palette that distinguishes between different combinations
+        # We'll use different color families for different maptypes
+        maptype_colors = {
+            'sat': 'Blues',
+            'gps': 'Greens',
+            # 'a': 'Oranges',
+            # 'b': 'Purples',
+            'c': 'Reds'
+        }
+
+        # Flatten the data - we need scores repeated by their count
+        flat_data = []
+        for _, row in df.iterrows():
+            for _ in range(int(row['count'])):
+                flat_data.append({
+                    'place': row['place'],
+                    'metric': row['metric'],
+                    'maptype': row['maptype'],
+                    'place_metric': row['place_metric'],
+                    'score': row['score'] / 100.0 # Normalize scores to 0-1 range.
+                })
+
+        flat_df = pd.DataFrame(flat_data)
+
+        # Get unique combinations
+        unique_place_metrics = sorted(flat_df['place_metric'].unique())
+        # unique_maptypes = sorted(flat_df['maptype'].unique())
+        unique_maptypes = sorted(["gps", "sat", "c"])
+
+        # Create the figure
+        plt.figure(figsize=(16, 10))
+        sns.set_style("whitegrid")
+        sns.set_context("notebook", font_scale=1.2)
+
+        # Create the KDE plots - one for each combination
+        for i, maptype in enumerate(unique_maptypes):
+            # Get base color map for this maptype
+            cmap_name = maptype_colors.get(maptype, 'Greys')
+            
+            for j, place_metric in enumerate(unique_place_metrics):
+                # Extract place and metric
+                place, metric = place_metric.split('_')
+                
+                # Filter data for this combination
+                combo_data = flat_df[(flat_df['maptype'] == maptype) & 
+                                    (flat_df['place'] == place) & 
+                                    (flat_df['metric'] == metric)]
+                
+                if len(combo_data) > 0:
+                    # Create alpha and line style variations for different place_metrics
+                    alpha = 0.8 if 'berlin' in place_metric else 0.6
+                    linestyle = '-' if 'apls' in place_metric else '--'
+                    
+                    # Calculate position in colormap (0-1 range)
+                    cmap_pos = (j / len(unique_place_metrics)) * 0.7 + 0.3  # Range from 0.3 to 1.0
+                    
+                    # Get color from colormap
+                    cmap = plt.cm.get_cmap(cmap_name)
+                    color = cmap(cmap_pos)
+                    
+                    # Plot KDE for this combination
+                    sns.kdeplot(
+                        data=combo_data,
+                        x="score",
+                        color=color,
+                        alpha=alpha,
+                        linestyle=linestyle,
+                        linewidth=3,
+                        label=f"{maptype} - {place} ({metric})"
+                    )
+
+        # Set titles and labels
+        plt.title('Score Distribution for Map Types: sat, gps, c', fontsize=18)
+        plt.xlabel('Score (0-1)', fontsize=16)
+        plt.ylabel('Density', fontsize=16)
+
+        # Adjust x-axis to show full range
+        plt.xlim(0, 1)
+        plt.ylim(bottom=0)  # Make sure y-axis starts at 0
+
+        # Add grid for better readability
+        plt.grid(axis='both', alpha=0.3)
+
+        # Create a custom legend with better organization
+        handles, labels = plt.gca().get_legend_handles_labels()
+
+        # Group the legend items by maptype
+        by_maptype = {}
+        for handle, label in zip(handles, labels):
+            maptype = label.split(' - ')[0]
+            if maptype not in by_maptype:
+                by_maptype[maptype] = []
+            by_maptype[maptype].append((handle, label))
+
+        # Create a custom ordered legend
+        legend_handles = []
+        legend_labels = []
+        for maptype in sorted(by_maptype.keys()):
+            for handle, label in by_maptype[maptype]:
+                legend_handles.append(handle)
+                legend_labels.append(label)
+
+        plt.legend(
+            legend_handles,
+            legend_labels,
+            title="Map Type - Place (Metric)",
+            loc="upper right",
+            fontsize=10,
+            ncol=1,
+            framealpha=0.9
+        )
+
+        # Add statistics table as text
+        stats_text = "Statistics (Mean ± Std):\n"
+        stats_rows = []
+
+        for maptype in unique_maptypes:
+            for place in ["berlin", "chicago"]:
+                for metric in ["apls", "topo"]:
+                    combo_data = flat_df[(flat_df['maptype'] == maptype) & 
+                                        (flat_df['place'] == place) & 
+                                        (flat_df['metric'] == metric)]
+                    
+                    if len(combo_data) > 0:
+                        mean = combo_data['score'].mean()
+                        std = combo_data['score'].std()
+                        stats_rows.append(f"{maptype} - {place} ({metric}): {mean:.1f} ± {std:.1f}")
+
+        # Sort stats for better readability
+        stats_rows.sort()
+        stats_text += "\n".join(stats_rows)
+
+        # Add statistics text box
+        plt.annotate(
+            stats_text,
+            xy=(0.01, 0.99),
+            xycoords='axes fraction',
+            fontsize=10,
+            ha='left',
+            va='top',
+            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.9)
+        )
+
+        # Add markers for mean values to make them stand out
+        for maptype in unique_maptypes:
+            for place in ["berlin", "chicago"]:
+                for metric in ["apls", "topo"]:
+                    combo_data = flat_df[(flat_df['maptype'] == maptype) & 
+                                    (flat_df['place'] == place) & 
+                                    (flat_df['metric'] == metric)]
+                    
+                    if len(combo_data) > 0:
+                        mean = combo_data['score'].mean()
+                        
+                        # Get the appropriate color
+                        cmap_name = maptype_colors.get(maptype, 'Greys')
+                        cmap = plt.cm.get_cmap(cmap_name)
+                        
+                        # Find position in colormap based on place_metric
+                        place_metric = f"{place}_{metric}"
+                        j = unique_place_metrics.index(place_metric)
+                        cmap_pos = (j / len(unique_place_metrics)) * 0.7 + 0.3
+                        
+                        color = cmap(cmap_pos)
+                        
+                        # Plot a vertical line at the mean
+                        plt.axvline(
+                            x=mean,
+                            color=color,
+                            linestyle='-' if metric == 'apls' else '--',
+                            alpha=0.5,
+                            linewidth=1.5
+                        )
+
+        plt.tight_layout()
+        plt.show()
+
+    render_dataframe_KDE(df)
