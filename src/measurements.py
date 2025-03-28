@@ -311,7 +311,7 @@ after = """
 
 # Second experiment.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago.
-def experiment_measure_threshold_values(lowest = 1, highest = 50, step = 1):
+def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
 
     reading_props = {
         "is_graph": False,
@@ -511,17 +511,19 @@ def experiment_measure_threshold_values(lowest = 1, highest = 50, step = 1):
 
 # Third experiment.
 # Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
-def experiment_sample_histogram():
+def experiment_three_sample_histogram():
 
     reading_props = {
         "is_graph": False,
         "overwrite_if_old": True,
         "reset_time": 365*24*60*60, # Keep it for a year.
+        # "reset_time": 60, # Keep it for a minute.
     }
 
-    # Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, c.
+    # Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, fused. 
     def compute_data_apls_topo():
 
+        logger("Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, fused.")
         threshold = 30
 
         simp = simplify_graph
@@ -896,6 +898,8 @@ def experiment_sample_histogram():
 
         plt.tight_layout()
         plt.subplots_adjust(bottom=0.15)  # Make room for the line style legend at the bottom
-        plt.show()
+        # plt.show()
+        plt.savefig("Experiment 3 - TOPO and APLS samples.svg")
+
 
     render_dataframe_KDE(df)
