@@ -669,8 +669,34 @@ def experiment_sample_histogram():
         sns.set_style("whitegrid")
         sns.set_context("notebook", font_scale=1.2)
 
-        # Create the KDE plots - one for each combination
-        for i, maptype in enumerate(unique_maptypes):
+        # Pre-calculate all KDE curves to find the maximum density value for normalization
+        max_density = 0
+        kde_curves = {}
+
+        for maptype in unique_maptypes:
+            kde_curves[maptype] = {}
+            for place_metric in unique_place_metrics:
+                place, metric = place_metric.split('_')
+                
+                # Filter data for this combination
+                combo_data = flat_df[(flat_df['maptype'] == maptype) & 
+                                (flat_df['place'] == place) & 
+                                (flat_df['metric'] == metric)]
+                
+                if len(combo_data) > 0:
+                    # Calculate KDE manually
+                    x = np.linspace(0, 1, 1000)
+                    kde = stats.gaussian_kde(combo_data['score'])
+                    y = kde(x)
+                    
+                    # Store the curve data
+                    kde_curves[maptype][place_metric] = {'x': x, 'y': y}
+                    
+                    # Update the maximum density value
+                    max_density = max(max_density, np.max(y))
+
+        # Now plot the normalized KDE curves
+        for maptype in unique_maptypes:
             # Get display name for this maptype
             maptype_disp = maptype_display[maptype]
             
@@ -682,41 +708,40 @@ def experiment_sample_histogram():
             base_color_position = 0.7  # Position in the colormap (0-1)
             base_color = cmap(base_color_position)
             
-            for j, place_metric in enumerate(unique_place_metrics):
+            for place_metric in unique_place_metrics:
                 # Extract place and metric
                 place, metric = place_metric.split('_')
                 
-                # Filter data for this combination
-                combo_data = flat_df[(flat_df['maptype'] == maptype) & 
-                                    (flat_df['place'] == place) & 
-                                    (flat_df['metric'] == metric)]
-                
-                if len(combo_data) > 0:
+                if place_metric in kde_curves[maptype]:
+                    # Get the pre-calculated curve data
+                    x = kde_curves[maptype][place_metric]['x']
+                    y = kde_curves[maptype][place_metric]['y'] / max_density  # Normalize to 0-1
+                    
                     # Get style parameters for this place-metric combination
                     style = place_metric_styles[place_metric]
                     
-                    # Plot KDE for this combination using the display name and the style
-                    sns.kdeplot(
-                        data=combo_data,
-                        x="score",
+                    # Plot the normalized KDE curve
+                    plt.plot(
+                        x, y,
                         color=base_color,
                         alpha=style['alpha'],
                         linestyle=style['linestyle'],
                         linewidth=style['linewidth'],
-                        label=f"{maptype_disp} - {place} ({metric})"  # Using display name
+                        label=f"{maptype_disp} - {place} ({metric})"
                     )
 
         # Set titles and labels
-        plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)  # Updated title
+        plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)
         plt.xlabel('Score (0-1)', fontsize=16)
-        plt.ylabel('Density', fontsize=16)
+        plt.ylabel('Normalized Density (0-1)', fontsize=16)  # Updated to indicate normalized density
 
-        # Adjust x-axis to show full range from 0 to 1
+        # Adjust axes to show full ranges
         plt.xlim(0, 1)
-        plt.ylim(bottom=0)  # Make sure y-axis starts at 0
+        plt.ylim(0, 1.05)  # Add a little space at the top
 
-        # Set x-axis ticks to display in proper 0-1 format
+        # Set ticks to display in proper 0-1 format
         plt.xticks(np.arange(0, 1.1, 0.1))
+        plt.yticks(np.arange(0, 1.1, 0.1))
 
         # Add grid for better readability
         plt.grid(axis='both', alpha=0.3)

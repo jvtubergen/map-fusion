@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.widgets import CheckButtons
+from scipy import stats
 import PIL as pil
 import seaborn as sns
 # Geometry
