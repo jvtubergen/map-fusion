@@ -692,7 +692,7 @@ def compute_single_topo(G_sub_gt_, G_sub_p_,
 
 ###############################################################################
 def compute_topo(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
-                 n_measurement_nodes=20, x_coord='x', y_coord='y',
+                 n_measurement_nodes=10000, x_coord='x', y_coord='y',
                  allow_multi_hole=False, prime=False,
                  make_plots=False, verbose=False):
     '''Compute topo metric
