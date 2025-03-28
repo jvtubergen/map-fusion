@@ -622,9 +622,15 @@ def experiment_sample_histogram():
         maptype_colors = {
             'sat': 'Blues',
             'gps': 'Greens',
-            # 'a': 'Oranges',
-            # 'b': 'Purples',
             'c': 'Reds'
+        }
+
+        # Define distinct styles for each place-metric combination
+        place_metric_styles = {
+            'berlin_apls': {'linestyle': '-', 'alpha': 0.9, 'linewidth': 3.5},
+            'berlin_topo': {'linestyle': '-.', 'alpha': 0.9, 'linewidth': 3.0},
+            'chicago_apls': {'linestyle': '--', 'alpha': 0.9, 'linewidth': 2.5},
+            'chicago_topo': {'linestyle': ':', 'alpha': 0.9, 'linewidth': 3.0}
         }
 
         # Flatten the data - we need scores repeated by their count
@@ -667,9 +673,14 @@ def experiment_sample_histogram():
         for i, maptype in enumerate(unique_maptypes):
             # Get display name for this maptype
             maptype_disp = maptype_display[maptype]
-
+            
             # Get base color map for this maptype
             cmap_name = maptype_colors.get(maptype, 'Greys')
+            cmap = plt.cm.get_cmap(cmap_name)
+            
+            # For each maptype, use a specific base color from its colormap
+            base_color_position = 0.7  # Position in the colormap (0-1)
+            base_color = cmap(base_color_position)
             
             for j, place_metric in enumerate(unique_place_metrics):
                 # Extract place and metric
@@ -681,34 +692,26 @@ def experiment_sample_histogram():
                                     (flat_df['metric'] == metric)]
                 
                 if len(combo_data) > 0:
-                    # Create alpha and line style variations for different place_metrics
-                    alpha = 0.8 if 'berlin' in place_metric else 0.6
-                    linestyle = '-' if 'apls' in place_metric else '--'
+                    # Get style parameters for this place-metric combination
+                    style = place_metric_styles[place_metric]
                     
-                    # Calculate position in colormap (0-1 range)
-                    cmap_pos = (j / len(unique_place_metrics)) * 0.7 + 0.3  # Range from 0.3 to 1.0
-                    
-                    # Get color from colormap
-                    cmap = plt.cm.get_cmap(cmap_name)
-                    color = cmap(cmap_pos)
-                    
-                    # Plot KDE for this combination
+                    # Plot KDE for this combination using the display name and the style
                     sns.kdeplot(
                         data=combo_data,
                         x="score",
-                        color=color,
-                        alpha=alpha,
-                        linestyle=linestyle,
-                        linewidth=3,
-                        label=f"{maptype_disp} - {place} ({metric})"
+                        color=base_color,
+                        alpha=style['alpha'],
+                        linestyle=style['linestyle'],
+                        linewidth=style['linewidth'],
+                        label=f"{maptype_disp} - {place} ({metric})"  # Using display name
                     )
 
         # Set titles and labels
-        plt.title('Score Distribution for Map Types: sat, gps, c', fontsize=18)
+        plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)  # Updated title
         plt.xlabel('Score (0-1)', fontsize=16)
         plt.ylabel('Density', fontsize=16)
 
-        # Adjust x-axis to show full range
+        # Adjust x-axis to show full range from 0 to 1
         plt.xlim(0, 1)
         plt.ylim(bottom=0)  # Make sure y-axis starts at 0
 
@@ -737,6 +740,21 @@ def experiment_sample_histogram():
                 legend_handles.append(handle)
                 legend_labels.append(label)
 
+        # Add an additional legend to explain place-metric line styles
+        # First create custom line objects for the styles legend
+        style_handles = []
+        style_labels = []
+
+        for place_metric, style in place_metric_styles.items():
+            place, metric = place_metric.split('_')
+            line = Line2D([0], [0], color='black', 
+                        linestyle=style['linestyle'], 
+                        linewidth=style['linewidth'],
+                        alpha=0.8)
+            style_handles.append(line)
+            style_labels.append(f"{place} ({metric})")
+
+        # Main legend for maptype combinations
         plt.legend(
             legend_handles,
             legend_labels,
@@ -747,14 +765,26 @@ def experiment_sample_histogram():
             framealpha=0.9
         )
 
-        # Add statistics table as text
+        # Add a second legend for line styles (outside the plot area)
+        plt.figlegend(
+            style_handles,
+            style_labels,
+            title="Line Styles",
+            loc="lower center",
+            ncol=4,
+            fontsize=10,
+            framealpha=0.9,
+            bbox_to_anchor=(0.5, 0.02)
+        )
+
+        # Add statistics table as text with normalized values (0-1 range)
         stats_text = "Statistics (Mean ± Std):\n"
         stats_rows = []
 
         for maptype in unique_maptypes:
             # Get display name for this maptype
             maptype_disp = maptype_display[maptype]
-
+            
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     combo_data = flat_df[(flat_df['maptype'] == maptype) & 
@@ -770,7 +800,7 @@ def experiment_sample_histogram():
         stats_rows.sort()
         stats_text += "\n".join(stats_rows)
 
-        # Add statistics text box
+        # Add statistics text box for means and standard deviations
         plt.annotate(
             stats_text,
             xy=(0.01, 0.99),
@@ -780,7 +810,7 @@ def experiment_sample_histogram():
             va='top',
             bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.9)
         )
-    
+
         # Create a second statistics box for sample counts
         sample_counts_text = "Sample Counts:\n"
         sample_rows = []
@@ -788,12 +818,12 @@ def experiment_sample_histogram():
         for maptype in unique_maptypes:
             # Get display name for this maptype
             maptype_disp = maptype_display[maptype]
-
+            
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     count = sample_counts[maptype][place][metric]
                     sample_rows.append(f"{maptype_disp} - {place} ({metric}): {count:,d} samples")
-        
+
         # Sort sample count rows for better readability
         sample_rows.sort()
         sample_counts_text += "\n".join(sample_rows)
@@ -813,7 +843,12 @@ def experiment_sample_histogram():
         for maptype in unique_maptypes:
             # Get display name for stats label (not used in this loop but useful for consistency)
             maptype_disp = maptype_display[maptype]
-    
+            
+            # Get base color for this maptype
+            cmap_name = maptype_colors.get(maptype, 'Greys')
+            cmap = plt.cm.get_cmap(cmap_name)
+            base_color = cmap(0.7)
+            
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     combo_data = flat_df[(flat_df['maptype'] == maptype) & 
@@ -822,28 +857,20 @@ def experiment_sample_histogram():
                     
                     if len(combo_data) > 0:
                         mean = combo_data['score'].mean()
-                        
-                        # Get the appropriate color
-                        cmap_name = maptype_colors.get(maptype, 'Greys')
-                        cmap = plt.cm.get_cmap(cmap_name)
-                        
-                        # Find position in colormap based on place_metric
                         place_metric = f"{place}_{metric}"
-                        j = unique_place_metrics.index(place_metric)
-                        cmap_pos = (j / len(unique_place_metrics)) * 0.7 + 0.3
-                        
-                        color = cmap(cmap_pos)
+                        style = place_metric_styles[place_metric]
                         
                         # Plot a vertical line at the mean
                         plt.axvline(
                             x=mean,
-                            color=color,
-                            linestyle='-' if metric == 'apls' else '--',
+                            color=base_color,
+                            linestyle=style['linestyle'],
                             alpha=0.5,
-                            linewidth=1.5
+                            linewidth=style['linewidth'] * 0.8
                         )
 
         plt.tight_layout()
+        plt.subplots_adjust(bottom=0.15)  # Make room for the line style legend at the bottom
         plt.show()
 
     render_dataframe_KDE(df)

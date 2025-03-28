@@ -7,6 +7,7 @@ import numpy as np
 # Rendering
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.widgets import CheckButtons
 import PIL as pil
 import seaborn as sns
