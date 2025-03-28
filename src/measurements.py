@@ -606,6 +606,16 @@ def experiment_sample_histogram():
 
         # Create a new column combining place and metric for better visualization
         df['place_metric'] = df['place'] + '_' + df['metric']
+    
+        # Create a mapping for display names (change 'c' to 'fused' for display)
+        maptype_display = {
+            'sat': 'sat',
+            'gps': 'gps',
+            'c': 'fused'
+        }
+
+        # Create a display column with the renamed values
+        df['maptype_display'] = df['maptype'].map(maptype_display)
 
         # Create a color palette that distinguishes between different combinations
         # We'll use different color families for different maptypes
@@ -625,6 +635,7 @@ def experiment_sample_histogram():
                     'place': row['place'],
                     'metric': row['metric'],
                     'maptype': row['maptype'],
+                    'maptype_display': row['maptype_display'],  # Display maptype (for labels)
                     'place_metric': row['place_metric'],
                     'score': row['score'] / 100.0 # Normalize scores to 0-1 range.
                 })
@@ -645,7 +656,6 @@ def experiment_sample_histogram():
 
         # Get unique combinations
         unique_place_metrics = sorted(flat_df['place_metric'].unique())
-        # unique_maptypes = sorted(flat_df['maptype'].unique())
         unique_maptypes = sorted(["gps", "sat", "c"])
 
         # Create the figure
@@ -655,6 +665,9 @@ def experiment_sample_histogram():
 
         # Create the KDE plots - one for each combination
         for i, maptype in enumerate(unique_maptypes):
+            # Get display name for this maptype
+            maptype_disp = maptype_display[maptype]
+
             # Get base color map for this maptype
             cmap_name = maptype_colors.get(maptype, 'Greys')
             
@@ -687,7 +700,7 @@ def experiment_sample_histogram():
                         alpha=alpha,
                         linestyle=linestyle,
                         linewidth=3,
-                        label=f"{maptype} - {place} ({metric})"
+                        label=f"{maptype_disp} - {place} ({metric})"
                     )
 
         # Set titles and labels
@@ -739,6 +752,9 @@ def experiment_sample_histogram():
         stats_rows = []
 
         for maptype in unique_maptypes:
+            # Get display name for this maptype
+            maptype_disp = maptype_display[maptype]
+
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     combo_data = flat_df[(flat_df['maptype'] == maptype) & 
@@ -748,7 +764,7 @@ def experiment_sample_histogram():
                     if len(combo_data) > 0:
                         mean = combo_data['score'].mean()
                         std = combo_data['score'].std()
-                        stats_rows.append(f"{maptype} - {place} ({metric}): {mean:.2f} ± {std:.2f}")
+                        stats_rows.append(f"{maptype_disp} - {place} ({metric}): {mean:.2f} ± {std:.2f}")
 
         # Sort stats for better readability
         stats_rows.sort()
@@ -770,10 +786,13 @@ def experiment_sample_histogram():
         sample_rows = []
 
         for maptype in unique_maptypes:
+            # Get display name for this maptype
+            maptype_disp = maptype_display[maptype]
+
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     count = sample_counts[maptype][place][metric]
-                    sample_rows.append(f"{maptype} - {place} ({metric}): {count:,d} samples")
+                    sample_rows.append(f"{maptype_disp} - {place} ({metric}): {count:,d} samples")
         
         # Sort sample count rows for better readability
         sample_rows.sort()
@@ -792,6 +811,9 @@ def experiment_sample_histogram():
 
         # Add markers for mean values to make them stand out
         for maptype in unique_maptypes:
+            # Get display name for stats label (not used in this loop but useful for consistency)
+            maptype_disp = maptype_display[maptype]
+    
             for place in ["berlin", "chicago"]:
                 for metric in ["apls", "topo"]:
                     combo_data = flat_df[(flat_df['maptype'] == maptype) & 
