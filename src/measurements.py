@@ -426,6 +426,9 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         # 
         # We want `threshold` on the x-axis, place and metric as different coloring/line style, value on the y-axis.
 
+        plt.figure(figsize=(14, 8))
+        sns.set_style("whitegrid")
+        
         data = {}
         for i in range(1, 50):
             data[i] = {}
@@ -451,30 +454,74 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
         
         df = pd.DataFrame(rows)
 
+
         # Define colors for better differentiation
-        colors = {
-            "berlin_apls": "#1f77b4",       # blue
-            "berlin_apls_prime": "#9467bd",  # purple
-            "berlin_topo": "#2ca02c",        # green
-            "berlin_topo_prime": "#d62728",  # red
-            "chicago_apls": "#ff7f0e",       # orange
-            "chicago_apls_prime": "#8c564b", # brown
-            "chicago_topo": "#e377c2",       # pink
-            "chicago_topo_prime": "#7f7f7f"  # gray
+        base_colors = {
+            "berlin": "#1f77b4", 
+            "chicago": "#d62728", 
+        }
+
+        # Define color variations for each metric type
+        metric_variations = {
+            "apls": 0,        # Base color (no adjustment)
+            "topo": 0.15,     # Slightly darker
+            "apls_prime": -0.15,  # Slightly lighter
+            "topo_prime": -0.3    # Even lighter
         }
 
         # Create combined category for legend
         df['place_metric'] = df['place'] + "_" + df['metric_type']
 
-        # Line styles to differentiate further
-        line_styles = {
-            "berlin": "-",    # solid line
-            "chicago": "--"   # dashed line
-        }
+        # Function to adjust color (make it lighter or darker)
+        def adjust_color(hex_color, amount):
+            """
+            Adjust hex color by making it lighter or darker
+            - amount < 0: lighter
+            - amount > 0: darker
+            """
+            import colorsys
+            import matplotlib.colors as mc
+            
+            # Convert hex to RGB
+            rgb = mc.to_rgb(hex_color)
+            # Convert RGB to HSV
+            h, s, v = colorsys.rgb_to_hsv(*rgb)
+            
+            # Adjust brightness (value)
+            if amount < 0:
+                v = min(1, v * (1 - amount))  # Lighter
+            else:
+                v = max(0, v * (1 - amount))  # Darker
+                
+            # Convert back to RGB
+            rgb = colorsys.hsv_to_rgb(h, s, v)
+            # Convert back to hex
+            return mc.rgb2hex(rgb)
 
         # Plot each place-metric combination
         for place in ["berlin", "chicago"]:
             for metric in ["apls", "apls_prime", "topo", "topo_prime"]:
+
+                # Set line style based on metric
+                if metric == 'apls':
+                    linestyle = '-'  # solid
+                elif metric == 'topo':
+                    linestyle = '--'  # dashed
+                elif metric == 'apls_prime':  # reconnection
+                    linestyle = ':'  # dotted
+                else:  # perhaps for another metric
+                    linestyle = '-.'  # dash-dot
+
+                if place == "berlin":
+                    marker = "o"
+                else:
+                    marker = "x"
+                
+                # Adjust color based on metric type
+                base_color = base_colors[place]
+                variation = metric_variations[metric]
+                adjusted_color = adjust_color(base_color, variation)
+
                 subset = df[(df["place"] == place) & (df["metric_type"] == metric)]
                 place_metric = f"{place}_{metric}"
                 
@@ -484,15 +531,15 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
                 plt.plot(
                     subset["threshold"], 
                     subset["value"], 
-                    marker="o", 
-                    linestyle=line_styles[place], 
-                    color=colors[place_metric],
+                    marker=marker, 
+                    linestyle=linestyle,
+                    color=adjusted_color,
                     label=f"{place.capitalize()} - {metric}", 
                     alpha=0.9, 
                     markersize=5
                 )
 
-        plt.title("Performance Metrics Across Thresholds", fontsize=16)
+        # plt.title("Performance Metrics Across Thresholds", fontsize=16)
         plt.xlabel("Threshold", fontsize=14)
         plt.ylabel("Value", fontsize=14)
         plt.ylim(0, 1)
