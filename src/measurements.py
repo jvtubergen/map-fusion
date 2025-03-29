@@ -664,17 +664,17 @@ def experiment_two_fusion_metadata():
                 )
 
         # Customize the plot
-        plt.title("Fusion metadata by threshold", fontsize=16)
+        # plt.title("Fusion metadata by threshold", fontsize=16)
         plt.xlabel("Threshold", fontsize=12)
         plt.ylabel("Value", fontsize=12)
         plt.legend(title="", loc="best", frameon=True)
         plt.grid(True, linestyle="--", alpha=0.7)
 
         # Add annotations for clarity
-        plt.annotate("Berlin: circles (o)\nChicago: crosses (x)\n\nInjection: Solid line\nDeletion: Dashed line\nReconnection: Dotted line", 
-                    xy=(0.02, 0.02), 
-                    xycoords="figure fraction",
-                    bbox=dict(boxstyle="round,pad=0.5", fc="white", alpha=0.8))
+        # plt.annotate("Berlin: circles (o)\nChicago: crosses (x)\n\nInjection: Solid line\nDeletion: Dashed line\nReconnection: Dotted line", 
+        #             xy=(0.02, 0.02), 
+        #             xycoords="figure fraction",
+        #             bbox=dict(boxstyle="round,pad=0.5", fc="white", alpha=0.8))
 
         # Set x-axis to show more tick marks
         plt.xticks(np.arange(0, 51, 5))
