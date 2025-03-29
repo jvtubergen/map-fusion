@@ -531,11 +531,21 @@ def render_maps_to_images(maps):
 def render_graph_as_svg(graph, filename):
     graph = apply_coloring(graph)
 
-    fig, ax = plt.subplots(figsize=(100, 100))  # 20 inches * 100 dpi = 2000 pixels
+    fig, ax = plt.subplots(figsize=(100, 62))  # 20 inches * 100 dpi = 2000 pixels
 
+    # Update preplot for rendering to PDF.
     preplot_graph(graph,  ax) 
 
     fig.canvas.draw()
     fig.canvas.flush_events()
+
+    # Turn off axes
+    ax.set_axis_off()
+    # Remove padding around the plot
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    # Remove margins
+    plt.margins(0)
+    # Remove frame
+    ax.set_frame_on(False)
 
     plt.savefig(filename)
