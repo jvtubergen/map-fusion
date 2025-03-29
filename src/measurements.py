@@ -911,8 +911,8 @@ def experiment_three_sample_histogram():
                     )
 
         # Set titles and labels
-        plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)
-        plt.xlabel('Score (0-1)', fontsize=16)
+        # plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)
+        plt.xlabel('Metric Score (0-1)', fontsize=16)
         plt.ylabel('Normalized Density (0-1)', fontsize=16)  # Updated to indicate normalized density
 
         # Adjust axes to show full ranges
@@ -971,16 +971,16 @@ def experiment_three_sample_histogram():
         )
 
         # Add a second legend for line styles (outside the plot area)
-        plt.figlegend(
-            style_handles,
-            style_labels,
-            title="Line Styles",
-            loc="lower center",
-            ncol=4,
-            fontsize=10,
-            framealpha=0.9,
-            bbox_to_anchor=(0.5, 0.02)
-        )
+        # plt.figlegend(
+        #     style_handles,
+        #     style_labels,
+        #     title="Line Styles",
+        #     loc="lower center",
+        #     ncol=4,
+        #     fontsize=10,
+        #     framealpha=0.9,
+        #     bbox_to_anchor=(0.5, 0.02)
+        # )
 
         # Add statistics table as text with normalized values (0-1 range)
         stats_text = "Statistics (Mean ± Std):\n"
