@@ -1,41 +1,6 @@
 from external import *
 from internal import *
 
-def workflow_converting_stored_graphs_from_utm_into_latlon_coordinate_system():
-
-    for graphset in graphsets:
-        for place in places:
-            G = read_graph(graphset=graphset, place=place, use_utm=True)
-            G = graph_transform_utm_to_latlon(G, place)
-            write_graph(G, graphset=graphset, place=place, overwrite=True, use_utm=False)
-
-
-def workflow_reading_raw_gps_trajectories(place):
-
-    print("Reading trajectories.")
-    trips  = roadster.extract_trips(place)
-    paths = [[[x,y] for [x,y,t] in trip] for trip in trips] # Drop t component
-
-    return paths
-
-
-def workflow_extract_roi_from_graph(place=None, graphset=None):
-
-    G = read_graph(place=place, graphset=graphset)
-    coordinates = extract_node_positions_list(G)
-    latlon0 = np.min(coordinates, axis=0)
-    latlon1 = np.max(coordinates, axis=0)
-    # print(np.max(coordinates, axis=0) - np.min(coordinates, axis=0))
-    south, west = latlon0
-    north, east = latlon1
-    roi = {
-        "west":  west,
-        "south": south,
-        "east":  east,
-        "north": north,
-    }
-
-    return roi
 
 
 # truth = constructing_osm_on_boundaries(place="berlin", roi=roi["berlin"])

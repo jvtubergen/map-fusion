@@ -326,10 +326,10 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     
     # Convert back graphs to latlon coordinates if necessary.
     if _C.graph["coordinates"] == "latlon":
-        utm_info = graph_utm_info(_C)
-        graphs["a"] = graph_transform_utm_to_latlon(graphs["a"], "", **utm_info) 
-        graphs["b"] = graph_transform_utm_to_latlon(graphs["b"], "", **utm_info) 
-        graphs["c"] = graph_transform_utm_to_latlon(graphs["c"], "", **utm_info) 
+        place = graph_utm_place(_C)
+        graphs["a"] = graph_transform_utm_to_latlon(graphs["a"], place) 
+        graphs["b"] = graph_transform_utm_to_latlon(graphs["b"], place) 
+        graphs["c"] = graph_transform_utm_to_latlon(graphs["c"], place) 
 
     return graphs 
 

@@ -8,8 +8,10 @@ from utilities import *
 def duplicated_nodes(G, eps=0.001):
 
     # Make sure to act on UTM coordinated graph (to make sense of epsilon).
+    is_transformed = False
     if G.graph["coordinates"] != "utm":
-        utm_info = graph_utm_info(G)
+        is_transformed = True
+        place = graph_utm_place(G)
         G = graph_transform_latlon_to_utm(G)
 
     positions = extract_node_positions_dictionary(G)
@@ -42,6 +44,9 @@ def duplicated_nodes(G, eps=0.001):
         if not has_found:
             # Then we found a new isolated cluster.
             regions.append(nids)
+    
+    if is_transformed:
+        G = graph_transform_utm_to_latlon(G, place)
 
     # Convert regions into lists.
     return [list(region) for region in regions]

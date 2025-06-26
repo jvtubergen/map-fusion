@@ -2,6 +2,7 @@ from external import *
 from utilities import *
 from coordinates import *
 
+from srs import *
 
 # Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
 def middle_latitute(G):
@@ -10,6 +11,29 @@ def middle_latitute(G):
     df = gpd.GeoDataFrame(data, index=uvk)
     alat, alon = df["y"].mean(), df["x"].mean()
     return alat
+
+
+
+# Obtain bounding box (the region of interest).
+def roi(G):
+    assert G.graph["coordinates"] == "latlon"
+
+    G = read_graph(place=place, graphset=graphset)
+    coordinates = extract_node_positions_list(G)
+    latlon0 = np.min(coordinates, axis=0)
+    latlon1 = np.max(coordinates, axis=0)
+    # print(np.max(coordinates, axis=0) - np.min(coordinates, axis=0))
+    south, west = latlon0
+    north, east = latlon1
+    roi = {
+        "west":  west,
+        "south": south,
+        "east":  east,
+        "north": north,
+    }
+
+    return roi
+
 
 
 # Compute relative positioning.
@@ -75,17 +99,12 @@ def graph_transform_generic(G, coordinate_transformer):
 
 # Transform graphnodes UTM coordinate system into latitude-longitude coordinates.
 @info()
-def graph_transform_utm_to_latlon(G, place, letter=None, number=None):
+def graph_transform_utm_to_latlon(G, place):
 
     assert G.graph["coordinates"] == "utm"
 
-    # Obtain utm information.
-    if letter == None or number == None:
-        letter, number = zone_letters[place], zone_numbers[place]
-    utm_info = {"number": number, "letter": letter}
-
     # Convert coordinates.
-    coordinate_transformer = lambda y, x: utm_to_latlon_by_utm_info((y, x), **utm_info)
+    coordinate_transformer = lambda y, x: utm_to_latlon((y, x), place)
     G = graph_transform_generic(G, coordinate_transformer)
 
     G.graph["coordinates"] = "latlon"
@@ -107,10 +126,22 @@ def graph_transform_latlon_to_utm(G):
     return G
 
 
-# Derive UTM zone number and zone letter of a graph by taking arbitrary latlon coordinate from graph.
+# Derive UTM zone number and zone letter from a graph by a latlon coordinate.
 def graph_utm_info(G):
     assert G.graph["coordinates"] == "latlon"
     node = G._node[list(G.nodes())[0]]
     lat, lon = node['y'], node['x']
     _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
     return {"number": zone_number, "letter": zone_letter}
+
+# Derive place from UTM information
+def graph_utm_place(G):
+    assert G.graph["coordinates"] == "latlon"
+    node = G._node[list(G.nodes())[0]]
+    lat, lon = node['y'], node['x']
+    _, _, zone_number, zone_letter = utm.conversion.from_latlon(lat, lon)
+    for place in places:
+        if zone_number == zone_numbers[place] and zone_letter == zone_letters[place]:
+            return place
+    check(false, expect="Expect to obtain a place from graph UTM coordinate")
+    

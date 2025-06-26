@@ -45,7 +45,6 @@ def edges_covered_by_nid(G, nid, threshold):
 # Obtain threshold per simplified edge of S in comparison to T.
 @info()
 def edge_graph_coverage(S, T, max_threshold=None): 
-
     S = S.copy()
 
     # Sanity check the graph is simplified.
@@ -64,7 +63,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
     convert_to_utm = S.graph["coordinates"] != "utm"
 
     if S.graph["coordinates"] != "utm":
-        utm_info = graph_utm_info(S)
+        place = graph_utm_place(S)
         S = graph_transform_latlon_to_utm(S)
     if T.graph["coordinates"] != "utm":
         T = graph_transform_latlon_to_utm(T)
@@ -169,7 +168,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
 
     # Restore graph to input state.
     if convert_to_utm:
-        S = graph_transform_utm_to_latlon(S, "", **utm_info) # Convert back into latlon.
+        S = graph_transform_utm_to_latlon(S, place) # Convert back into latlon.
 
     # Apply threshold annotation.
     S.graph['max_threshold'] = max_threshold # Mention till what threshold we have searched.
