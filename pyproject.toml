@@ -40,6 +40,8 @@ dependencies = [
   "pyQt6", # Necessary for plotting on your new laptop.
   "pandas",
   "seaborn",
+  "debugpy",
+  "py-spy",
 #  "apls @ git+https://github.com/jvtubergen/apls@attempt"
 #  "gdal", # Geospatial Data Abstraction Layer
   "opencv-python"
