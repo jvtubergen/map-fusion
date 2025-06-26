@@ -41,11 +41,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         "a": None,
         "b": None,
         "c": None,
-        "metadata": { # Metadata on injection/deletion/reconnection.
-            "1.injected": 0,
-            "2.deleted" : 0,
-            "3.reconnected": 0
-        }
     }
 
     # Sanity checks.
@@ -93,7 +88,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
     nodes_below = set([nid for el in below for nid in el[0:2]]) 
 
-    graphs["metadata"]["1.injected"] = len(iterate_edges(B))
 
     ## Annotating render attribute on B and C.
     # Obtain what nodes of B to connect with C (those nodes of A which are connected to both a covered and uncovered edge).
@@ -147,6 +141,7 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
     logger("Connecting nodes.")
     for nid in connect_nodes:
 
+        # TODO: Make reconnection done in batch.        
         # Add new edge connection from nid (potentially cuts an edge in half).
         new_eid, injection_data = reconnect_node(C, nid, node_tree=node_tree, edge_tree=edge_tree, excluded_nids=excluded_nids, excluded_eids=excluded_eids.union(connections)) 
         set_edge_attributes(C, new_eid, {"render": "connection", "origin": "B"})
@@ -234,7 +229,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
         # Mark edges for deletion.
         annotate_edges(C, {"render": "deleted"}, eids=list(set(edges_to_be_deleted) - set(edges_to_ignore)))
 
-        graphs["metadata"]["2.deleted"] = len(list(set(edges_to_be_deleted) - set(edges_to_ignore)))
 
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
@@ -328,7 +322,6 @@ def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, re
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
     
-        graphs["metadata"]["3.reconnected"] = len(nids_to_reconnect)
         graphs["c"] = C.copy()
     
     # Convert back graphs to latlon coordinates if necessary.

@@ -56,7 +56,6 @@ def generate_maps(threshold = 30, debugging=False, **reading_props):
             "a": graphs["a"],
             "b": graphs["b"],
             "c": graphs["c"],
-            "metadata": graphs["metadata"]
         }
 
     return maps    
@@ -109,211 +108,227 @@ def compute_topo(truth, proposed):
     return topo_score, topo_prime_score
 
 
-# Precompute maps for measurements.
-def precompute_measurements_maps(maps):
+# Experiment one.
+# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
+def experiment_one_base_table():
 
-    result = {}
+    threshold = 30
 
-    for place in ["chicago", "berlin"]:
+    reading_props = {
+        "is_graph": False,
+        "overwrite_if_old": True,
+        "reset_time": 365*24*60*60, # Keep it for a year.
+    }
 
-        result[place] = {}
+    # Precompute maps for measurements.
+    def precompute_measurements_maps(maps):
 
-        for map_variant in set(maps[place].keys()):
+        result = {}
 
-            logger(f"{place} - {map_variant}.")
-            
-            # Drop deleted edges before continuing.
-            def remove_deleted(G):
+        for place in ["chicago", "berlin"]:
 
-                G = G.copy()
+            result[place] = {}
 
-                edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
-                nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+            for map_variant in set(maps[place].keys()):
 
-                G.remove_edges_from(edges_to_be_deleted)
-                G.remove_nodes_from(nodes_to_be_deleted)
+                logger(f"{place} - {map_variant}.")
+                
+                # Drop deleted edges before continuing.
+                def remove_deleted(G):
 
-                return G
+                    G = G.copy()
 
-            graph = maps[place][map_variant]
-            graph = remove_deleted(graph)
+                    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+                    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
 
-            result[place][map_variant] = {
-                "topo": prepare_graph_for_topo(graph),
-                "apls": prepare_graph_for_apls(graph),
-            }
-    
-    return result
+                    G.remove_edges_from(edges_to_be_deleted)
+                    G.remove_nodes_from(nodes_to_be_deleted)
 
+                    return G
 
-# Compute TOPO/APLS results on maps.
-@info(timer=True)
-def apply_measurements_maps(prepared_maps, threshold=30):
+                graph = maps[place][map_variant]
+                graph = remove_deleted(graph)
 
-    result = {}
-
-    for place in ["chicago", "berlin"]:
-
-        result[place] = {}
-
-        truth_apls = prepared_maps[place]["osm"]["apls"]
-        truth_topo = prepared_maps[place]["osm"]["topo"]
-
-        check("prepared" in truth_apls.graph and truth_apls.graph["prepared"] == "apls", expect="Expect prepared truth graph when computing apls metric.")
-        check("prepared" in truth_topo.graph and truth_topo.graph["prepared"] == "topo", expect="Expect prepared truth graph when computing topo metric.")
-
-        for map_variant in set(prepared_maps[place].keys()) - set(["osm"]):
-
-            logger(f"{place} - {map_variant}.")
-
-            proposed_apls = prepared_maps[place][map_variant]["apls"]
-            proposed_topo = prepared_maps[place][map_variant]["topo"]
-
-            check("prepared" in proposed_apls.graph and proposed_apls.graph["prepared"] == "apls", expect="Expect prepared proposed graph when computing apls metric.")
-            check("prepared" in proposed_topo.graph and proposed_topo.graph["prepared"] == "topo", expect="Expect prepared proposed graph when computing topo metric.")
-
-            apls, apls_prime = compute_apls(truth_apls, proposed_apls)
-            topo, topo_prime = compute_topo(truth_topo, proposed_topo)
-
-            result[place][map_variant] = {
-                "apls": apls,
-                "apls_prime": apls_prime,
-                "topo": topo,
-                "topo_prime": topo_prime,
-            }
-
-    return result
-
-
-# Construct typst table out of measurements data.
-@info()
-def measurements_to_table(measurements):
-    
-    # Construct a list of elements to print.
-    data = {}
-    for place in ["berlin", "chicago"]:
-
-        rows = []
-
-        for map_variant in set(measurements[place].keys()) - set(["osm"]):
-
-            row = []
-            row.append(measurements[place][map_variant]["topo"][1]["recall"])
-            row.append(measurements[place][map_variant]["topo"][1]["precision"])
-            row.append(measurements[place][map_variant]["topo"][1]["f1"])
-            row.append(measurements[place][map_variant]["apls"])
-
-            row.append(measurements[place][map_variant]["topo_prime"][1]["recall"])
-            row.append(measurements[place][map_variant]["topo_prime"][1]["precision"])
-            row.append(measurements[place][map_variant]["topo_prime"][1]["f1"])
-            row.append(measurements[place][map_variant]["apls_prime"])
+                result[place][map_variant] = {
+                    "topo": prepare_graph_for_topo(graph),
+                    "apls": prepare_graph_for_apls(graph),
+                }
         
-            rows.append((map_variant, row))
-    
-        data[place] = rows
+        return result
 
 
-    print(before)
+    # Compute TOPO/APLS results on maps.
+    @info(timer=True)
+    def apply_measurements_maps(prepared_maps, threshold=30):
 
-    # TODO: Upper-case and correct order.
-    # Print berlin results.
-    for rows in data["berlin"]:
-        print(f"[{rows[0]}], ", end="")
-        for row in rows[1]:
-            print(f"[{row:.3f}], ", end="")
-        print()
+        result = {}
 
-    print(between)
-    
-    # Print chicago results.
-    for rows in data["chicago"]:
-        print(f"[{rows[0]}], ", end="")
-        for row in rows[1]:
-            print(f"[{row:.3f}], ", end="")
-        print()
+        for place in ["chicago", "berlin"]:
 
-    print(after)
+            result[place] = {}
+
+            truth_apls = prepared_maps[place]["osm"]["apls"]
+            truth_topo = prepared_maps[place]["osm"]["topo"]
+
+            check("prepared" in truth_apls.graph and truth_apls.graph["prepared"] == "apls", expect="Expect prepared truth graph when computing apls metric.")
+            check("prepared" in truth_topo.graph and truth_topo.graph["prepared"] == "topo", expect="Expect prepared truth graph when computing topo metric.")
+
+            for map_variant in set(prepared_maps[place].keys()) - set(["osm"]):
+
+                logger(f"{place} - {map_variant}.")
+
+                proposed_apls = prepared_maps[place][map_variant]["apls"]
+                proposed_topo = prepared_maps[place][map_variant]["topo"]
+
+                check("prepared" in proposed_apls.graph and proposed_apls.graph["prepared"] == "apls", expect="Expect prepared proposed graph when computing apls metric.")
+                check("prepared" in proposed_topo.graph and proposed_topo.graph["prepared"] == "topo", expect="Expect prepared proposed graph when computing topo metric.")
+
+                apls, apls_prime = compute_apls(truth_apls, proposed_apls)
+                topo, topo_prime = compute_topo(truth_topo, proposed_topo)
+
+                result[place][map_variant] = {
+                    "apls": apls,
+                    "apls_prime": apls_prime,
+                    "topo": topo,
+                    "topo_prime": topo_prime,
+                }
+
+        return result
 
 
+    # Construct typst table out of measurements data.
+    @info()
+    def measurements_to_table(measurements):
+        
+        # Construct a list of elements to print.
+        data = {}
+        for place in ["berlin", "chicago"]:
 
-before = """
-#show table.cell.where(y: 0): strong
-#set table(
-  stroke: (x, y) => 
-    if y == 0 {
-      if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
-      else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
-      else { ( bottom: 0.7pt + black)}
-    } else if x == 5 {
-      ( right: 0.7pt + black)
-    } else if x == 6 {
-      ( left: 0.7pt + black)
-    },
-  align: (x, y) => (
-    if x > 0 { center }
-    else { left }
-  ),
-  column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
-)
+            rows = []
 
-#let pat = pattern(size: (30pt, 30pt))[
-  #place(line(start: (0%, 0%), end: (100%, 100%)))
-  #place(line(start: (0%, 100%), end: (100%, 0%)))
-]
+            for map_variant in set(measurements[place].keys()) - set(["osm"]):
 
-#table(
-  columns: 10,
-  table.header(
-    [],
-    [],
-    [Acc],
-    [Prec],
-    [$F_1$],
-    [APLS],
-    [Acc#super[$star$]],
-    [Prec#super[$star$]],
-    [$F_1$#super[$star$]],
-    [APLS#super[$star$]],
-  ),
-  table.cell(
-    rowspan: 2,
-    align: horizon,
-    [Berlin]
-  ),
-"""
+                row = []
+                row.append(measurements[place][map_variant]["topo"][1]["recall"])
+                row.append(measurements[place][map_variant]["topo"][1]["precision"])
+                row.append(measurements[place][map_variant]["topo"][1]["f1"])
+                row.append(measurements[place][map_variant]["apls"])
 
-between = """
-  table.hline(
-    stroke: (
-      paint: luma(100),
-      dash: "dashed"
+                row.append(measurements[place][map_variant]["topo_prime"][1]["recall"])
+                row.append(measurements[place][map_variant]["topo_prime"][1]["precision"])
+                row.append(measurements[place][map_variant]["topo_prime"][1]["f1"])
+                row.append(measurements[place][map_variant]["apls_prime"])
+            
+                rows.append((map_variant, row))
+        
+            data[place] = rows
+
+
+        print(before)
+
+        # TODO: Upper-case and correct order.
+        # Print berlin results.
+        for rows in data["berlin"]:
+            print(f"[{rows[0]}], ", end="")
+            for row in rows[1]:
+                print(f"[{row:.3f}], ", end="")
+            print()
+
+        print(between)
+        
+        # Print chicago results.
+        for rows in data["chicago"]:
+            print(f"[{rows[0]}], ", end="")
+            for row in rows[1]:
+                print(f"[{row:.3f}], ", end="")
+            print()
+
+        print(after)
+
+
+    before = """
+    #show table.cell.where(y: 0): strong
+    #set table(
+    stroke: (x, y) => 
+        if y == 0 {
+        if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
+        else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
+        else { ( bottom: 0.7pt + black)}
+        } else if x == 5 {
+        ( right: 0.7pt + black)
+        } else if x == 6 {
+        ( left: 0.7pt + black)
+        },
+    align: (x, y) => (
+        if x > 0 { center }
+        else { left }
     ),
-    start: 1,
-    end: 6
-  ),
-  table.hline(
-    stroke: (
-      paint: luma(100),
-      dash: "dashed"
+    column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
+    )
+
+    #let pat = pattern(size: (30pt, 30pt))[
+    #place(line(start: (0%, 0%), end: (100%, 100%)))
+    #place(line(start: (0%, 100%), end: (100%, 0%)))
+    ]
+
+    #table(
+    columns: 10,
+    table.header(
+        [],
+        [],
+        [Acc],
+        [Prec],
+        [$F_1$],
+        [APLS],
+        [Acc#super[$star$]],
+        [Prec#super[$star$]],
+        [$F_1$#super[$star$]],
+        [APLS#super[$star$]],
     ),
-    start: 6,
-    end:10 
-  ),
-  table.cell(
-    rowspan: 2,
-    align: horizon,
-    [Chicago]
-  ),
-"""
+    table.cell(
+        rowspan: 2,
+        align: horizon,
+        [Berlin]
+    ),
+    """
 
-after = """
-)
-"""
+    between = """
+    table.hline(
+        stroke: (
+        paint: luma(100),
+        dash: "dashed"
+        ),
+        start: 1,
+        end: 6
+    ),
+    table.hline(
+        stroke: (
+        paint: luma(100),
+        dash: "dashed"
+        ),
+        start: 6,
+        end:10 
+    ),
+    table.cell(
+        rowspan: 2,
+        align: horizon,
+        [Chicago]
+    ),
+    """
+
+    after = """
+    )
+    """
+
+    maps         = read_and_or_write("experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
+    precomputed  = read_and_or_write("experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
+    measurements = read_and_or_write("experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
+    print(measurements_to_table(measurements))
 
 
-# Second experiment.
-# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago.
-def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
+# Experiment two - A.
+# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for different threshold values.
+def experiment_two_measure_threshold_values(lowest = 1, highest = 51, step = 1):
 
     reading_props = {
         "is_graph": False,
@@ -560,6 +575,7 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 50, step = 1):
     render_thresholds(measure_results)
 
 
+# Experiment two - B.
 # Render three thresholds to see impact of different threshold values.
 def experiment_two_render_minimal_and_maximal_thresholds():
 
@@ -577,6 +593,7 @@ def experiment_two_render_minimal_and_maximal_thresholds():
         render_graph_as_svg(fusion_map, f"Experiment 2 - fusion map threshold {threshold}m.svg")
 
 
+# Experiment two - C.
 # Compute metadata (injected, deleted, reconnected) on thresholds.
 @info()
 def experiment_two_fusion_metadata():
@@ -687,7 +704,7 @@ def experiment_two_fusion_metadata():
     render_metadata(data)
 
 
-# Third experiment.
+# Experiment three.
 # Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
 def experiment_three_sample_histogram():
 
