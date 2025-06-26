@@ -320,9 +320,9 @@ def experiment_one_base_table():
     )
     """
 
-    maps         = read_and_or_write("experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
-    precomputed  = read_and_or_write("experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
-    measurements = read_and_or_write("experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
+    maps         = read_and_or_write("results/Experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
+    precomputed  = read_and_or_write("results/Experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
+    measurements = read_and_or_write("results/Experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
     print(measurements_to_table(measurements))
 
 
@@ -566,7 +566,7 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 51, step = 1):
 
         plt.tight_layout()
         # plt.show()
-        plt.savefig("Experiment 2 - Thresholds metric results.svg")
+        plt.savefig("results/Experiment 2 - Thresholds metric results.svg")
 
 
     threshold_maps     = compute_threshold_maps()
@@ -590,7 +590,7 @@ def experiment_two_render_minimal_and_maximal_thresholds():
     for threshold in [1, 25, 50]:
         maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
         fusion_map = maps["chicago"]["c"]
-        render_graph_as_svg(fusion_map, f"Experiment 2 - fusion map threshold {threshold}m.svg")
+        render_graph_as_svg(fusion_map, f"results/Experiment 2 - fusion map threshold {threshold}m.svg")
 
 
 # Experiment two - C.
@@ -699,7 +699,7 @@ def experiment_two_fusion_metadata():
         # Show the plot
         plt.tight_layout()
         # plt.show()
-        plt.savefig("Experiment 2 - Thresholds metadata.svg")
+        plt.savefig("results/Experiment 2 - Thresholds metadata.svg")
     
     render_metadata(data)
 
@@ -1094,7 +1094,7 @@ def experiment_three_sample_histogram():
         plt.tight_layout()
         plt.subplots_adjust(bottom=0.15)  # Make room for the line style legend at the bottom
         # plt.show()
-        plt.savefig("Experiment 3 - TOPO and APLS samples.svg")
+        plt.savefig("results/Experiment 3 - TOPO and APLS samples.svg")
 
 
     render_dataframe_KDE(df)
