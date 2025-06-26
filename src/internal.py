@@ -17,8 +17,7 @@ from graph_curvature import *
 from graph_coverage import *
 from graph_merging import *
 
-from apls import *
-
+from map_similarity import *
 from network import *
 
 # Rendering.

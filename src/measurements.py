@@ -3,109 +3,9 @@ from graph_merging import *
 from graph_simplifying import *
 from graph_deduplicating import *
 from graph_curvature import * 
-from apls import *
-from topo.topo_metric import compute_topo as compute_topo_on_prepared_graph
 from rendering import * 
+from map_similarity import *
 
-# Generate all maps related to thesis.
-# TODO: Add split-point merging graph.
-# * Allow to customize the coverage threshold.
-# * Allow to instead of gps against sat to act on subselection of sat which is nearby gps edges (easier to look at merging effect).
-@info()
-def generate_maps(threshold = 30, debugging=False, **reading_props):
-
-    maps = {}
-
-    simp = simplify_graph
-    dedup = graph_deduplicate
-    to_utm = graph_transform_latlon_to_utm
-
-    for place in ["chicago", "berlin"]: # First run chicago (that one goes faster, so earlier error detection).
-
-        logger(f"{place}.")
-        logger("Preparing input graphs (osm, sat, gps).")
-
-        _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **props)
-
-        # Source graph.
-        osm = _read_and_or_write("osm", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))), **reading_props)
-
-        # Starting graphs.
-        sat = _read_and_or_write("sat", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))), **reading_props)
-        gps = _read_and_or_write("gps", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))), **reading_props)
-
-        # If we are debugging on the merging logic.
-        if debugging:
-            # Then (it is convenient) to only act around sat edges nearby gps edges (where the action happens).
-
-            logger("DEBUGGING: Pruning Sat graph for relevant edges concerning merging.")
-
-            sat_vs_gps   = edge_graph_coverage(sat, gps, max_threshold=threshold)
-            intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=threshold)
-            sat = intersection # (Update sat so we can continue further logic.)
-
-        # Three merging graphs.
-        logger(f"Generating merging graphs.")
-        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
-        graphs     = merge_graphs(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
-
-        maps[place] = {
-            "osm": osm,
-            "sat": sat,
-            "gps": gps,
-            "a": graphs["a"],
-            "b": graphs["b"],
-            "c": graphs["c"],
-        }
-
-    return maps    
-
-
-# Copmute TOPO metric between two graphs.
-@info()
-def compute_apls(truth, proposed):
-
-    prepared_graph_data = {
-        "left" : prepare_graph_data(truth, proposed),
-        "right": prepare_graph_data(proposed, truth),
-    }
-
-    apls_score      , _ = apls(truth, proposed, prepared_graph_data=prepared_graph_data)
-    apls_prime_score, _ = apls(truth, proposed, prepared_graph_data=prepared_graph_data, prime=True)
-
-    return apls_score, apls_prime_score
-
-
-# Prepare graph for TOPO computations.
-@info()
-def prepare_graph_for_topo(G):
-
-    if "prepared" in G.graph and G.graph["prepared"] == "topo":
-        return G
-
-    G = G.copy()
-
-    G = simplify_graph(G)
-    G = G.to_directed(G)
-    G = nx.MultiGraph(G)
-
-    graph_annotate_edge_curvature(G)
-    graph_annotate_edge_geometry(G)
-    graph_annotate_edge_length(G)
-
-    G.graph["prepared"] = "topo"
-
-    return G
-
-# Copmute TOPO metric between two graphs.
-@info()
-def compute_topo(truth, proposed):
-
-    truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
-    topo_score = compute_topo_on_prepared_graph(truth, proposed)
-    topo_prime_score = compute_topo_on_prepared_graph(truth, proposed, prime=True)
-
-    return topo_score, topo_prime_score
 
 
 # Experiment one.
@@ -183,8 +83,8 @@ def experiment_one_base_table():
                 check("prepared" in proposed_apls.graph and proposed_apls.graph["prepared"] == "apls", expect="Expect prepared proposed graph when computing apls metric.")
                 check("prepared" in proposed_topo.graph and proposed_topo.graph["prepared"] == "topo", expect="Expect prepared proposed graph when computing topo metric.")
 
-                apls, apls_prime = compute_apls(truth_apls, proposed_apls)
-                topo, topo_prime = compute_topo(truth_topo, proposed_topo)
+                apls, apls_prime = apls_and_prime(truth_apls, proposed_apls)
+                topo, topo_prime = topo_and_prime(truth_topo, proposed_topo)
 
                 result[place][map_variant] = {
                     "apls": apls,
@@ -1098,3 +998,16 @@ def experiment_three_sample_histogram():
 
 
     render_dataframe_KDE(df)
+
+
+# Render each map as a high-quality image, so we can zoom in to sufficient detailed graph curvature.
+@info()
+def render_maps_to_images():
+
+    for quality in ["low", "high"]:
+        for place in maps.keys():
+            for map_variant in maps[place]:
+                logger(f"{quality} - {place} - {map_variant}.")
+                graph = maps[place][map_variant]
+                graph = apply_coloring(graph)
+                render_graph(graph, f"results/{place}-{map_variant}-{quality}.png", quality=quality, title=f"{quality}-{place}-{map_variant}")

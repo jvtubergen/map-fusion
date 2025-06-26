@@ -1,9 +1,12 @@
-# Rewrite of https://github.com:CosmiQ/apls
-from utilities import *
-from graph_simplifying import *
-from graph_coordinates import *
-from graph_curvature import *
-from network import *
+# Rewrite of https://github.com:CosmiQ/apls with additional new functionality.
+from ..data_handling import *
+from ..utilities import *
+from ..graph_simplifying import *
+from ..graph_coordinates import *
+from ..graph_curvature import *
+from ..graph_deduplicating import *
+from ..graph_merging import *
+from ..network import *
 
 # Relate nodes of G to H and inject control points if necessary.
 # If no nearby point on H can be found (in relation to a node `nid` of G), then `H_to_G[nid]` is `None`.
@@ -109,9 +112,7 @@ def prepare_graph_for_apls(G):
     if "prepared" in G.graph and G.graph["prepared"] == "apls":
 
         return G
-
-    G = G.copy()
-
+    
     if not G.graph["coordinates"] == "utm":
         G = graph_transform_latlon_to_utm(G)
 
@@ -311,3 +312,49 @@ def apls(G, H, n=500, prime=False, prepared_graph_data=None):
     }
 
     return score, data
+
+# Copmute APLS and APLS* metric between two graphs.
+def apls_and_prime(truth, proposed):
+
+    prepared_graph_data = {
+        "left" : prepare_graph_data(truth, proposed),
+        "right": prepare_graph_data(proposed, truth),
+    }
+
+    apls_score      , _ = _apls(truth, proposed, prepared_graph_data=prepared_graph_data)
+    apls_prime_score, _ = _apls(truth, proposed, prepared_graph_data=prepared_graph_data, prime=True)
+
+    return apls_score, apls_prime_score
+
+
+# Workflow to check apls.
+# Optionally load in "tmp_data.pkl" if graph data is already prepared.
+@info(timer=True)
+def apls_and_prime_by_place(place, setup=True):
+
+    if setup:
+
+        G = read_graph(place=place, graphset=links["sat"])
+        H = read_graph(place=place, graphset=links["gps"])
+
+        prepared_graph_data = {
+            "left" : prepare_graph_data(G, H),
+            "right": prepare_graph_data(H, G),
+        }
+
+        data = G, H, prepared_graph_data
+        pickle.dump(data, open(f"tmp_data.pkl", "wb"))
+
+    data = pickle.load(open("tmp_data.pkl", "rb"))
+    G, H, prepared_graph_data = data
+
+    apls_score      , data = apls(G, H, prepared_graph_data=prepared_graph_data)
+    apls_prime_score, _    = apls(G, H, prime=True, prepared_graph_data=prepared_graph_data)
+
+    print("times:")
+    print("\n".join([f"{execution_time: .2f}: {context}" for context, execution_time in times]))
+
+    print("APLS  score: ", apls_score)
+    print("APLS* score: ", apls_prime_score)
+
+    return apls_score, apls_prime_score
