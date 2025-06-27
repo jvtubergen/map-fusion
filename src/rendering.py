@@ -339,11 +339,6 @@ def plot_graphs(graphs):
     plot_without_projection(graphs, [])
 
 
-# Plot a single graph.
-def plot_graph(G):
-    plot_without_projection([G], [])
-
-
 # Annotate duplicated nodes as red.
 def annotate_duplicated_nodes(G):
     duplicated = set([nid for group in duplicated_nodes(G) for nid in group])
@@ -409,6 +404,45 @@ def apply_coloring(G):
     
     return G
 
+
+# Simple function to generate an image on a graph with a custom title and quality level.
+def render_graph(graph, filename, quality="low", title=None):
+
+    if quality == "low":    
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)  # 20 inches * 100 dpi = 2000 pixels
+    else:
+        fig, ax = plt.subplots(figsize=(100, 100), dpi=100)  # 20 inches * 100 dpi = 2000 pixels
+
+    preplot_graph(graph,  ax) 
+
+    if title != None:
+        plt.title(title)
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    plt.savefig(filename, dpi=100, bbox_inches="tight")
+
+
+# Simple function to plot a graph with a custom title.
+def plot_graph(graph, title=None):
+    fig, ax = plt.subplots(figsize=(100, 100))  # 20 inches * 100 dpi = 2000 pixels
+
+    preplot_graph(graph,  ax) 
+
+    if title != None:
+        plt.title(title)
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    plt.tight_layout()
+
+    manager = plt.get_current_fig_manager()
+    manager.full_screen_toggle()  # Full-screen mode
+
+    plt.show()
+
+
 def plot_graph_interactively(graph):
 
     fig, ax = plt.subplots(figsize=(100, 100))
@@ -449,6 +483,8 @@ def plot_graph_interactively(graph):
     plt.show()
 
 
+# Render multiple graphs which you can enable/disable with interface buttons.
+# Provide graphs as dictionary by label, e.g. `{"osm": read_graph(...), "gps": read_graph(...)}`
 def plot_graphs_interactively(graphs):
 
     fig, ax = plt.subplots(figsize=(100, 100))
@@ -476,6 +512,7 @@ def plot_graphs_interactively(graphs):
 
     # Toggle function based on label
     def toggle_visibility(label):
+
         for lbl in labels:
             plotted_graphs[lbl][0].set_visible(False)
             plotted_graphs[lbl][1].set_visible(False)
@@ -527,7 +564,7 @@ def render_maps_to_images(maps):
                 render_graph(graph, f"data/graph_images/{quality}-{place}-{map_variant}.png", quality=quality, title=f"{quality}-{place}-{map_variant}")
 
 
-# Render graph as an SVG.
+#TODO: Render graph as an SVG.
 def render_graph_as_svg(graph, filename):
     graph = apply_coloring(graph)
 
