@@ -1,7 +1,6 @@
 from spatial_reference_systems import *
 from data_handling import *
-import handlers.gmaps.lib as gmaps
-
+from data.gmaps import construct_image, read_api_key
 
 # Given place and properties, use gmaps-image to construct a satellite image for inferrence.
 # Upper-left y,x,zoom is stored in the resulting png, used to recover all pixelcoordinates in image.
@@ -57,11 +56,9 @@ def construct_satellite_image(place, gsd_goal=0.5, deviation=0.25):
     p1 = array(latlon_to_pixelcoord(south, east, zoom))
     print("p1:", p1)
 
-    # Obtain API key.
-    api_key = gmaps.read_api_key()
-
-    # Construct image
-    image, pixelcoord = gmaps.construct_image(north=north, south=south, east=east, west=west, scale=2, zoom=zoom, api_key=api_key, verbose=True)
+    # Obtain API key and construct image.
+    api_key = read_api_key()
+    image, pixelcoord = construct_image(north=north, south=south, east=east, west=west, scale=2, zoom=zoom, api_key=api_key, verbose=True)
 
     # print("Image shape: ")
     # print(image.shape)
