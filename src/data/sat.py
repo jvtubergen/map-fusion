@@ -11,17 +11,16 @@ def construct_satellite_image(place, gsd_goal=0.5, deviation=0.25):
     latlon1 = array((region['south'], region['east']))
     lat_reference = (0.5 * (latlon0 + latlon1))[0]  # Reference latitude.
 
-    scale  = 2  # Scale perceptive field of satellite visual cognition part, higher quality/detail.
-    zoom = derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
-    gsd  = compute_gsd(lat_reference, zoom, scale)
+    zoom = derive_zoom(lat_reference, gsd_goal, deviation=deviation)
+    gsd  = compute_gsd(lat_reference, zoom)
 
     p0 = array(latlon_to_pixelcoord(lat=region["north"], lon=region["west"], zoom=zoom))
     p1 = array(latlon_to_pixelcoord(lat=region["south"], lon=region["east"], zoom=zoom))
 
-    p0[0] -= int(100 / scale) 
-    p0[1] -= int(100 / scale)
-    p1[0] += int(100 / scale)
-    p1[1] += int(100 / scale)
+    p0[0] -= int(100) 
+    p0[1] -= int(100)
+    p1[0] += int(100)
+    p1[1] += int(100)
 
     # Ensure multiple of stride.
     stride     = 88        # Step after each inferrence (half the inferrence window size).
@@ -58,7 +57,7 @@ def construct_satellite_image(place, gsd_goal=0.5, deviation=0.25):
 
     # Obtain API key and construct image.
     api_key = read_api_key()
-    image, pixelcoord = construct_image(north=north, south=south, east=east, west=west, scale=2, zoom=zoom, api_key=api_key, verbose=True)
+    image, pixelcoord = construct_image(north=north, south=south, east=east, west=west, zoom=zoom, api_key=api_key, verbose=True)
 
     # print("Image shape: ")
     # print(image.shape)
@@ -178,6 +177,8 @@ def inferred_satellite_image_neighborhood_to_graph(place=None):
     write_graph(G, graphset="sat2graph", place=place, overwrite=True)
 
 
+# Print the zoom levels that will be applied for retrieval of satellite images.
+# Note: Scaling is applied implicitly, so ignore this value.
 def workflow_print_zoom_levels():
     print("zoom levels:")
     for place in ["athens", "berlin", "chicago"]:
@@ -185,11 +186,10 @@ def workflow_print_zoom_levels():
         latlon0 = array((region['north'], region['west']))
         latlon1 = array((region['south'], region['east']))
         lat_reference = (0.5 * (latlon0 + latlon1))[0]  # Reference latitude.
-        scale  = 2  # Scale perceptive field of satellite visual cognition part, higher quality/detail.
         gsd_goal  = 0.5
         deviation = 0.25
-        zoom = derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
-        gsd  = compute_gsd(lat_reference, zoom, scale)
+        zoom = derive_zoom(lat_reference, gsd_goal, deviation=deviation)
+        gsd  = compute_gsd(lat_reference, zoom)
         print(f"{place}: {zoom} (gsd: {gsd})")
 
 

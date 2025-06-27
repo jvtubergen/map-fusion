@@ -82,32 +82,34 @@ def pixelcoord_to_latlon(y, x, zoom):
 
 
 # GSD (Ground Sampling Distance): spatial resolution (in meters) of the image.
-# BUG? Scale of two implies to just increment the zoom by one?
-def compute_gsd(lat, zoom, scale):
+# Note: Ignore scale because it is confusing to compute with; its implicit in image retrieval queries.
+def compute_gsd(lat, zoom):
     k = sec(deg_to_rad(lat)) # Scale factor by mercator projection.
     w = earth_circumference  # Total image distance on 256x256 world image
     return w / (256 * pow(2, zoom) * k * scale)
-    # BUGFIX? return w / (256 * pow(2, zoom + (scale - 1)) * k) # It just accidentally works out because we only have a scale of 1 or 2.
 
 
 # Compute zoom in such that related GSD is smaller or equal to the goal GSD.
-def derive_zoom(lat, scale, goal_gsd, deviation=0.0):
+# Note: Ignore scale because it is confusing to compute with; its implicit in image retrieval queries.
+def derive_zoom(lat, goal_gsd, deviation=0.0):
 
     k = sec(deg_to_rad(lat)) # Scale factor by mercator projection.
     w = earth_circumference  # Total image distance on 256x256 world image
-    # gsd = w / (256 * pow(2, zoom) * k * scale)
-    # w / gsd = 256 * pow(2, zoom) * k * scale
-    # w / (256 * gsd) = pow(2, zoom) * k * scale
-    # w / (256 * gsd * k * scale) = pow(2, zoom)
-    zoom = log(w / (256 * goal_gsd * k * scale), 2)
+    # Derive equation to compute zoom from gsd:
+    #       gsd                              = w / (256 * pow(2, zoom) * k)
+    #       w / gsd                          = 256 * pow(2, zoom) * k
+    #       w / (256 * gsd)                  = pow(2, zoom) * k
+    #       w / (256 * gsd * k)              = pow(2, zoom)
+    #       log(w / (256 * goal_gsd * k), 2) = zoom
+    zoom = log(w / (256 * goal_gsd * k), 2)
 
     zoom1 = floor(zoom)
     zoom2 = ceil(zoom)
     zoom0 = zoom1 - 1
 
-    gsd0 = compute_gsd(lat, zoom0, scale) 
-    gsd1 = compute_gsd(lat, zoom1, scale) 
-    gsd2 = compute_gsd(lat, zoom2, scale) 
+    gsd0 = compute_gsd(lat, zoom0) 
+    gsd1 = compute_gsd(lat, zoom1) 
+    gsd2 = compute_gsd(lat, zoom2) 
 
     if gsd0 <= goal_gsd + deviation:
         return zoom0
