@@ -1,7 +1,6 @@
 from external import *
 
 from data_handling import *
-from coordinates import * 
 from utilities import *
 from graph_deduplicating import *
 from graph_node_extraction import *
