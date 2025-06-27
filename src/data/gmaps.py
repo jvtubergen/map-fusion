@@ -5,19 +5,15 @@ from data_handling import *
 
 # Read API key stored locally.
 def read_api_key():
-    with open(cache_folder + "/api_key.txt") as f: 
+    with open(config_folder + "/api_key.txt") as f: 
         api_key = f.read()
     return api_key
 
 
 # Write API key and store it locally.
 def write_api_key(api_key):
-    with open(cache_folder + "/api_key.txt", "w") as f:
+    with open(config_folder + "/api_key.txt", "w") as f:
         f.write(api_key)
-
-
-def cached_sat_image(fname):
-    file_path = cache_folder + "/retrieved_satellite_images" + fname
 
 
 # Cut out pixels of image at borders.
@@ -161,7 +157,7 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     # Stitch image tiles together.
     if verbose:
         print("Constructing image.")
-    images = [read_image(cache_folder + fname) for (fname, _) in fnames_and_urls]
+    images = [read_png(cache_folder + fname) for (fname, _) in fnames_and_urls]
     images = [cut_logo(image, scale, margin) for image in images]
 
     size = scale * step # Image size.
