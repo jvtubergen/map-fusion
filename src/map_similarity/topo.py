@@ -22,6 +22,8 @@ from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 from shapely.geometry import Point, LineString
 
+from utilities import *
+
 
 ###############################################################################
 def cut_linestring(line, distance, verbose=False):

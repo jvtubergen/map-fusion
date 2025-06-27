@@ -9,6 +9,7 @@ from graph_simplifying import *
 from graph_curvature import *
 from graph_coordinates import *
 
+from spatial_reference_systems.utm import utm_to_latlon
 
 # Construct network out of paths (a list of a list of coordinates)
 def convert_paths_into_graph(pss, nid=1, gid=1):

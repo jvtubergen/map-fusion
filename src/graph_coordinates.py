@@ -1,8 +1,7 @@
 from external import *
-from utilities import *
-from coordinates import *
 
-from srs import *
+from utilities import *
+from spatial_reference_systems.utm import utm_to_latlon
 
 # Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
 def middle_latitute(G):

@@ -1,5 +1,4 @@
 from external import *
-from coordinates import *
 from graph_curvature import *
 from graph_deduplicating import *
 from utilities import *

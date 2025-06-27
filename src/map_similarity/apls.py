@@ -1,12 +1,12 @@
 # Rewrite of https://github.com:CosmiQ/apls with additional new functionality.
-from ..data_handling import *
-from ..utilities import *
-from ..graph_simplifying import *
-from ..graph_coordinates import *
-from ..graph_curvature import *
-from ..graph_deduplicating import *
-from ..graph_merging import *
-from ..network import *
+from data_handling import *
+from utilities import *
+from graph_simplifying import *
+from graph_coordinates import *
+from graph_curvature import *
+from graph_deduplicating import *
+from graph_merging import *
+from network import *
 
 # Relate nodes of G to H and inject control points if necessary.
 # If no nearby point on H can be found (in relation to a node `nid` of G), then `H_to_G[nid]` is `None`.

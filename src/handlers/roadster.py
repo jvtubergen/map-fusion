@@ -1,5 +1,5 @@
 import os
-from ..spatial_reference_systems.utm import utm_to_latlon
+from spatial_reference_systems.utm import utm_to_latlon
 
 # Extracting raw GPS traces from text.
 # By providing the place we know what UTM variables (for coordinate transformation) to use.
