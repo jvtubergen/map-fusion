@@ -79,42 +79,6 @@ def workflow_render_sat_gps_truth(place=None, gps=True, sat=True, truth=True):
     plot_without_projection(graphs, []) 
 
 
-def workflow_inferred_satellite_image_neighborhood_to_graph(place=None): 
-    print("Convert pixelwise neighborhood data to latlon-based graph.")
-
-    neighborhood = pickle.load(open(f"data/inferred satellite neighborhoods/{place}.pkl", "rb"))
-    pixel_locations = pickle.load(open(f"data/satellite images and the pixel coordinates/{place}.pkl", "rb"))
-
-    # locs = np.array(pixel_locations)
-    # locs.shape #  (2608, 4216, 2)
-
-    G = nx.Graph()
-    nodes = neighborhood.keys()
-    nids = {}
-    # nodes = np.array([list(v) for v in neighborhood.keys()])
-    # np.max(nodes, axis=0) # array([5122, 8316])
-
-    nid = 1
-    for element in neighborhood.keys():
-        (y, x) = element # Image pixel offsets.
-        lat, lon = pixel_locations[y][x] # Half x and y coordinate since we use satellite image scale of 2.
-        G.add_node(nid, x=lon, y=lat)
-        nids[element] = nid
-        nid += 1
-
-    # Add edges (and missing nodes?).
-    for element, targets in neighborhood.items():
-        snid = nids[element]
-        for target in targets:
-            if target not in nids.keys():
-                print("Injecting missing node.")
-                nids[target] = nid
-                nid += 1
-            tnid = nids[target]
-            # Add edge between source and target node identifier.
-            G.add_edge(snid, tnid)
-
-    write_graph(G, graphset="sat2graph", place=place, overwrite=True)
 
 
 # results = workflow_apply_apls(place="chicago", truth_graphset="openstreetmaps", proposed_graphset="roadster")
@@ -281,76 +245,6 @@ def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago
         # plot_graphs([subleft])
 
 
-# workflow_construct_image_and_pixelcoordinates(place="berlin")
-# workflow_inferred_satellite_image_neighborhood_to_graph(place="berlin")
-# workflow_render_sat_gps_truth(place="berlin", gps=False)
-def workflow_construct_image_and_pixelcoordinates(place=None, gsd_goal=0.5, deviation=0.2):
-    print("Constructing image and pixel coordinates.")
-    region = roi[place]
-    latlon0 = array((region['north'], region['west']))
-    latlon1 = array((region['south'], region['east']))
-    lat_reference = (0.5 * (latlon0 + latlon1))[0]  # Reference latitude.
-
-    scale  = 2  # Scale perceptive field of satellite visual cognition part, higher quality/detail.
-    zoom = gmaps.derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
-    gsd  = gmaps.compute_gsd(lat_reference, zoom, scale)
-
-    p0 = array(gmaps.latlon_to_pixelcoord(lat=region["north"], lon=region["west"], zoom=zoom))
-    p1 = array(gmaps.latlon_to_pixelcoord(lat=region["south"], lon=region["east"], zoom=zoom))
-
-    p0[0] -= int(100 / scale) 
-    p0[1] -= int(100 / scale)
-    p1[0] += int(100 / scale)
-    p1[1] += int(100 / scale)
-
-    # Ensure multiple of stride.
-    stride     = 88        # Step after each inferrence (half the inferrence window size).
-    height     = p1[0] - p0[0]
-    width      = p1[1] - p0[1]
-    cut_height = height % stride
-    cut_width  = width  % stride
-
-    p0[0] += cut_height // 2 + cut_height % 2
-    p1[0] -= cut_height // 2
-    p0[1] += cut_width  // 2 + cut_width % 2
-    p1[1] -= cut_width  // 2 
-
-    height     = p1[0] - p0[0]
-    width      = p1[1] - p0[1]
-    assert height % stride == 0
-    assert width % stride == 0
-
-    north, west = gmaps.pixelcoord_to_latlon_secure(p0[0], p0[1], zoom)
-    south, east = gmaps.pixelcoord_to_latlon_secure(p1[0], p1[1], zoom)
-
-    # Double check width and height correctness.
-    print("p0:", p0)
-    p0 = array(gmaps.latlon_to_pixelcoord(lat=north, lon=west, zoom=zoom))
-    print("p0:", p0)
-    print("p1:", p1)
-    p1 = array(gmaps.latlon_to_pixelcoord(lat=south, lon=east, zoom=zoom))
-    print("p1:", p1)
-
-    height     = p1[0] - p0[0]
-    width      = p1[1] - p0[1]
-    assert height % stride == 0
-    assert width % stride == 0
-
-    # print("height:", height)
-    # print("width:", width)
-    # return
-
-    api_key = gmaps.read_api_key()
-    image, coordinates = gmaps.construct_image(north=north, south=south, east=east, west=west, scale=2, zoom=zoom, api_key=api_key, verbose=True)
-    # print(image.shape[0], image.shape[1])
-    # print(coordinates.shape)
-    assert(image.shape[0] == coordinates.shape[0])
-    assert(image.shape[1] == coordinates.shape[1])
-    assert(image.shape[0] % stride == 0)
-    assert(image.shape[1] % stride == 0)
-
-    gmaps.write_image(image, f"data/satellite images and the pixel coordinates/{place}.png")
-    pickle.dump(coordinates, open(f"data/satellite images and the pixel coordinates/{place}.pkl", "wb"))
 
 # Remove nodes and edges with `{"render": "deleted"}` attribute.
 def remove_deleted(G):

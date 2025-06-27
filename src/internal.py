@@ -20,6 +20,9 @@ from graph_merging import *
 from map_similarity import *
 from network import *
 
+# Data retrieval logic.
+from data.sat import *
+
 # Rendering.
 from rendering import *
 
