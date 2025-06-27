@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.widgets import CheckButtons
 from scipy import stats
-import PIL as pil
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 import seaborn as sns
 # Geometry
 from shapely.geometry import LineString, Point

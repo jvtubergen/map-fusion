@@ -179,3 +179,57 @@ def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwri
             pickle.dump(result, open(filename, "wb"))
 
     return result
+# Pickle-related.
+def read_pickle(filename):
+    return pickle.load(open(filename, "rb"))
+
+def write_pickle(filename, data):
+    return pickle.dump(data, open(filename, "wb"))
+
+
+# Image related
+
+# Read image from disk.
+
+Image.MAX_IMAGE_PIXELS = None # Disable decompression bomb warning globally
+
+def read_png(filepath):
+
+    # Obtain metadata from PNG as a dictionary.
+    def get_png_metadata(png):
+        if hasattr(png, 'text'):
+            return dict(png.text.items())
+        else:
+            return {}
+
+    img = Image.open(filepath)
+    metadata = get_png_metadata(img)
+    img = img.convert("RGB")
+    img = array(img)
+    return img, metadata
+
+# Extend PNG metadata.
+def extend_png_metadata(metadata, to_add):
+    return metadata | to_add
+
+# Write image to disk.
+def write_png(filepath, png, metadata=None):
+
+    pnginfo = PngInfo()
+    if metadata != None:
+        for key, value in metadata.items():
+            pnginfo.add_text(key, str(value))
+
+    img = Image.fromarray(png, mode="RGB")
+    img.save(filepath, pnginfo=pnginfo)
+
+
+def workflow_update_image_with_pixelcoord_metadata():
+    zooms = {"berlin": 16, "chicago": 17}
+    for place in ["berlin", "chicago"]:
+        png, metadata = read_png(f"data/sat/{place}.png")
+        pixelcoords = read_pickle(f"data/sat/{place}.pkl")
+        latlon = pixelcoords[0][0]
+        pixelcoord = latlon_to_pixelcoord(latlon[0], latlon[1], zoom)
+        metadata = metadata | {"y": pixelcoord[0], "x": pixelcoord[1], "zoom": zooms[place]}
+        write_png(f"{place}.png", png, metadata=metadata)
