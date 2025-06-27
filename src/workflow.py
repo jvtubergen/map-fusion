@@ -45,15 +45,15 @@ def workflow_extract_image_on_roi(region=None, margin=0, savefile=None):
 
 def workflow_render_gps_alongside_truth(place=None):
 
-    gps = read_graph(place=place, graphset="roadster")
-    truth = read_graph(place=place, graphset="openstreetmaps")
+    gps = read_graph(get_graph_path(graphset="roadster", place=place))
+    truth = read_graph(get_graph_path(graphset="openstreetmaps", place=place))
     plot_without_projection([(gps, {"color": (0,1,0,1)}), (truth, {"color": (0,0,1,1)})], []) # gps is green, truth is blue
 
 
 def workflow_render_sat_alongside_truth(place=None):
 
-    sat = read_graph(place=place, graphset="sat2graph")
-    truth = read_graph(place=place, graphset="openstreetmaps")
+    sat = read_graph(get_graph_path(graphset="sat2graph", place=place))
+    truth = read_graph(get_graph_path(graphset="openstreetmaps", place=place))
     plot_without_projection([(sat, {"color": (0,1,0,1)}), (truth, {"color": (0,0,1,1)})], []) # sat is green, truth is blue
 
 
@@ -63,15 +63,15 @@ def workflow_render_sat_gps_truth(place=None, gps=True, sat=True, truth=True):
     graphs = []
     
     if sat:
-        sat = read_graph(place=place, graphset="sat2graph")
+        sat = read_graph(get_graph_path(graphset="sat2graph", place=place))
         graphs.append((sat, {"color": (0,1,0,1)})) # sat is green
     
     if gps:
-        gps = read_graph(place=place, graphset="roadster") 
+        gps = read_graph(get_graph_path(graphset="roadster", place=place)) 
         graphs.append((gps, {"color": (0.7,0.1,0.9,1), "linewidth": 3})) # gps is purple
     
     if truth:
-        truth = read_graph(place=place, graphset="openstreetmaps")
+        truth = read_graph(get_graph_path(graphset="openstreetmaps", place=place))
         graphs.append((truth, {"color": (0.3,0.3,0.3,1), "linestyle": ":"})) # truth is black
 
     plot_without_projection(graphs, []) 
@@ -82,8 +82,8 @@ def workflow_render_sat_gps_truth(place=None, gps=True, sat=True, truth=True):
 # results = workflow_apply_apls(place="chicago", truth_graphset="openstreetmaps", proposed_graphset="roadster")
 def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None):
 
-    truth = read_graph(place=place, graphset=truth_graphset)
-    proposed = read_graph(place=place, graphset=proposed_graphset)
+    truth = read_graph(get_graph_path(graphset=truth_graphset, place=place))
+    proposed = read_graph(get_graph_path(graphset=proposed_graphset, place=place))
     results = apls(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))
 
     return results
@@ -92,8 +92,8 @@ def workflow_apply_apls(place=None, truth_graphset=None, proposed_graphset=None)
 # results = workflow_apply_topo(place="chicago", truth_graphset="openstreetmaps", proposed_graphset="roadster")
 def workflow_apply_topo(place=None, truth_graphset=None, proposed_graphset=None):
 
-    truth = read_graph(place=place, graphset=truth_graphset)
-    proposed = read_graph(place=place, graphset=proposed_graphset)
+    truth = read_graph(get_graph_path(graphset=truth_graphset, place=place))
+    proposed = read_graph(get_graph_path(graphset=proposed_graphset, place=place))
     # result = topo(graph_prepare_apls(truth), graph_prepare_apls(proposed))
 
     subgraph_radius=150
@@ -118,8 +118,8 @@ def workflow_apply_topo(place=None, truth_graphset=None, proposed_graphset=None)
     
 
 def workflow_apply_topo_prime():
-    truth = read_graph(place=place, graphset=truth_graphset)
-    proposed = read_graph(place=place, graphset=proposed_graphset)
+    truth = read_graph(get_graph_path(graphset=truth_graphset, place=place))
+    proposed = read_graph(get_graph_path(graphset=proposed_graphset, place=place))
     result = topo_prime(graph_prepare_apls(truth), graph_prepare_apls(proposed))
     # tp, fp, fn, precision, recall, f1 = result
     return result
@@ -152,9 +152,9 @@ def workflow_table_basic():
     for place in ["berlin", "chicago"]:
     
         # Place.
-        gps = read_graph(place="berlin", graphset=links["gps"])
-        osm = read_graph(place="berlin", graphset=links["osm"])
-        sat = read_graph(place="berlin", graphset=links["sat"])
+        gps = read_graph(get_graph_path(graphset=links["gps"], place="berlin"))
+        osm = read_graph(get_graph_path(graphset=links["osm"], place="berlin"))
+        sat = read_graph(get_graph_path(graphset=links["sat"], place="berlin"))
 
         osm = graph_prepare_apls(osm)
         sat = graph_prepare_apls(sat)
@@ -192,8 +192,8 @@ def workflow_table_basic():
 
 def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset=None):
 
-    truth = read_graph(place=place, graphset=truth_graphset)
-    proposed = read_graph(place=place, graphset=proposed_graphset)
+    truth = read_graph(get_graph_path(graphset=truth_graphset, place=place))
+    proposed = read_graph(get_graph_path(graphset=proposed_graphset, place=place))
 
     return apls_prime(truth=graph_prepare_apls(truth), proposed=graph_prepare_apls(proposed))
 
@@ -201,8 +201,8 @@ def workflow_apply_apls_prime(place=None, truth_graphset=None, proposed_graphset
 # workflow_edge_coverage_by_threshold(place="chicago", left_graphset="gps", right_graphset="sat")
 def workflow_edge_coverage_by_threshold(place=None, left_graphset=None, right_graphset=None):
 
-    left  = read_graph(place=place, graphset=links[left_graphset])
-    right = read_graph(place=place, graphset=links[right_graphset])
+    left  = read_graph(get_graph_path(graphset=links[left_graphset], place=place))
+    right = read_graph(get_graph_path(graphset=links[right_graphset], place=place))
 
     print("left:", left)
     print("right:", right )
@@ -233,8 +233,8 @@ def workflow_construct_coverage_by_threshold(place=None):
 def workflow_apls_prime_outcomes_on_different_coverage_thresholds(place="chicago", left="gps", right="osm"):
 
     left_vs_right = pickle.load(open(f"data/coverage/{place}_{left}_vs_{right}.pkl", "rb"))
-    left = read_graph(place="chicago", graphset=links[left])
-    right = read_graph(place="chicago", graphset=links[right])
+    left = read_graph(get_graph_path(graphset=links[left], place="chicago"))
+    right = read_graph(get_graph_path(graphset=links[right], place="chicago"))
 
     for curr in range(10, 100, 10):
         subleft = subgraph_by_coverage_thresholds(left, left_vs_right, max_threshold=curr)

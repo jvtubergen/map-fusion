@@ -17,7 +17,7 @@ def graph_middle_latitute(G):
 def graph_roi(G):
     assert G.graph["coordinates"] == "latlon"
 
-    G = read_graph(place=place, graphset=graphset)
+    G = read_graph(get_graph_path(graphset=graphset, place=place))
     coordinates = extract_node_positions_list(G)
     latlon0 = np.min(coordinates, axis=0)
     latlon1 = np.max(coordinates, axis=0)

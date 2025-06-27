@@ -22,25 +22,22 @@ def get_graph_path(graphset=None, place=None):
     return f"data/graphs/{graphset}/{place}"
 
 
-# Obtain (inferred/ground truth) graph from disk.
-# Construct graph from edges.txt and vertex.txt text file in specified folder. 
-# Expect those files to be CSV with u,v and id,x,y columns respectively.
-# We act only on undirected vectorized graphs.
-@info(timer=True)
-def read_graph(graphset=None, place=None, use_utm=False):
+# Obtain `folderpath/vertices.txt` and `folderpath/edges.txt` from disk and construct vectorized graph from it.
+def read_graph(folderpath):
 
-    folder = get_graph_path(graphset=graphset, place=place)
-    edges_file_path    = folder + "/edges.txt"
-    vertices_file_path = folder + "/vertices.txt"
+    edges_file_path    = folderpath + "/edges.csv"
+    vertices_file_path = folderpath + "/vertices.csv"
 
-    # Expect the text files are CSV formatted
     edges_df = pd.read_csv(edges_file_path)
     vertices_df = pd.read_csv(vertices_file_path)
 
     # Construct NetworkX graph.
     G = nx.Graph()
 
-    # Track node dictionary to simplify node extraction when computing edge lengths.
+    # Look at column identifiers whether its stored as UTM or WSG.
+    use_utm = 'x' in vertices_df.keys()
+
+    # Insert vertices.
     for node in vertices_df.iterrows():
         if use_utm:
             i, x, y = itemgetter('id', 'x', 'y')(node[1]) 
@@ -49,18 +46,16 @@ def read_graph(graphset=None, place=None, use_utm=False):
             i, lat, lon = itemgetter('id', 'lat', 'lon')(node[1]) 
             G.add_node(int(i), y=lat, x=lon)
 
+    # Insert edges.
     for edge in edges_df.iterrows():
         u, v = itemgetter('u', 'v')(edge[1]) 
         G.add_edge(int(u), int(v))
 
-    # G = nx.MultiDiGraph(G)
-    # G = ox.simplify_graph(G)
-    # G.graph['crs'] = "EPSG:4326"
-    # Generate undirected, vectorized graph.
-    G.graph["coordinates"] = "latlon"
+    # Annotate graph information.
+    G.graph["coordinates"] = "utm" if use_utm else "latlon"
     G.graph["simplified"] = False
 
-    # Annotate edges.
+    # Annotate graph edges.
     graph_annotate_edge_curvature(G)
     graph_annotate_edge_length(G)
     graph_annotate_edge_geometry(G)

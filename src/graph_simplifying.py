@@ -362,7 +362,7 @@ def vectorize_graph(G):
 # Unit test that simplification and vectorization leaves graph length intact.
 @info()
 def test_simplify_vectorize():
-    G = read_graph(place="chicago", graphset=links["sat"])
+    G = read_graph(get_graph_path(graphset=links["sat"], place="chicago"))
     G = graph_transform_latlon_to_utm(G)
     # a. Simplify graph.
     G = simplify_graph(G)

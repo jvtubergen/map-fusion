@@ -28,11 +28,11 @@ def generate_maps(threshold = 30, debugging=False, **reading_props):
         _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **props)
 
         # Source graph.
-        osm = _read_and_or_write("osm", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))), **reading_props)
+        osm = _read_and_or_write("osm", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place=place))))), **reading_props)
 
         # Starting graphs.
-        sat = _read_and_or_write("sat", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))), **reading_props)
-        gps = _read_and_or_write("gps", lambda:simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))), **reading_props)
+        sat = _read_and_or_write("sat", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["sat"], place=place))))), **reading_props)
+        gps = _read_and_or_write("gps", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["gps"], place=place))))), **reading_props)
 
         # If we are debugging on the merging logic.
         if debugging:
@@ -152,9 +152,9 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
     dedup = graph_deduplicate
     to_utm = graph_transform_latlon_to_utm
 
-    sat = _read_and_or_write("sat", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["sat"])))))
-    gps = _read_and_or_write("gps", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["gps"])))))
-    osm = _read_and_or_write("osm", lambda: simp(dedup(to_utm(read_graph(place=place, graphset=links["osm"])))))
+    sat = _read_and_or_write("sat", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["sat"], place=place))))))
+    gps = _read_and_or_write("gps", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["gps"], place=place))))))
+    osm = _read_and_or_write("osm", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place=place))))))
 
     #### Intersection.
     logger("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
@@ -514,8 +514,8 @@ def experiment_two_measure_threshold_values(lowest = 1, highest = 51, step = 1):
         simp = simplify_graph
         dedup = graph_deduplicate
         to_utm = graph_transform_latlon_to_utm
-        osm_berlin = simp(dedup(to_utm(read_graph(place="berlin", graphset=links["osm"]))))
-        osm_chicago = simp(dedup(to_utm(read_graph(place="chicago", graphset=links["osm"]))))
+        osm_berlin = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="berlin")))))
+        osm_chicago = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="chicago")))))
         truth = {}
         truth["berlin"] = {}
         truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)
@@ -849,8 +849,8 @@ def experiment_three_sample_histogram():
         simp = simplify_graph
         dedup = graph_deduplicate
         to_utm = graph_transform_latlon_to_utm
-        osm_berlin = simp(dedup(to_utm(read_graph(place="berlin", graphset=links["osm"]))))
-        osm_chicago = simp(dedup(to_utm(read_graph(place="chicago", graphset=links["osm"]))))
+        osm_berlin = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="berlin")))))
+        osm_chicago = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="chicago")))))
         truth = {}
         truth["berlin"] = {}
         truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)

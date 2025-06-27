@@ -334,8 +334,8 @@ def apls_and_prime_by_place(place, setup=True):
 
     if setup:
 
-        G = read_graph(place=place, graphset=links["sat"])
-        H = read_graph(place=place, graphset=links["gps"])
+        G = read_graph(get_graph_path(graphset=links["sat"], place=place))
+        H = read_graph(get_graph_path(graphset=links["gps"], place=place))
 
         prepared_graph_data = {
             "left" : prepare_graph_data(G, H),
