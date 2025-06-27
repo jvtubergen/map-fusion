@@ -1,9 +1,9 @@
+# Before running python code, source the project dependencies with `hatch shell`.
+
 # We have three variants of running code:
 # * Debugging: `python -m debugpy --listen localhost:5678 --wait-for-client src/main.py`
 # * Interactive non-debugger: `python -i src/main.py`
 # * Non-interactive non-debugger: `python src/main.py`
-
-# source project with `hatch shell`.
 
 # Which we will invocate as:
 # * `bash ./commands.sh debugging`
@@ -19,7 +19,10 @@ case "$1" in
     interactive)
         python -i src/main.py
         ;;
-    production)
+    non-interactive)
         python src/main.py
+        ;;
+    *)
+        echo "Run script with ./commands debugging|interactive|non-interactive"
         ;;
 esac
