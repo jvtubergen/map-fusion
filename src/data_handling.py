@@ -134,7 +134,8 @@ def file_age(filename):
     return time() - os.path.getmtime(filename)
 
 
-# Read and/or write with a specific action to perform in case we failed to read.
+
+# Read and/or write pickle or graph with a specific action to perform in case we failed to read.
 @info()
 def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwrite=False, rerun=False, reset_time=None, overwrite_if_old=False):
     
@@ -179,6 +180,8 @@ def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwri
             pickle.dump(result, open(filename, "wb"))
 
     return result
+
+
 # Pickle-related.
 def read_pickle(filename):
     return pickle.load(open(filename, "rb"))
@@ -206,6 +209,7 @@ def read_png(filepath):
     metadata = get_png_metadata(img)
     img = img.convert("RGB")
     img = array(img)
+    img = img.astype(float)
     return img, metadata
 
 # Extend PNG metadata.
