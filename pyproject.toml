@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
+  "partial-curve-matching @ git+https://github.com/jvtubergen/partial-curve-matching-rs.git",
   "numpy",
   "networkx",
   "osmnx",
