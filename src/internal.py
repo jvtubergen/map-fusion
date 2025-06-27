@@ -1,11 +1,8 @@
-# Handlers
-import handlers.sat2graph as sat2graph
-import handlers.roadster as roadster
-import handlers.gmaps.lib as gmaps
+from caching import *
+from data_handling import *
 
 from spatial_reference_systems import *
 from utilities import *
-from data_handling import *
 
 # Network submodules.
 from graph_node_extraction import *

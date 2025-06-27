@@ -1,3 +1,5 @@
+import os
+
 # This file provides functions to cache your computation results so they can be re-used.
 
 # Cache folder is used for retrieving the API key from and to store image query responses to.
@@ -12,3 +14,12 @@ if not os.path.exists(config_folder):
     os.makedirs(config_folder, exist_ok=True)
 
 
+def get_cache_folder(folder_path):
+    location = f"{cache_folder}/{folder_path}"
+    if not os.path.exists(location):
+        os.makedirs(location, exist_ok=True)
+    return location
+
+def get_cache_file(file_path):
+    location = f"{cache_folder}/{file_path}"
+    return location

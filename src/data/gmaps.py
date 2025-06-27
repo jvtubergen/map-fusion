@@ -1,6 +1,9 @@
+import requests
+
 from external import *
 from caching import *
 from data_handling import *
+from spatial_reference_systems import *
 
 
 # Read API key stored locally.
@@ -85,9 +88,69 @@ def squarify_utm_coordinates(p1, p2):
     return [y1, x1], [y2, x2]
 
 
-# Retrieve images, stitch them together.
-# * Adjust to have tile consistency, this should reduce the number of requests we are making.
-# * Prefer higher scale, lowers image retrieval count as well.
+# Fine tune the coordinate bounding box to retrieve satellite image for. Consider padding of 100 pixels and a being a multiple of 88 (stride used in Sat2Graph).
+def fine_tune_image_coordinates(upper_left, lower_right, zoom):
+    
+    p0 = array(latlon_to_pixelcoord(lat=upper_left[0], lon=upper_left[1], zoom=zoom))
+    p1 = array(latlon_to_pixelcoord(lat=lower_right[0], lon=lower_right[1], zoom=zoom))
+
+    # Add a padding of 100 pixels.
+    p0[0] -= int(100) 
+    p0[1] -= int(100)
+    p1[0] += int(100)
+    p1[1] += int(100)
+
+    # Ensure multiple of stride (necessary for Sat2Graph inferrence).
+    stride     = 88        # Step after each inferrence (half the inferrence window size).
+    height     = p1[0] - p0[0]
+    width      = p1[1] - p0[1]
+    cut_height = height % stride
+    cut_width  = width  % stride
+
+    p0[0] += cut_height // 2 + cut_height % 2
+    p1[0] -= cut_height // 2
+    p0[1] += cut_width  // 2 + cut_width % 2
+    p1[1] -= cut_width  // 2 
+
+    height     = p1[0] - p0[0]
+    width      = p1[1] - p0[1]
+
+    check(height % stride == 0, expect="Height pixel coordinates is a multiple of 88 (stride).")
+    check(width % stride == 0, expect="Width pixel coordinates is a multiple of 88 (stride).")
+
+    north, west = pixelcoord_to_latlon(p0[0], p0[1], zoom)
+    south, east = pixelcoord_to_latlon(p1[0], p1[1], zoom)
+
+    upper_left = north, west
+    lower_right = south, east
+
+    return upper_left, lower_right
+
+# Construct image and relevant metadata (y,x,zoom of upper-left pixel coordinate).
+def download_and_construct_image(upper_left, lower_right, zoom):
+
+    north, west = upper_left
+    south, east = lower_right
+
+    # Obtain API key and construct image.
+    api_key = read_api_key()
+    image, pixelcoord = construct_image(north=north, south=south, east=east, west=west, zoom=zoom, api_key=api_key, verbose=True)
+
+    # print("Image shape: ")
+    # print(image.shape)
+
+    stride = 88 
+    assert(image.shape[0] % stride == 0)
+    assert(image.shape[1] % stride == 0)
+
+    # Add metadata to png and write.
+    metadata = {"y": pixelcoord[0], "x": pixelcoord[1], "zoom": zoom}
+    return image, metadata
+
+
+# Retrieve images and stitch them together.
+# * Adjust to have tile consistency, this allows to re-use cached image retrievals.
+# * Use implicitly a higher scale for retrieval to reduce the number of API calls.
 def construct_image(north=None, west=None, east=None, south=None, zoom=None, api_key=None, full_tiles=False, square=False, verbose=False):
     
     assert north   != None
@@ -131,9 +194,7 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     latloncoords = [pixelcoord_to_latlon(y, x, zoom_for_requests) for y,x in pixelcoords]
 
     # Make sure the image cache folder exists.
-    image_cache_folder = cache_folder + "/retrieved_satellite_images"
-    if not os.path.exists(image_cache_folder):
-        os.makedirs(image_cache_folder, exist_ok=True)
+    image_cache_folder = get_cache_folder("sat/retrieved_satellite_images")
 
     # Construct and fetch urls.
     if verbose:
@@ -146,10 +207,10 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
         if verbose:
             print(f"Retrieving satellite image: {count}/{len(fnames_and_urls)}.")
 
-        if not os.path.isfile(image_cache_folder + fname):
+        if not os.path.isfile(f"{image_cache_folder}/{fname}"):
             if verbose:
                 print("Fetching image: " + url)
-            assert fetch_url(image_cache_folder + fname, url)
+            assert fetch_url(f"{image_cache_folder}/{fname}", url)
         else:
             if verbose:
                 print("Image already exists: " + url)
@@ -157,8 +218,8 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     # Stitch image tiles together.
     if verbose:
         print("Constructing image.")
-    images = [read_png(cache_folder + fname) for (fname, _) in fnames_and_urls]
-    images = [cut_logo(image, scale, margin) for image in images]
+    images = [read_png(f"{image_cache_folder}/{fname}") for (fname, _) in fnames_and_urls]
+    images = [cut_logo(image, scale, margin) for image, metadata in images]
 
     size = scale * step # Image size.
     superimage = np.ndarray((height*size, width*size, 3), dtype="uint8")

@@ -4,7 +4,7 @@ from utilities import *
 from spatial_reference_systems.utm import utm_to_latlon
 
 # Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
-def middle_latitute(G):
+def graph_middle_latitute(G):
     assert G.graph["coordinates"] == "latlon"
     uvk, data = zip(*G.nodes(data=True))
     df = gpd.GeoDataFrame(data, index=uvk)
@@ -14,7 +14,7 @@ def middle_latitute(G):
 
 
 # Obtain bounding box (the region of interest).
-def roi(G):
+def graph_roi(G):
     assert G.graph["coordinates"] == "latlon"
 
     G = read_graph(place=place, graphset=graphset)

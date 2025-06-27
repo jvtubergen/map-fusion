@@ -1,6 +1,8 @@
 # Web Mercator
 from math import *
 
+earth_radius   = 6371007 # meters
+earth_circumference = 2*pi*earth_radius
 sec  = lambda phi: 1/cos(phi) # Secant
 
 # Gudermannian function. Real argument abs(rho) < 0.5*pi 
@@ -86,7 +88,7 @@ def pixelcoord_to_latlon(y, x, zoom):
 def compute_gsd(lat, zoom):
     k = sec(deg_to_rad(lat)) # Scale factor by mercator projection.
     w = earth_circumference  # Total image distance on 256x256 world image
-    return w / (256 * pow(2, zoom) * k * scale)
+    return w / (256 * pow(2, zoom) * k)
 
 
 # Compute zoom in such that related GSD is smaller or equal to the goal GSD.
