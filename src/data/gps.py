@@ -19,7 +19,7 @@ def extract_trips(place, folder=None):
         trips.append(trip)
     return trips
 
-def extract_city_statistics():
+def extract_gps_statistics():
     """Extract GPS statistics for each city dataset"""
     cities = ['athens', 'berlin', 'chicago']
     stats = {}
