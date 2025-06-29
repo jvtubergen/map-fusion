@@ -1,20 +1,6 @@
 from external import *
 from internal import *
 
-# truth = constructing_osm_on_boundaries(place="berlin", roi=roi["berlin"])
-# write_graph(truth, place="berlin", graphset="openstreetmaps")
-def workflow_constructing_osm_on_boundaries(roi=None):
-
-    west  = roi["west"]
-    east  = roi["east"]
-    south = roi["south"]
-    north = roi["north"]
-    G = ox.graph_from_bbox(north=north, south=south, west=west, east=east, network_type="drive", retain_all=False, simplify=False)
-    G = nx.Graph(G.to_undirected())
-
-    return G
-
-    
 
 def workflow_render_gps_alongside_truth(place=None):
 
