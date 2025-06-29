@@ -14,33 +14,6 @@ def workflow_constructing_osm_on_boundaries(roi=None):
 
     return G
 
-
-# workflow_extract_image_on_roi(region=roi['berlin'], margin=50, savefile="berlin")
-def workflow_extract_image_on_roi(region=None, margin=0, savefile=None):
-
-    south, west = translate_latlon_by_meters(lat=region["south"], lon=region["west"], west=margin, south=margin)
-    north, east = translate_latlon_by_meters(lat=region["north"], lon=region["east"], east=margin, north=margin)
-
-    lat_reference = 0.5 * south + 0.5 * north  # Reference latitude.
-    scale = 2 # Always adhere to scale of 2: results in less requests.
-    gsd_goal = 0.5
-    deviation = 0.2
-    zoom = gmaps.derive_zoom(lat_reference, scale, gsd_goal, deviation=deviation)
-    gsd = gmaps.compute_gsd(lat_reference, zoom, scale)
-
-    print(f"zoom level: {zoom}")
-    print(f"gsd       : {gsd}")
-
-    api_key = gmaps.read_api_key()
-    image, coordinates = gmaps.construct_image(west=west, south=south, north=north, east=east, zoom=zoom, scale=scale, api_key=api_key, square=False, verbose=True)
-
-    if savefile != None:
-        imagefilename = f"{savefile}.png"
-        coordinatesfilename = f"{savefile}_coordinates.pkl"
-        gmaps.write_image(image, imagefilename)
-        pickle.dump(coordinates, open(coordinatesfilename, "wb"))
-
-    return image, coordinates
     
 
 def workflow_render_gps_alongside_truth(place=None):
