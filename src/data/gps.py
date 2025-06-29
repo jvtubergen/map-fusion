@@ -1,5 +1,6 @@
 import os
 import math
+import numpy as np
 from spatial_reference_systems.utm import utm_to_latlon
 
 # Extracting raw GPS traces from text.
@@ -14,10 +15,51 @@ def extract_trips(place, folder=None):
             trip = []
             for step in f.read().strip().split('\n'):
                 [x, y, t] = [float(value) for value in step.split(' ')]
-                y, x = utm_to_latlon((y, x), place)
                 trip.append([x, y, t])
         trips.append(trip)
     return trips
+
+
+def derive_roi(place):
+    """Derive the region of interest (ROI) at a place by computing the bounding box on the GPS traces."""
+    trips = extract_trips(place)
+    
+    # Flatten all trips into a single numpy array of coordinates.
+    all_coords = []
+    for trip in trips:
+        for point in trip:
+            all_coords.append([point[1], point[0]])  # [y, x] from [x, y, t]
+    
+    coords_array = np.array(all_coords)
+    
+    # Compute bounding box on coordinates.
+    west  = float(np.min(coords_array[:, 1]))  # min longitude
+    east  = float(np.max(coords_array[:, 1]))  # max longitude
+    south = float(np.min(coords_array[:, 0]))  # min latitude
+    north = float(np.max(coords_array[:, 0]))  # max latitude
+
+    # Convert UTM to WSG.
+    north, west = utm_to_latlon((north, west), place)
+    south, east = utm_to_latlon((south, east), place)
+    
+    return {
+        'west' : float(west),
+        'south': float(south),
+        'east' : float(east),
+        'north': float(north),
+    }
+
+
+def derive_rois():
+    """Derive ROIs from all cities (athens, berlin, chicago)."""
+    cities = ['athens', 'berlin', 'chicago']
+    rois = {}
+    
+    for city in cities:
+        rois[city] = derive_roi(city)
+    
+    return rois
+
 
 def extract_gps_statistics():
     """Extract GPS statistics for each city dataset"""
