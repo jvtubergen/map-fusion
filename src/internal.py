@@ -19,7 +19,7 @@ from map_similarity import *
 from network import *
 
 # Data retrieval logic.
-from data.sat import *
+from data import *
 
 # Rendering.
 from rendering import *
