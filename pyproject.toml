@@ -45,7 +45,8 @@ dependencies = [
   "py-spy",
 #  "apls @ git+https://github.com/jvtubergen/apls@attempt"
 #  "gdal", # Geospatial Data Abstraction Layer
-  "opencv-python"
+  "opencv-python", # cv2
+  "tf-nightly-cpu" # tf
 ]
 
 [project.urls]
