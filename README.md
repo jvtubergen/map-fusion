@@ -14,6 +14,13 @@ experiment_three_sample_histogram()
 
 
 
+## Sat2Graph
+Sat2Graph code is integrated into the code under `./src/data/sat2graph.py`.
+It requires to have the place satellite images (with upper-left pixel coordinate with zoom level metadata) and the CNN model global V2.
+Information on exact locations are found under `./src/data/sat2graph.py:sat_locations()`.
+
+
+
 ## Data 
 Data preparation steps (data modalities and unimodal inferrence graph results) can be bypassed by using git LFS to download raw (gps + sat) data and inferred (gps + sat) graphs.
 The relevant portion for geoalg (the inferred sat and gps graphs alongside the ground truth osm) are stored under `./data/graphs/(gps|osm|sat)`.

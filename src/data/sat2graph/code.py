@@ -1,83 +1,131 @@
-import logging
-import json 
-import os 
-import os.path  
-import math 
-import gc
-import numpy as np 
-import tensorflow.compat.v1 as tf 
-from time import time, strftime
-from subprocess import Popen
-import sys 
-from douglasPeucker import simpilfyGraph, colorGraph
-import requests
-import pickle 
-import PIL
-from PIL import Image
-from gmaps.lib import *
-from decoder import * 
+from external import *
 
-PIL.Image.MAX_IMAGE_PIXELS = 246913576 + 1
+from caching import *
+from data_handling import *
 
+from data.sat2graph.decoder import * 
+from data.sat2graph.common import * 
+
+# Decode and visualization parameters.
+decode_properties = {
+    "vertex_threshold": 0.05,
+    "edge_threshold"  : 0.01,
+    "snap_distance"   : 15,
+    "snap_weight"     : 100,
+    "snap"            : True,
+    "drop"            : True,
+    "refine"          : True,
+    "max_edge_degree" : 6
+}
+
+# Tensorflow information (updated by functions).
 tf_state = {
     "is_initiated": False
 }
 
+# Locations of files and folders for a place.
+def sat_locations(place):
+    return  {
+        # Pre-requisites.
+        "image": get_cache_file(f"sat/{place}.png"),
+        "pbmodel": get_cache_file(f"sat/sat2graph/globalv2.pb"),
+        # Intermediate data files.
+        "partial_gtes": get_cache_file(f"sat/sat2graph/partial-gtes/{place}"),
+        "intermediate": get_cache_file(f"sat/sat2graph"),
+        # Resulting files.
+        "result": get_data_file(f"data/graphs/sat-{place}.graph"),
+        "image-results": get_data_file(f"data/images/sat/{place}")
+    }
+def partial_gte_location(place, counter):
+    return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
 
-# Infer satellite/road data.
-def infer(sat, road, pbfile=None):
+
+def obtain_sat_graph(place):
+    """End-to-end logic to infer sat graph of a place."""
+
+    # Check prerequisite files exist.
+    locations = sat_locations(place)
+    if not path_exists(locations["image"]):
+        raise Exception(f"Image for {place} does not exist.")
+    if not path_exists(locations["pbmodel"]):
+        raise Exception(f"GlobalV2 model does not exist.")
+
+    # Load the model first
+    if not tf_state.get("is_initiated", False):
+        load_model()
+
+    img, metadata = read_png(sat_locations(place)["image"])
+    gte     = infer_gte(img, place)
+    #todo: Fine-tune GTE by re-iterating keypoints (recover code 276052528c55553f178ff6ae209095229923809e)
+    G   = decode_gte(gte, properties=decode_properties)
+    write_pickle(f"{sat_locations(place)["intermediate"]}/graph-raw.pk")
+    write_png(render_graph(G, height=height, width=width), f"{sat_locations(place)["image_results"]}/graph-raw.png")
+
+    G   = optimize_graph(G)
+    write_pickle(f"{sat_locations(place)["intermediate"]}/graph-refined.pk")
+    write_png(render_graph(G, height=height, width=width), f"{sat_locations(place)["image_results"]}/graph-refined.png")
+
+    G  = double_graph(G)
+    write_graph(G, sat_locations(place)["result"])
+    write_png(render_graph(graph, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
+    
+
+def load_model():
+    """Load globalv2 model into memory. Updates global variable `tf_state`."""
     global tf_state
-    if not tf_state["is_initiated"]:
         
-        print("Loading TF:")
-        print("* GPU properties.")
-        # GPU properties.
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        tfcfg = tf.ConfigProto(gpu_options=gpu_options)
-        tfcfg.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1 # enable xla 
+    print("Loading TF:")
+    print("* GPU properties.")
+    # GPU properties.
+    gpu_options = tf.GPUOptions(allow_growth=True)
+    tfcfg = tf.ConfigProto(gpu_options=gpu_options)
+    tfcfg.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1 # enable xla 
 
-        print("* Session.")
-        # Model (tensorflow) setup.
-        sess = tf.Session(config=tfcfg)
-        if pbfile == None:
-            pbfile = "./models/globalv2.pb"
+    print("* Session.")
+    # Model (tensorflow) setup.
+    sess = tf.Session(config=tfcfg)
+    pbfile_location = sat_locations("")["pbmodel"]
 
-        print("* Optimized state.")
-        with tf.gfile.GFile(pbfile, 'rb') as f:
-            graph_def_optimized = tf.GraphDef()
-            graph_def_optimized.ParseFromString(f.read())
+    print("* Optimized state.")
+    #todo: if cannot find model at file location, raise error with message saying this.
+    with tf.gfile.GFile(pbfile_location, 'rb') as f:
+        graph_def_optimized = tf.GraphDef()
+        graph_def_optimized.ParseFromString(f.read())
 
-        print("* Loading nodes.")
-        for node in graph_def_optimized.node:            
-            if node.op == 'RefSwitch':
-                node.op = 'Switch'
-                for index in range(len(node.input)):
-                    if 'moving_' in node.input[index]:
-                        node.input[index] = node.input[index] + '/read'
-            elif node.op == 'AssignSub':
-                node.op = 'Sub'
-                if 'use_locking' in node.attr: del node.attr['use_locking']
-            elif node.op == 'AssignAdd':
-                node.op = 'Add'
-                if 'use_locking' in node.attr: del node.attr['use_locking']
-            
+    print("* Loading nodes.")
+    for node in graph_def_optimized.node:            
+        if node.op == 'RefSwitch':
+            node.op = 'Switch'
+            for index in range(len(node.input)):
+                if 'moving_' in node.input[index]:
+                    node.input[index] = node.input[index] + '/read'
+        elif node.op == 'AssignSub':
+            node.op = 'Sub'
+            if 'use_locking' in node.attr: del node.attr['use_locking']
+        elif node.op == 'AssignAdd':
+            node.op = 'Add'
+            if 'use_locking' in node.attr: del node.attr['use_locking']
         
-        print("* Loading Tensors.")
-        tf_state["sess"]       = sess
-        tf_state["output"]     = tf.import_graph_def(graph_def_optimized, return_elements=['output:0'])
+    
+    print("* Loading Tensors.")
+    tf_state["sess"]       = sess
+    tf_state["output"]     = tf.import_graph_def(graph_def_optimized, return_elements=['output:0'])[0]
 
-        # print("* Listing Tensors:")
-        # graph = tf.get_default_graph()
-        # for op in graph.get_operations():
-        #     print(f"  Operation: {op.name}")
-        #     for tensor in op.outputs:
-        #         print(f"   - Tensor: {tensor.name}")
+    # print("* Listing Tensors:")
+    # graph = tf.get_default_graph()
+    # for op in graph.get_operations():
+    #     print(f"  Operation: {op.name}")
+    #     for tensor in op.outputs:
+    #         print(f"   - Tensor: {tensor.name}")
 
-        tf_state["inputsat"]   = tf.get_default_graph().get_tensor_by_name('inputsat:0')
-        tf_state["inputroad"]  = tf.get_default_graph().get_tensor_by_name('inputroad:0')
-        tf_state["istraining"] = tf.get_default_graph().get_tensor_by_name('istraining:0')
+    tf_state["inputsat"]   = tf.get_default_graph().get_tensor_by_name('inputsat:0')
+    tf_state["inputroad"]  = tf.get_default_graph().get_tensor_by_name('inputroad:0')
+    tf_state["istraining"] = tf.get_default_graph().get_tensor_by_name('istraining:0')
 
-        tf_state["is_initiated"] = True
+    tf_state["is_initiated"] = True
+
+
+def infer_partial_gte(image, road):
     
     tf_output     = tf_state["output"]    
     tf_inputsat   = tf_state["inputsat"]  
@@ -85,42 +133,29 @@ def infer(sat, road, pbfile=None):
     tf_istraining = tf_state["istraining"]
     sess          = tf_state["sess"]
 
-    out = sess.run(tf_output, feed_dict={tf_inputsat: sat, tf_inputroad: road, tf_istraining: False})
+    out = sess.run(tf_output, feed_dict={tf_inputsat: image, tf_inputroad: road, tf_istraining: False})
     return out[0]
 
 
-# Printing progres..
 def progress(x):
-	n = int(x * 40)
-	sys.stdout.write("\rProgress (%3.1f%%) "%(x*100.0) + ">" * n  + "-" * (40-n)  )
-	sys.stdout.flush()
+    """Printing progress."""
+    n = int(x * 40)
+    sys.stdout.write("\rProgress (%3.1f%%) "%(x*100.0) + ">" * n  + "-" * (40-n)  )
+    sys.stdout.flush()
 
 
-def read_image(filename):
-    image = Image.open(filename)
-    image = image.convert("RGB")
-    image = np.array(image)
-    return image.astype(float)
+def pad_graph(graph, left=0, top=0):
+    """Add offset to each graph position."""
+    graph2 = {}
 
+    for element, targets in graph.items():
+        (y, x) = element
+        graph2[(y + top, x + left)] = [(y + top, x + left) for (y, x) in targets]
+    
+    return graph2
 
-def save_image(image, fname):
-    Image.fromarray(image.astype(np.uint8)).save(fname)
-
-
-# Example (Retrieve/Construct image with GSD ~0.88 between two coordinates):
-def run_example():
-    upperleft  = (41.799575, -87.606117)
-    lowerright = (41.787669, -87.585498)
-    scale = 1
-    zoom = 17 # For given latitude and scale results in gsd of ~ 0.88
-    api_key = read_api_key()
-    # superimage = construct_image(upperleft, lowerright, zoom, scale, api_key)   # Same result as below.
-    superimage, coordinates = construct_image(upperleft, lowerright, zoom-1, scale+1, api_key) # Same result as above.
-    write_image(superimage, "superimage.png")
-
-
-# Double all values in graph.
 def double_graph(graph):
+    """Double all values in graph."""
     graph2 = {}
 
     for element, targets in graph.items():
@@ -130,26 +165,13 @@ def double_graph(graph):
     return graph2
 
 
-# Add offset to each graph position.
-def pad_graph(graph, left=0, top=0):
-    graph2 = {}
-
-    for element, targets in graph.items():
-        (y, x) = element
-        graph2[(y + top, x + left)] = [(y + top, x + left) for (y, x) in targets]
-    
-    return graph2
-
-
-# Infer GTE from a satellite image. Globalv2 uses scale of 2 and cityv1 uses a scale of 1.
-def infer_gte(sat_img, scale=None, pbfile=None, tmpfolder=None):
-
-    assert type(scale) == type(0)
+def infer_gte(sat_img, place):
+    """Infer GTE from a satellite image."""
 
     sat_height = sat_img.shape[0]
     sat_width  = sat_img.shape[1]
-    print("height:", sat_height)
-    print("width :", sat_width)
+    # print("height:", sat_height)
+    # print("width :", sat_width)
 
     # Inferrence parameters.
     image_size = 352       # Perceptive field of neural network.
@@ -158,8 +180,8 @@ def infer_gte(sat_img, scale=None, pbfile=None, tmpfolder=None):
     feat_size  = 2 + 4 * 6 + 5 # Feature size, 6 edge probabilities and some additional for road type, but you don't understand why two necessary for vertexness. 
 
     # Expect input image to be a multiple of stride.
-    assert sat_width  % stride == 0 
-    assert sat_height % stride == 0 
+    check(sat_width  % stride == 0, expect="input image to be a multiple of stride")
+    check(sat_height % stride == 0, expect="input image to be a multiple of stride")
 
     # Decode parameters.
     v_thr     = 0.05
@@ -180,9 +202,8 @@ def infer_gte(sat_img, scale=None, pbfile=None, tmpfolder=None):
     inf_width  = (sat_width + 2*a) // 2
     inf_height = (sat_height + 2*a) // 2
 
-    # Construct weights.
+    # Construct weights (for masking results, provide more value to center of inferrence result image.)
     # Note: Do not apply scale here, because inferrence provides same info.
-    # Weights for masking results (valueing center of inferrence result image).
     weights = np.zeros((image_size, image_size, feat_size)) + 0.00001  # Outer 32 pixels are ignored.
     a = stride // 3
     b = 2 * a
@@ -193,37 +214,35 @@ def infer_gte(sat_img, scale=None, pbfile=None, tmpfolder=None):
 
     # For single inferrence.
     sat_batch       = np.zeros((1, image_size * scale, image_size * scale, 3)) # Part of satellite image to infer on.
+    #help: What does road_batch do? Used to re-iterate on changes?
     road_batch      = np.zeros((1, image_size, image_size, 1)) # Road batch, note we dont scale since there is no additional information to store.
 
     # Iteration logic.
     total_counter = len(list(range(0, inf_height - image_size, stride))) * len(list(range(0, inf_width - image_size, stride)))
     counter = 0
 
-    if tmpfolder == None:
-        partial_gtes = [] # Store partial gtes in a list.
-
     print("Inferring partial gte's.")
     for y in range(0, inf_height - image_size, stride):
         for x in range(0, inf_width - image_size, stride):
             counter += 1
             print(f"{counter}/{total_counter}")
+
             # print((y+image_size) * scale - y * scale, (x+image_size) * scale - x * scale)
             if sat_img[0, y * scale:(y+image_size) * scale, x * scale:(x+image_size) * scale, :].shape != (image_size * scale, image_size * scale, 3):
+                # Error:
                 print(f"y: {y}, x: {x}")
                 print(sat_img[0, y * scale:(y+image_size) * scale, x * scale:(x+image_size) * scale, :].shape)
                 breakpoint()
             sat_batch[0,:,:,:] = sat_img[0, y * scale:(y+image_size) * scale, x * scale:(x+image_size) * scale, :] 
             
             # Check file already written to disk.
-            if tmpfolder != None and os.path.exists(f"{tmpfolder}/partial_gte{counter}.pkl"): 
+            if path_exists(partial_gte_location(place, counter)): 
                 continue
 
-            partial_gte = infer(sat_batch, road_batch, pbfile=pbfile).reshape((image_size, image_size, feat_size))
-            if tmpfolder != None:
-                # Store partial gte on disk.
-                pickle.dump(partial_gte, open(f"{tmpfolder}/partial_gte{counter}.pkl", "wb"))
-            else:
-                partial_gtes.append(partial_gte)
+            partial_gte = infer_partial_gte(sat_batch, road_batch).reshape((image_size, image_size, feat_size))
+
+            # Store partial gte on disk.
+            write_pickle(partial_gte_location(place, counter), partial_gte)
     
     # Drop memory on satellite image.
     del sat_img
@@ -240,59 +259,15 @@ def infer_gte(sat_img, scale=None, pbfile=None, tmpfolder=None):
             counter += 1
             print(f"{counter}/{total_counter}")
 
-            if tmpfolder != None:
-                partial_gte = pickle.load(open(f"{tmpfolder}/partial_gte{counter}.pkl", "rb"))
-            else:
-                partial_gte = partial_gtes[counter - 1]
+            partial_gte = read_pickle(partial_gte_location(place, counter))
 
             output[y:y+image_size, x:x+image_size, :] += np.multiply(partial_gte[:,:,:], weights)
             mask  [y:y+image_size, x:x+image_size, :] += weights # Update mask with weights.
 
     gte = np.divide(output, mask) # Normalize by weight.
-    gte = gte[a:inf_height-a,a:inf_width-a,:]# Drop outer edge.
+    gte = gte[a:inf_height-a,a:inf_width-a,:]# Drop padding.
+
     return gte
-
-def GTE_to_graph(gte, decode_properties=None):
-
-    assert decode_properties != None
-    assert type(decode_properties) == type({})
-
-    properties = decode_properties
-    
-    # Step-1: Find vertices.
-    vertexness = gte[:,:,0]
-    keypoints = np.copy(vertexness)
-    smooth_kp = scipy.ndimage.filters.gaussian_filter(keypoints, 1)
-    strongest_keypoint = np.amax(smooth_kp)
-    if strongest_keypoint < 0.001:
-        raise Exception("Keypoints are basically zero, there is something off in the graph tensor.")
-    smooth_kp = smooth_kp / strongest_keypoint # Normalize.
-    keypoints = detect_local_minima(-smooth_kp, smooth_kp, properties["vertex_threshold"])
-    breakpoint()
-
-    cc = 0 
-
-    # Locate endpoints (we do this becasue the local maxima may not represent all the vertices).
-    edgeEndpointMap = np.zeros(gte.shape)
-    for i in range(len(keypoints[0])):
-        if cc > kp_limit:
-            break 
-        cc += 1
-
-        x,y = keypoints[0][i], keypoints[1][i]
-
-        for j in range(max_degree):
-
-            if imagegraph[x,y,2+4*j] * imagegraph[x,y,0] > thr * thr: # or thr < 0.2:
-            
-                x1 = int(x + vector_norm * imagegraph[x,y,2+4*j+2])
-                y1 = int(y + vector_norm * imagegraph[x,y,2+4*j+3])
-
-                if x1 >= 0 and x1 < w and y1 >= 0 and y1 < h:
-                    edgeEndpointMap[x1,y1] = imagegraph[x,y,2+4*j] * imagegraph[x,y,0]
-
-    edgeEndpointMap = scipy.ndimage.filters.gaussian_filter(edgeEndpointMap, 3)
-    edgeEndpoints = detect_local_minima(-edgeEndpointMap, edgeEndpointMap, thr*thr*thr)
 
 
 def gte_vertexness_to_image(gte):
@@ -342,62 +317,3 @@ def render_graph(graph, height=None, width=None, background=None, draw_intersect
             cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0,0,255),edge_width)
     
     return image
-
-
-def workflow_extract_vertexness_from_image():
-    input_file = sys.argv[1]
-    print("Reading image.")
-    sat_img = read_image(input_file)
-    print("Inferring GTE.")
-    gte = infer_gte(sat_img, scale=2)
-    print("Save vertexness as image.")
-    image = gte_vertexness_to_image(gte)
-    save_image(image, "gte_vertexness.png")
-
-
-# Infer graph from satellite image and save intermediate results.
-def workflow_infer_and_save():
-
-    # Decode and visualization parameters.
-    decode_properties = {
-        "vertex_threshold": 0.05,
-        "edge_threshold"  : 0.01,
-        "snap_distance"   : 15,
-        "snap_weight"     : 100,
-        "snap"            : True,
-        "drop"            : True,
-        "refine"          : True,
-        "max_edge_degree" : 6
-    }
-
-    input_file = sys.argv[1]
-    pbfile = sys.argv[2]
-    tmpfolder = sys.argv[3]
-    sat_img = read_image(input_file)
-    
-    # Inferring graph.
-    gte = infer_gte(sat_img, scale=2, pbfile=pbfile, tmpfolder=tmpfolder)
-    pickle.dump(gte, open("gte.pk", "wb"))
-    gte = pickle.load(open("gte.pk", "rb"))
-
-    # Decoding graph.
-    # gte = pickle.load(open("gte.pk", "rb"))
-    graph = decode_gte(gte, properties=decode_properties)
-    pickle.dump(graph, open("graph-raw.pk", "wb"))
-    save_image(render_graph(graph, height=height, width=width), "graph-raw.png")
-
-    # Post-process graph.
-    # graph = pickle.load(open("graph-raw.pk", "rb"))
-    graph = optimize_graph(graph)
-    pickle.dump(graph, open("graph-refined.pk", "wb"))
-    save_image(render_graph(graph, height=height, width=width), "graph-refined.png") 
-
-    graph  = double_graph(graph)
-    pickle.dump(graph, open("graph.pk", "wb"))
-    
-    # Store graph alongside background image.
-    # graph = pickle.load(open("graph.pk", "rb"))
-    save_image(render_graph(graph, height=height, width=width, background=sat_img, draw_intersection=False), "graph-background.png")
-
-
-workflow_infer_and_save()

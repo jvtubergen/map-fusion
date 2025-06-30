@@ -3,6 +3,8 @@ from data_handling import *
 from data.gmaps import fine_tune_image_coordinates, download_and_construct_image
 from caching import *
 
+from data.sat2graph.code import obtain_sat_graph
+
 
 def get_satellite_image(place, gsd_goal=0.5, deviation=0.25):
     """Generate satellite image on the place of interest and write to disk."""
