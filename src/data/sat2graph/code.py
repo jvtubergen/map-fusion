@@ -25,7 +25,7 @@ tf_state = {
 }
 
 
-def obtain_sat_graph(place, phases=1):
+def obtain_sat_graph(place, phases=2):
     """End-to-end logic to infer sat graph of a place."""
 
     # Check prerequisite files exist.
@@ -43,26 +43,46 @@ def obtain_sat_graph(place, phases=1):
     height, width = img.shape[:2]
 
     for phase in range(0, phases):
+        print(f"Phase {phase}")
 
-        gte      = infer_gte(img, place, phase)
-        gte_path = f"{sat_locations(place)['intermediate']}/gte-phase{phase}.pkl"
-        write_pickle(gte_path, gte)
+        gte_path = f"{sat_locations(place)['intermediate']}/gte{phase}.pkl"
+        decoded_gte_path = f"{sat_locations(place)['intermediate']}/graph-raw{phase}.pkl"
+        refined_gte_path = f"{sat_locations(place)['intermediate']}/graph-refined{phase}.pkl"
 
-        G   = decode_gte(gte, properties=decode_properties)
-        write_pickle(f"{sat_locations(place)['intermediate']}/graph-raw{phase}.pkl", G)
-        write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-raw.png")
+        if path_exists(refined_gte_path):
+            if phase == phases - 1:
+                # Read G into memory for doubling graph.
+                G = read_pickle(refined_gte_path)
+            continue
 
-        G   = optimize_graph(G)
-        write_pickle(f"{sat_locations(place)['intermediate']}/graph-refined{phase}.pkl", G)
-        write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-refined.png")
+        if not path_exists(gte_path):
+            print("Inferring GTE.")
+            gte = infer_gte(img, place, phase)
+            write_pickle(gte_path, gte)
+        else:
+            gte = read_pickle(gte_path)
+
+        if not path_exists(decoded_gte_path):
+            print("Decoding GTE")
+            G   = decode_gte(gte, properties=decode_properties)
+            write_pickle(decoded_gte_path, G)
+            write_png(f"{image_result(place, phase)}/graph-raw.png", render_graph(G, height=height, width=width))
+        else:
+            G = read_pickle(decoded_gte_path)
+
+        print("Refining graph.")
+        G = optimize_graph(G)
+        write_pickle(refined_gte_path, G)
+        write_png(f"{image_result(place, phase)}/graph-refined.png", render_graph(G, height=height, width=width))
+
 
     # Double graph before writing off.
     G  = double_graph(G)
-    write_png(render_graph(G, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)['image_results']}/graph-with-background.png")
+    write_png(f"{sat_locations(place)['image-results']}/graph-with-background.png", render_graph(G, height=height, width=width, background=img, draw_intersection=False))
 
     # Convert to networkX graph.
     G = inferred_satellite_image_neighborhood_to_graph(metadata, G)
-    write_graph(G, sat_locations(place)["result"])
+    write_graph(sat_locations(place)["result"], G)
     
 
 def load_model():
@@ -181,7 +201,7 @@ def infer_gte(sat_img, place, phase):
     # Handle iterative phases - read GTE from previous phase if not first phase
     input_keypoints = None
     if phase is not None and phase > 0:
-        previous_gte_path = f"{sat_locations(place)['intermediate']}/gte-phase{phase-1}.pkl"
+        previous_gte_path = f"{sat_locations(place)['intermediate']}/gte{phase-1}.pkl"
         if not path_exists(previous_gte_path):
             raise Exception(f"Previous phase GTE file does not exist: {previous_gte_path}")
         
@@ -356,17 +376,17 @@ def gte_vertexness_to_image(gte):
 
 
 def render_graph(graph, height=None, width=None, background=None, draw_intersection=True):
+    # sat2graph-simplified ec04a4e5f076adbc39228434f39b09f0c5775c14
 
-    color_node = (255,0,0)
+    color_node = (1.0,0.0,0.0)
     edge_width = 2
 
     if type(background) != type(None):
-        color_edge = (0,255,255) # yellow
+        color_edge = (0.0,1.0,1.0) # cyan
         image = 0.75 * background.copy()
     else:
-        color_edge = (0,0,0) # black
-        image = np.ones((height, width, 3)) * 255
-        image = image.astype(float)
+        color_edge = (0.0,0.0,0.0) # black
+        image = np.ones((height, width, 3), dtype=float)
 
     # Draw edges.
     for k,v in graph.items():
@@ -378,7 +398,7 @@ def render_graph(graph, height=None, width=None, background=None, draw_intersect
     scale = 1
     for k,v in graph.items():
         n1 = k 
-        cv2.circle(image, (int(n1[1]) * scale, int(n1[0]) * scale), 2, (255,0,0),-1)
+        cv2.circle(image, (int(n1[1]) * scale, int(n1[0]) * scale), 2, color_node,-1)
         
     if draw_intersection == True:
 
@@ -386,7 +406,7 @@ def render_graph(graph, height=None, width=None, background=None, draw_intersect
         for k, v in cp.items():
             e1 = k[0]
             e2 = k[1]
-            cv2.line(image, (int(e1[0][1]),int(e1[0][0])), (int(e1[1][1]),int(e1[1][0])), (0,255,0),edge_width)
-            cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0,0,255),edge_width)
+            cv2.line(image, (int(e1[0][1]),int(e1[0][0])), (int(e1[1][1]),int(e1[1][0])), (0.0,1.0,0.0),edge_width)
+            cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0.0,0.0,1.0),edge_width)
     
     return image
