@@ -14,16 +14,40 @@ links = {
     "sat": "sat2graph"
 }
 
-### Reading graph information.
+### Write and reading graphs.
 
-def get_graph_path(graphset=None, place=None):
-    assert graphset in graphsets
-    assert place in places
-    return f"data/graphs/{graphset}/{place}"
+def write_graph(location, G):
+    write_pickle(graph_to_pickle(G), location)
 
 
-# Obtain `folderpath/vertices.txt` and `folderpath/edges.txt` from disk and construct vectorized graph from it.
-def read_graph(folderpath):
+def read_graph(location):
+    return pickle_to_graph(read_pickle(location))
+
+# Convert graph into dictionary so it can be pickled.
+def graph_to_pickle(G):
+
+    return {
+        "graph": G.graph,
+        "nodes": list(iterate_nodes(G)),
+        "edges": list(iterate_edges(G))
+    }
+
+# Convert dictionary (retrieved from pickled data) into a graph.
+def pickle_to_graph(data):
+
+    if data["graph"]["simplified"]:
+        G = nx.MultiGraph()
+    else:
+        G = nx.Graph()
+
+    G.graph = data["graph"]
+    G.add_nodes_from(data["nodes"])
+    G.add_edges_from([(*eid, attrs) for eid, attrs in data["edges"]])
+
+    return G
+
+# Obtain `folderpath/vertices.csv` and `folderpath/edges.csv` from disk and construct vectorized graph from it.
+def read_graph_csv(folderpath):
 
     edges_file_path    = folderpath + "/edges.csv"
     vertices_file_path = folderpath + "/vertices.csv"
@@ -62,63 +86,6 @@ def read_graph(folderpath):
 
     return G
 
-
-### Writing graph information.
-
-# Save a graph to storage as a GraphML format.
-# * Optionally overwrite if the target file already exists.
-# * Writes the file into the graphs folder.
-def write_graph(G, graphset=None, place=None, overwrite=False, use_utm=False):
-    assert graphset in graphsets
-    assert place in places
-    graph_path = get_graph_path(graphset=graphset, place=place)
-    if Path(graph_path).exists() and not overwrite:
-        raise Exception(f"Did not save graph: Not allowed to overwrite existing file at {graph_path}.")
-    if not Path(graph_path).exists():
-        path = Path(graph_path)
-        path.mkdir(parents=True)
-    # Expect a vectorized undirected graph.
-    assert type(G) == nx.Graph
-    assert not G.graph.get("simplified")
-    # Vertices.
-    vertices = G.nodes(data=True)
-    vertices = pd.DataFrame.from_records(list(vertices), columns=['id', 'attrs'])
-    vertices = pd.concat([vertices[['id']], vertices['attrs'].apply(pd.Series)], axis=1)
-    if use_utm:
-        raise Exception("Should only store latlon graphs to prevent data issues.")
-        vertices.to_csv(f"{graph_path}/vertices.txt", index=False, columns=["id", "x", "y"])    
-    else:
-        vertices = vertices.rename(columns={"x": "lon", "y": "lat"})
-        vertices.to_csv(f"{graph_path}/vertices.txt", index=False, columns=["id", "lat", "lon"])    
-    # Edges
-    edges = iterate_edges(G)
-    edges = pd.DataFrame.from_records(list(edges), columns=['u', 'v', ""])
-    edges.to_csv(f"{graph_path}/edges.txt", index_label="id", columns=["u", "v"])
-
-
-# Convert graph into dictionary so it can be pickled.
-def graph_to_pickle(G):
-
-    return {
-        "graph": G.graph,
-        "nodes": list(iterate_nodes(G)),
-        "edges": list(iterate_edges(G))
-    }
-
-
-# Convert dictionary (retrieved from pickled data) into a graph.
-def pickle_to_graph(data):
-
-    if data["graph"]["simplified"]:
-        G = nx.MultiGraph()
-    else:
-        G = nx.Graph()
-
-    G.graph = data["graph"]
-    G.add_nodes_from(data["nodes"])
-    G.add_edges_from([(*eid, attrs) for eid, attrs in data["edges"]])
-
-    return G
     
 
 # Obtain file age (since last write).
@@ -232,3 +199,6 @@ def workflow_update_image_with_pixelcoord_metadata():
         pixelcoord = latlon_to_pixelcoord(latlon[0], latlon[1], zoom)
         metadata = metadata | {"y": pixelcoord[0], "x": pixelcoord[1], "zoom": zooms[place]}
         write_png(f"{place}.png", png, metadata=metadata)
+
+def path_exists(path):
+    return Path(path).exists()
