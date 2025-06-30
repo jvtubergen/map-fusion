@@ -5,6 +5,7 @@ import os
 # Cache folder is used for retrieving the API key from and to store image query responses to.
 config_folder = os.path.expanduser("~/.config/geoalg")
 cache_folder = os.path.expanduser("~/.cache/geoalg")
+data_folder = "data/"
 
 # Check if cache folder exists, create if it doesn't
 if not os.path.exists(cache_folder):
@@ -13,6 +14,8 @@ if not os.path.exists(cache_folder):
 if not os.path.exists(config_folder):
     os.makedirs(config_folder, exist_ok=True)
 
+if not os.path.exists(data_folder):
+    os.makedirs(data_folder, exist_ok=True)
 
 def get_cache_folder(folder_path):
     location = f"{cache_folder}/{folder_path}"
@@ -22,4 +25,8 @@ def get_cache_folder(folder_path):
 
 def get_cache_file(file_path):
     location = f"{cache_folder}/{file_path}"
+    return location
+
+def get_data_file(file_path):
+    location = f"{data_folder}/{file_path}"
     return location
