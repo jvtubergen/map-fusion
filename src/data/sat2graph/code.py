@@ -45,9 +45,9 @@ def obtain_sat_graph(place, phases=2):
     for phase in range(0, phases):
         print(f"Phase {phase}")
 
-        gte_path = f"{sat_locations(place)['intermediate']}/gte{phase}.pkl"
-        decoded_gte_path = f"{sat_locations(place)['intermediate']}/graph-raw{phase}.pkl"
-        refined_gte_path = f"{sat_locations(place)['intermediate']}/graph-refined{phase}.pkl"
+        gte_path = locations["gte_path"](phase)
+        decoded_gte_path = locations["decoded_path"](phase)
+        refined_gte_path = locations["refined_path"](phase)
 
         if path_exists(refined_gte_path):
             if phase == phases - 1:
@@ -66,14 +66,14 @@ def obtain_sat_graph(place, phases=2):
             print("Decoding GTE")
             G   = decode_gte(gte, properties=decode_properties)
             write_pickle(decoded_gte_path, G)
-            write_png(f"{image_result(place, phase)}/graph-raw.png", render_graph(G, height=height, width=width))
+            write_png(f"{locations['image_result_path'](phase)}/graph-raw.png", render_graph(G, height=height, width=width))
         else:
             G = read_pickle(decoded_gte_path)
 
         print("Refining graph.")
         G = optimize_graph(G)
         write_pickle(refined_gte_path, G)
-        write_png(f"{image_result(place, phase)}/graph-refined.png", render_graph(G, height=height, width=width))
+        write_png(f"{locations['image_result_path'](phase)}/graph-refined.png", render_graph(G, height=height, width=width))
 
 
     # Double graph before writing off.
@@ -201,7 +201,7 @@ def infer_gte(sat_img, place, phase):
     # Handle iterative phases - read GTE from previous phase if not first phase
     input_keypoints = None
     if phase is not None and phase > 0:
-        previous_gte_path = f"{sat_locations(place)['intermediate']}/gte{phase-1}.pkl"
+        previous_gte_path = sat_locations(place)["gte_path"](phase-1)
         if not path_exists(previous_gte_path):
             raise Exception(f"Previous phase GTE file does not exist: {previous_gte_path}")
         
@@ -292,13 +292,14 @@ def infer_gte(sat_img, place, phase):
                 road_batch[0,:,:,:] = 0  # No prior keypoints
             
             # Check file already written to disk.
-            if path_exists(partial_gte_location(place, counter)): 
+            locations_inner = sat_locations(place)
+            if path_exists(locations_inner["partial_gte_path"](counter)): 
                 continue
 
             partial_gte = infer_partial_gte(sat_batch, road_batch).reshape((image_size, image_size, feat_size))
 
             # Store partial gte on disk.
-            write_pickle(partial_gte_location(place, counter), partial_gte)
+            write_pickle(locations_inner["partial_gte_path"](counter), partial_gte)
     
     # Drop memory on satellite image.
     del sat_img
@@ -315,7 +316,7 @@ def infer_gte(sat_img, place, phase):
             counter += 1
             print(f"{counter}/{total_counter}")
 
-            partial_gte = read_pickle(partial_gte_location(place, counter))
+            partial_gte = read_pickle(sat_locations(place)["partial_gte_path"](counter))
 
             output[y:y+image_size, x:x+image_size, :] += np.multiply(partial_gte[:,:,:], weights)
             mask  [y:y+image_size, x:x+image_size, :] += weights # Update mask with weights.

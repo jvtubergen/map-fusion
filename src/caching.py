@@ -41,7 +41,7 @@ def get_data_file(file_path):
 ## Sat2Graph
 # Locations of files and folders for a place.
 def sat_locations(place):
-    return  {
+    base = {
         # Pre-requisites.
         "image": get_data_file(f"sat/{place}.png"),
         "pbmodel": get_cache_file(f"sat/sat2graph/globalv2.pb"),
@@ -52,7 +52,28 @@ def sat_locations(place):
         "result": get_data_file(f"graphs/sat-{place}.graph"),
         "image-results": get_data_file(f"images/sat/{place}")
     }
-def partial_gte_location(place, counter):
-    return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
-def image_result(place, phase):
-    return get_data_file(f"images/sat/{place}/phase {phase}")
+    
+    # Add phase-specific path functions
+    intermediate_dir = base["intermediate"]
+    def gte_path(phase): 
+        return f"{intermediate_dir}/gte{phase}.pkl"
+    def decoded_path(phase): 
+        return f"{intermediate_dir}/graph-raw{phase}.pkl"
+    def refined_path(phase): 
+        return f"{intermediate_dir}/graph-refined{phase}.pkl"
+    
+    # Add other location functions
+    def partial_gte_path(counter):
+        return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
+    def image_result_path(phase):
+        return get_data_file(f"images/sat/{place}/phase {phase}")
+    
+    base.update({
+        "gte_path": gte_path,
+        "decoded_path": decoded_path,
+        "refined_path": refined_path,
+        "partial_gte_path": partial_gte_path,
+        "image_result_path": image_result_path
+    })
+    
+    return base
