@@ -24,24 +24,6 @@ tf_state = {
     "is_initiated": False
 }
 
-# Locations of files and folders for a place.
-def sat_locations(place):
-    return  {
-        # Pre-requisites.
-        "image": get_cache_file(f"sat/{place}.png"),
-        "pbmodel": get_cache_file(f"sat/sat2graph/globalv2.pb"),
-        # Intermediate data files.
-        "partial_gtes": get_cache_file(f"sat/sat2graph/partial-gtes/{place}"),
-        "intermediate": get_cache_file(f"sat/sat2graph"),
-        # Resulting files.
-        "result": get_data_file(f"data/graphs/sat-{place}.graph"),
-        "image-results": get_data_file(f"data/images/sat/{place}")
-    }
-def partial_gte_location(place, counter):
-    return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
-def image_result(place, phase):
-    return get_data_file(f"data/images/sat/{place}/phase {phase}")
-
 
 def obtain_sat_graph(place, phases=1):
     """End-to-end logic to infer sat graph of a place."""
@@ -58,8 +40,7 @@ def obtain_sat_graph(place, phases=1):
         load_model()
 
     img, metadata = read_png(sat_locations(place)["image"])
-
-    #todo: Fine-tune GTE by re-iterating keypoints (recover code 276052528c55553f178ff6ae209095229923809e)
+    height, width = img.shape[:2]
 
     for phase in range(0, phases):
 
@@ -68,16 +49,16 @@ def obtain_sat_graph(place, phases=1):
         write_pickle(gte_path, gte)
 
         G   = decode_gte(gte, properties=decode_properties)
-        write_pickle(f"{sat_locations(place)["intermediate"]}/graph-raw{phase}.pk")
+        write_pickle(f"{sat_locations(place)['intermediate']}/graph-raw{phase}.pkl", G)
         write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-raw.png")
 
         G   = optimize_graph(G)
-        write_pickle(f"{sat_locations(place)["intermediate"]}/graph-refined{phase}.pk")
+        write_pickle(f"{sat_locations(place)['intermediate']}/graph-refined{phase}.pkl", G)
         write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-refined.png")
 
     # Double graph before writing off.
     G  = double_graph(G)
-    write_png(render_graph(G, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
+    write_png(render_graph(G, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)['image_results']}/graph-with-background.png")
 
     # Convert to networkX graph.
     G = inferred_satellite_image_neighborhood_to_graph(metadata, G)

@@ -17,7 +17,13 @@ links = {
 ### Write and reading graphs.
 
 def write_graph(location, G):
-    write_pickle(graph_to_pickle(G), location)
+    print(f"Writing graph to {location}")
+
+    parent_dir = os.path.dirname(location)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
+
+    write_pickle(location, graph_to_pickle(G))
 
 
 def read_graph(location):
@@ -148,11 +154,16 @@ def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwri
 def read_pickle(filename):
     return pickle.load(open(filename, "rb"))
 
-def write_pickle(filename, data):
-    return pickle.dump(data, open(filename, "wb"))
+def write_pickle(location, data):
+    print(f"Writing pickle to {location}")
 
+    parent_dir = os.path.dirname(location)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
 
-# Image related
+    with open(location, "wb") as f:
+        pickle.dump(data, f)
+
 
 # Read image from disk.
 
@@ -179,7 +190,12 @@ def extend_png_metadata(metadata, to_add):
     return metadata | to_add
 
 # Write image to disk.
-def write_png(filepath, png, metadata=None):
+def write_png(location, png, metadata=None):
+    print(f"Writing image to {location}")
+
+    parent_dir = os.path.dirname(location)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
 
     pnginfo = PngInfo()
     if metadata != None:
@@ -187,7 +203,7 @@ def write_png(filepath, png, metadata=None):
             pnginfo.add_text(key, str(value))
 
     img = Image.fromarray(png, mode="RGB")
-    img.save(filepath, pnginfo=pnginfo)
+    img.save(location, pnginfo=pnginfo)
 
 
 def workflow_update_image_with_pixelcoord_metadata():
