@@ -38,9 +38,11 @@ def sat_locations(place):
     }
 def partial_gte_location(place, counter):
     return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
+def image_result(place, phase):
+    return get_data_file(f"data/images/sat/{place}/phase {phase}")
 
 
-def obtain_sat_graph(place):
+def obtain_sat_graph(place, phases=1):
     """End-to-end logic to infer sat graph of a place."""
 
     # Check prerequisite files exist.
@@ -55,17 +57,27 @@ def obtain_sat_graph(place):
         load_model()
 
     img, metadata = read_png(sat_locations(place)["image"])
-    gte     = infer_gte(img, place)
+
     #todo: Fine-tune GTE by re-iterating keypoints (recover code 276052528c55553f178ff6ae209095229923809e)
-    G   = decode_gte(gte, properties=decode_properties)
-    write_pickle(f"{sat_locations(place)["intermediate"]}/graph-raw.pk")
-    write_png(render_graph(G, height=height, width=width), f"{sat_locations(place)["image_results"]}/graph-raw.png")
 
-    G   = optimize_graph(G)
-    write_pickle(f"{sat_locations(place)["intermediate"]}/graph-refined.pk")
-    write_png(render_graph(G, height=height, width=width), f"{sat_locations(place)["image_results"]}/graph-refined.png")
+    for phase in range(0, phases):
 
+        gte      = infer_gte(img, place, phase)
+        gte_path = f"{sat_locations(place)['intermediate']}/gte-phase{phase}.pkl"
+        write_pickle(gte_path, gte)
+
+        G   = decode_gte(gte, properties=decode_properties)
+        write_pickle(f"{sat_locations(place)["intermediate"]}/graph-raw{phase}.pk")
+        write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-raw.png")
+
+        G   = optimize_graph(G)
+        write_pickle(f"{sat_locations(place)["intermediate"]}/graph-refined{phase}.pk")
+        write_png(render_graph(G, height=height, width=width), f"{image_result(place, phase)}/graph-refined.png")
+
+    # Double graph before writing off.
     G  = double_graph(G)
+    write_png(render_graph(G, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
+
     write_graph(G, sat_locations(place)["result"])
     write_png(render_graph(graph, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
     
@@ -155,7 +167,7 @@ def pad_graph(graph, left=0, top=0):
     return graph2
 
 def double_graph(graph):
-    """Double all values in graph."""
+    """Double pixel coordinate values in graph because we use a scale of 2."""
     graph2 = {}
 
     for element, targets in graph.items():
@@ -165,8 +177,37 @@ def double_graph(graph):
     return graph2
 
 
-def infer_gte(sat_img, place):
-    """Infer GTE from a satellite image."""
+def graph_to_keypoints(graph, height, width):
+    """Convert graph keypoints to input_keypoints array format."""
+    input_keypoints = np.zeros((height, width, 1))
+    
+    for x, y in graph.keys():
+        if x > 3 and x < width-3 and y > 3 and y < height-3:
+            # Set 3x3 area around each keypoint (like in deprecated version)
+            for _x in range(x-1, x+2):
+                for _y in range(y-1, y+2):
+                    if 0 <= _x < width and 0 <= _y < height:
+                        input_keypoints[_y, _x, 0] = 1.0
+    
+    return input_keypoints
+
+
+def infer_gte(sat_img, place, phase):
+    """Infer GTE from a satellite image, optionally with input keypoints and iterative phases."""
+    
+    # Handle iterative phases - read GTE from previous phase if not first phase
+    input_keypoints = None
+    if phase is not None and phase > 0:
+        previous_gte_path = f"{sat_locations(place)['intermediate']}/gte-phase{phase-1}.pkl"
+        if not path_exists(previous_gte_path):
+            raise Exception(f"Previous phase GTE file does not exist: {previous_gte_path}")
+        
+        previous_gte = read_pickle(previous_gte_path)
+        
+        # Apply DecodeAndVis to extract graph and convert to keypoints
+        temp_graph = decode_gte(previous_gte, properties=decode_properties)
+        temp_graph = optimize_graph(temp_graph)
+        input_keypoints = graph_to_keypoints(temp_graph, previous_gte.shape[0], previous_gte.shape[1])
 
     sat_height = sat_img.shape[0]
     sat_width  = sat_img.shape[1]
@@ -202,6 +243,12 @@ def infer_gte(sat_img, place):
     inf_width  = (sat_width + 2*a) // 2
     inf_height = (sat_height + 2*a) // 2
 
+    # Prepare input_keypoints if provided
+    if input_keypoints is not None:
+        # Pad input_keypoints to match inference dimensions
+        pad_a = (stride // 3)
+        input_keypoints = np.pad(input_keypoints, ((pad_a,pad_a),(pad_a,pad_a),(0,0)), 'constant')
+
     # Construct weights (for masking results, provide more value to center of inferrence result image.)
     # Note: Do not apply scale here, because inferrence provides same info.
     weights = np.zeros((image_size, image_size, feat_size)) + 0.00001  # Outer 32 pixels are ignored.
@@ -214,14 +261,14 @@ def infer_gte(sat_img, place):
 
     # For single inferrence.
     sat_batch       = np.zeros((1, image_size * scale, image_size * scale, 3)) # Part of satellite image to infer on.
-    #help: What does road_batch do? Used to re-iterate on changes?
-    road_batch      = np.zeros((1, image_size, image_size, 1)) # Road batch, note we dont scale since there is no additional information to store.
+    road_batch      = np.zeros((1, image_size, image_size, 1)) # Road batch, for input keypoints
 
     # Iteration logic.
     total_counter = len(list(range(0, inf_height - image_size, stride))) * len(list(range(0, inf_width - image_size, stride)))
     counter = 0
 
-    print("Inferring partial gte's.")
+    message = "Inferring partial gte's with keypoints." if input_keypoints is not None else "Inferring partial gte's."
+    print(message)
     for y in range(0, inf_height - image_size, stride):
         for x in range(0, inf_width - image_size, stride):
             counter += 1
@@ -234,6 +281,12 @@ def infer_gte(sat_img, place):
                 print(sat_img[0, y * scale:(y+image_size) * scale, x * scale:(x+image_size) * scale, :].shape)
                 breakpoint()
             sat_batch[0,:,:,:] = sat_img[0, y * scale:(y+image_size) * scale, x * scale:(x+image_size) * scale, :] 
+            
+            # Add road keypoints if available
+            if input_keypoints is not None:
+                road_batch[0,:,:,:] = input_keypoints[y:y+image_size, x:x+image_size, :]
+            else:
+                road_batch[0,:,:,:] = 0  # No prior keypoints
             
             # Check file already written to disk.
             if path_exists(partial_gte_location(place, counter)): 
