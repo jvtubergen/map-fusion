@@ -361,6 +361,8 @@ def inferred_satellite_image_neighborhood_to_graph(metadata, neighborhood):
             # Add edge between source and target node identifier.
             G.add_edge(snid, tnid)
     
+    G.graph["simplified"] = False
+    
     return G
 
 
@@ -379,15 +381,15 @@ def gte_vertexness_to_image(gte):
 def render_graph(graph, height=None, width=None, background=None, draw_intersection=True):
     # sat2graph-simplified ec04a4e5f076adbc39228434f39b09f0c5775c14
 
-    color_node = (1.0,0.0,0.0)
+    color_node = (255,0,0)
     edge_width = 2
 
     if type(background) != type(None):
-        color_edge = (0.0,1.0,1.0) # cyan
-        image = 0.75 * background.copy()
+        color_edge = (0,255,255) # cyan
+        image = (0.75 * background.copy()).astype(np.uint8)
     else:
-        color_edge = (0.0,0.0,0.0) # black
-        image = np.ones((height, width, 3), dtype=float)
+        color_edge = (0,0,0) # black
+        image = np.ones((height, width, 3), dtype=np.uint8) * 255
 
     # Draw edges.
     for k,v in graph.items():
@@ -407,7 +409,7 @@ def render_graph(graph, height=None, width=None, background=None, draw_intersect
         for k, v in cp.items():
             e1 = k[0]
             e2 = k[1]
-            cv2.line(image, (int(e1[0][1]),int(e1[0][0])), (int(e1[1][1]),int(e1[1][0])), (0.0,1.0,0.0),edge_width)
-            cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0.0,0.0,1.0),edge_width)
+            cv2.line(image, (int(e1[0][1]),int(e1[0][0])), (int(e1[1][1]),int(e1[1][0])), (0,255,0),edge_width)
+            cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0,0,255),edge_width)
     
-    return image
+    return image.astype(float) / 255.0
