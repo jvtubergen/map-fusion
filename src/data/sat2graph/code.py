@@ -2,6 +2,7 @@ from external import *
 
 from caching import *
 from data_handling import *
+from spatial_reference_systems import *
 
 from data.sat2graph.decoder import * 
 from data.sat2graph.common import * 
@@ -78,8 +79,9 @@ def obtain_sat_graph(place, phases=1):
     G  = double_graph(G)
     write_png(render_graph(G, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
 
+    # Convert to networkX graph.
+    G = inferred_satellite_image_neighborhood_to_graph(metadata, G)
     write_graph(G, sat_locations(place)["result"])
-    write_png(render_graph(graph, height=height, width=width, background=img, draw_intersection=False), f"{sat_locations(place)["image_results"]}/graph-with-background.png")
     
 
 def load_model():
@@ -321,6 +323,43 @@ def infer_gte(sat_img, place, phase):
     gte = gte[a:inf_height-a,a:inf_width-a,:]# Drop padding.
 
     return gte
+
+
+def inferred_satellite_image_neighborhood_to_graph(metadata, neighborhood): 
+    """Convert pixelwise neighborhood data to latlon-based graph."""
+
+    # Convert upper-right pixel-coordinate.
+    pixelcoord = int(metadata['y']), int(metadata['x'])
+    y0, x0 = pixelcoord
+    zoom = int(metadata['zoom'])
+
+    G = nx.Graph()
+    nodes = neighborhood.keys()
+    nids = {}
+    # nodes = np.array([list(v) for v in neighborhood.keys()])
+    # np.max(nodes, axis=0) # array([5122, 8316])
+
+    nid = 1
+    for element in neighborhood.keys():
+        (y, x) = element # Image pixel offsets.
+        lat, lon = pixelcoord_to_latlon(y0 + y, x0 + x, zoom)
+        G.add_node(nid, x=lon, y=lat)
+        nids[element] = nid
+        nid += 1
+
+    # Add edges (and missing nodes?).
+    for element, targets in neighborhood.items():
+        snid = nids[element]
+        for target in targets:
+            if target not in nids.keys():
+                print("Injecting missing node.")
+                nids[target] = nid
+                nid += 1
+            tnid = nids[target]
+            # Add edge between source and target node identifier.
+            G.add_edge(snid, tnid)
+    
+    return G
 
 
 def gte_vertexness_to_image(gte):
