@@ -1,13 +1,24 @@
-import os
-import math
-import numpy as np
+from external import *
 from spatial_reference_systems.utm import utm_to_latlon
+from data_handling import *
+from caching import *
+
+
+def obtain_gps_graph(place):
+    """End-to-end logic to infer GPS graph of a place.
+    
+    This function reads in the inferred GPS graph of Roadster and writes it as a graph file to disk.
+    """
+    paths = gps_locations(place)
+    G = read_graph_csv(paths["inferred_folder"])
+    write_graph(paths["graph_file"], G)
+
 
 # Extracting raw GPS traces from text.
 # By providing the place we know what UTM variables (for coordinate transformation) to use.
 def extract_trips(place, folder=None):
     if folder == None:
-        folder = f"data/gps/traces/{place}/"
+        folder = gps_locations(place)["traces_folder"] + "/"
     files = os.listdir(folder)
     trips = []
     for file in files:
@@ -68,7 +79,7 @@ def extract_gps_statistics():
     
     for city in cities:
         try:
-            folder = f"data/gps/traces/{city}/"
+            folder = gps_locations(city)["traces_folder"] + "/"
             files = os.listdir(folder)
             
             total_trips = len(files)

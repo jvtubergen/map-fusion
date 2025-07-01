@@ -55,8 +55,8 @@ def pickle_to_graph(data):
 # Obtain `folderpath/vertices.csv` and `folderpath/edges.csv` from disk and construct vectorized graph from it.
 def read_graph_csv(folderpath):
 
-    edges_file_path    = folderpath + "/edges.csv"
-    vertices_file_path = folderpath + "/vertices.csv"
+    edges_file_path    = f"{folderpath}/edges.csv"
+    vertices_file_path = f"{folderpath}/vertices.csv"
 
     edges_df = pd.read_csv(edges_file_path)
     vertices_df = pd.read_csv(vertices_file_path)

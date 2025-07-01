@@ -77,3 +77,14 @@ def sat_locations(place):
     })
     
     return base
+
+## GPS Data
+# Locations of files and folders for GPS data.
+def gps_locations(place):
+    return {
+        "inferred_folder": get_data_folder(f"gps/inferred/{place}"),
+        "graph_file": get_data_file(f"graphs/gps-{place}.graph"),
+        "raw_folder": get_data_folder(f"gps/raw/{place}"),
+        "processed_folder": get_data_folder(f"gps/processed/{place}"),
+        "traces_folder": get_data_folder(f"gps/traces/{place}")
+    }
