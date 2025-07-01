@@ -372,13 +372,55 @@ def plot_without_projection(Gs, pss):
 
     fig.canvas.draw()
     fig.canvas.flush_events()
+
+    def onclick(event):
+        global ix, iy
+        ix, iy = event.xdata, event.ydata
+        # print (f'x = {ix}, y = {iy}')
+        coord = (float(iy), float(ix))
+        print(coord)
+
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
     plt.show()
 
+def render_as_svg(filename, Gs, pss):
+    fig, ax = plt.subplots()
+
+    for i, obj in enumerate(Gs):
+        print(f"Plotting graph {i}.")
+        if type(obj) == tuple:
+            G, properties = obj
+            preplot_graph(G,  ax, **properties) 
+        else:
+            G = obj
+            node_properties = {"color": my_colors(color_names[i]), "s": 0.3}
+            edge_properties = {"color": my_colors(color_names[i]), "linewidth": 0.3}
+            preplot_graph(G,  ax, node_properties=node_properties, edge_properties=edge_properties)
+
+    for i, obj in enumerate(pss):
+        print(f"Plotting paths {i}.")
+        if type(obj) == tuple:
+            ps, properties = obj
+            preplot_curve(ps, ax, **properties) 
+        else:
+            ps = obj
+            preplot_curve(ps, ax) 
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    plt.axis("off")
+    plt.savefig(filename)
 
 
 # Plot a list of graphs.
 def plot_graphs(graphs):
     plot_without_projection(graphs, [])
+
+
+# Example: `render_graphs("test.svg", [osm, gps])`
+def render_graphs(filename, graphs):
+    render_as_svg(filename, graphs, [])
 
 
 # Annotate duplicated nodes as red.
