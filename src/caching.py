@@ -88,3 +88,8 @@ def gps_locations(place):
         "processed_folder": get_data_folder(f"gps/processed/{place}"),
         "traces_folder": get_data_folder(f"gps/traces/{place}")
     }
+
+def osm_locations(place):
+    return {
+        "graph_file": get_data_file(f"graphs/osm-{place}.graph")
+    }

@@ -1,9 +1,11 @@
-import networkx as nx
-import osmnx as ox
+from external import *
+from caching import *
+from data_handling import * 
+
 from data.gps import derive_roi
 
-def download_osm_graph(place):
-    """Download OpenStreetMaps graph on the ROI of the place."""
+def obtain_osm_graph(place):
+    """Download OpenStreetMaps graph on the ROI of the place and store as graph."""
 
     roi = derive_roi(place)
 
@@ -16,4 +18,4 @@ def download_osm_graph(place):
     G = nx.Graph(G.to_undirected())
     G.graph["simplified"] = False
 
-    return G
+    write_graph(osm_locations(place)["graph_file"], G)
