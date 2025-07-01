@@ -5,15 +5,14 @@ from spatial_reference_systems import *
 from utilities import *
 
 # Network submodules.
-from graph_node_extraction import *
-from graph_simplifying import *
-from graph_subgraphing import *
-from graph_deduplicating import *
-from graph_coordinates import *
-from graph_curvature import *
-from graph_coverage import *
-from graph_merging import *
-from graphs import *
+from graph.node_extraction import *
+from graph.simplifying import *
+from graph.subgraphing import *
+from graph.deduplicating import *
+from graph.coordinates import *
+from graph.curvature import *
+from graph.coverage import *
+from graph.merging import *
 
 from map_similarity import *
 from network import *

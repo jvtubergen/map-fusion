@@ -1,11 +1,11 @@
 # Rewrite of https://github.com:CosmiQ/apls with additional new functionality.
 from data_handling import *
 from utilities import *
-from graph_simplifying import *
-from graph_coordinates import *
-from graph_curvature import *
-from graph_deduplicating import *
-from graph_merging import *
+from graph.simplifying import *
+from graph.coordinates import *
+from graph.curvature import *
+from graph.deduplicating import *
+from graph.merging import *
 from network import *
 
 # Relate nodes of G to H and inject control points if necessary.

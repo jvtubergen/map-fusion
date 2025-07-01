@@ -1,7 +1,7 @@
 from external import *
 from utilities import *
 from network import *
-from graph_coordinates import *
+from graph.coordinates import *
 
 ###  Curve by curve coverage
 

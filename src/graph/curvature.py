@@ -1,6 +1,6 @@
 from external import *
-from graph_coordinates import *
-from graph_node_extraction import *
+from graph.coordinates import *
+from graph.node_extraction import *
 from utilities import *
 
 

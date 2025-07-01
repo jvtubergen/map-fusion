@@ -2,11 +2,11 @@ from external import *
 
 from data_handling import *
 from utilities import *
-from graph_deduplicating import *
-from graph_node_extraction import *
-from graph_simplifying import *
-from graph_curvature import *
-from graph_coordinates import *
+from graph.deduplicating import *
+from graph.node_extraction import *
+from graph.simplifying import *
+from graph.curvature import *
+from graph.coordinates import *
 
 from spatial_reference_systems.utm import utm_to_latlon
 

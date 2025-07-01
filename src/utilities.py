@@ -1,5 +1,5 @@
 from external import * 
-from graph_node_extraction import *
+from graph.node_extraction import *
 
 #######################################
 ### Printing stuff with decorators.

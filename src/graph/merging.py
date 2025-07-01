@@ -1,7 +1,7 @@
 from external import *
 
-from graph_simplifying import *
-from graph_coverage import * # Necessary for coverage computing of duplicated sat edges on injected gps edges.
+from graph.simplifying import *
+from graph.coverage import * # Necessary for coverage computing of duplicated sat edges on injected gps edges.
 from utilities import *
 
 

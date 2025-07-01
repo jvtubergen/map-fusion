@@ -1,8 +1,8 @@
 from data_handling import *
-from graph_merging import *
-from graph_simplifying import *
-from graph_deduplicating import *
-from graph_curvature import * 
+from graph.merging import *
+from graph.simplifying import *
+from graph.deduplicating import *
+from graph.curvature import * 
 from rendering import * 
 from map_similarity import *
 

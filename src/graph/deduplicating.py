@@ -1,7 +1,7 @@
 from external import *
-from graph_node_extraction import *
-from graph_curvature import *
-from graph_coordinates import *
+from graph.node_extraction import *
+from graph.curvature import *
+from graph.coordinates import *
 from utilities import *
 
 # Group duplicated nodes.

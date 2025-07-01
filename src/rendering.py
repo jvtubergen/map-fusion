@@ -1,5 +1,5 @@
 from external import *
-from graph_deduplicating import *
+from graph.deduplicating import *
 from utilities import *
 
 import matplotlib as mpl
