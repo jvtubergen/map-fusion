@@ -134,7 +134,7 @@ def download_and_construct_image(upper_left, lower_right, zoom):
 
     # Obtain API key and construct image.
     api_key = read_api_key()
-    image, pixelcoord = construct_image(north=north, south=south, east=east, west=west, zoom=zoom, api_key=api_key, verbose=True)
+    image, pixelcoord, zoom_in_image = construct_image(north=north, south=south, east=east, west=west, zoom=zoom, api_key=api_key, verbose=True)
 
     # print("Image shape: ")
     # print(image.shape)
@@ -144,7 +144,7 @@ def download_and_construct_image(upper_left, lower_right, zoom):
     assert(image.shape[1] % stride == 0)
 
     # Add metadata to png and write.
-    metadata = {"y": pixelcoord[0], "x": pixelcoord[1], "zoom": zoom}
+    metadata = {"y": pixelcoord[0], "x": pixelcoord[1], "zoom": zoom_in_image}
     return image, metadata
 
 
@@ -161,15 +161,15 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     assert api_key != None
 
     scale = 2 # Force scale to 2 to reduce API calls.
-    zoom_for_requests = zoom - 1 # Reduce the zoom level for requests, because the scale is increased.
+    scaled_zoom = zoom - 1 # Reduce the zoom level for requests, because the scale is increased.
 
     # Deconstruct latlons.
     lat1, lon1 = north, west # Upper-left  corner (thus higher latitude and lower longitude).
     lat2, lon2 = south, east # Lower-right corner (thus lower latitude and higher longitude).
 
     # Obtain pixel range in google maps at given zoom for requests.
-    y1, x1 = latlon_to_pixelcoord(lat1, lon1, zoom_for_requests)
-    y2, x2 = latlon_to_pixelcoord(lat2, lon2, zoom_for_requests)
+    y1, x1 = latlon_to_pixelcoord(lat1, lon1, scaled_zoom)
+    y2, x2 = latlon_to_pixelcoord(lat2, lon2, scaled_zoom)
 
     # Optionally make the requested image square.
     if square:
@@ -191,7 +191,7 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     # Convert tiles into pixel coordinates (at their center).
     tile_to_pixel = lambda t: int((t + 0.5) * step)
     pixelcoords  = [(tile_to_pixel(j), tile_to_pixel(i)) for (j,i) in tiles]
-    latloncoords = [pixelcoord_to_latlon(y, x, zoom_for_requests) for y,x in pixelcoords]
+    latloncoords = [pixelcoord_to_latlon(y, x, scaled_zoom) for y,x in pixelcoords]
 
     # Make sure the image cache folder exists.
     image_cache_folder = get_cache_folder("sat/retrieved_satellite_images")
@@ -200,7 +200,7 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
     if verbose:
         print("Retrieving images.")
     count = 0
-    fnames_and_urls = [build_filename_and_url(lat, lon, zoom_for_requests, max_resolution, scale, api_key) for (lat, lon) in latloncoords]
+    fnames_and_urls = [build_filename_and_url(lat, lon, scaled_zoom, max_resolution, scale, api_key) for (lat, lon) in latloncoords]
     for (fname, url) in fnames_and_urls:
 
         count += 1
@@ -252,4 +252,5 @@ def construct_image(north=None, west=None, east=None, south=None, zoom=None, api
 
     pixelcoord = (y1, x1) # upper-left corner pixel coordinate.
 
-    return superimage, pixelcoord
+    # Note that this pixelcoordinate is related to zoom level `zoom - 1`, because we applied scaling for retrieval.
+    return superimage, pixelcoord, scaled_zoom

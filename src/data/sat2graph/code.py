@@ -76,9 +76,9 @@ def obtain_sat_graph(place, phases=2):
         write_png(f"{locations['image_result_path'](phase)}/graph-refined.png", render_graph(G, height=height, width=width))
 
 
-    # Double graph before writing off.
-    G  = double_graph(G)
-    write_png(f"{sat_locations(place)['image-results']}/graph-with-background.png", render_graph(G, height=height, width=width, background=img, draw_intersection=False))
+    # Double graph pixel in image positions because globalv2 uses double resolution in inferrence.
+    _G_for_render  = double_graph(G)
+    write_png(f"{sat_locations(place)['image-results']}/graph-with-background.png", render_graph(_G_for_render, height=height, width=width, background=img, draw_intersection=False))
 
     # Convert to networkX graph.
     G = inferred_satellite_image_neighborhood_to_graph(metadata, G)
@@ -168,6 +168,17 @@ def pad_graph(graph, left=0, top=0):
         graph2[(y + top, x + left)] = [(y + top, x + left) for (y, x) in targets]
     
     return graph2
+
+
+# def half_graph(graph):
+#     """Half pixel coordinate values in graph"""
+#     graph2 = {}
+
+#     for element, targets in graph.items():
+#         (y1, x1) = element
+#         graph2[(round(0.5 * y1), 2 * x1)] = [(2 * y, 2 * x) for (y, x) in targets]
+    
+#     return graph2
 
 def double_graph(graph):
     """Double pixel coordinate values in graph because we use a scale of 2."""
