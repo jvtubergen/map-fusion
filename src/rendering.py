@@ -2,6 +2,32 @@ from external import *
 from graph_deduplicating import *
 from utilities import *
 
+import matplotlib as mpl
+from matplotlib import cm
+from matplotlib import colormaps
+from matplotlib import colors
+
+color_name_index = {
+    "blue": 0,
+    "orange": 2,
+    "green": 4,
+    "red": 6,
+    "purple": 8,
+    "brown": 10,
+    "pink": 12,
+    "gray": 14,
+    "ugly": 16,
+    "cyan": 18
+}
+color_names = list(color_name_index.keys())
+
+def my_colors(name, dark = True): # :)
+    colors = mpl.color_sequences["tab20"]
+    index = color_name_index[name]
+    actual_index = index + 1 if not dark else index
+    return colors[actual_index]
+
+
 # Convert a collection of paths into gid-annotated nodes and edges to thereby render with different colors.
 def render_paths(pss):
     G = convert_paths_into_graph(pss)
@@ -288,6 +314,21 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
         for prop in ["color", "linestyle", "linewidth"]: 
             if prop in gdf_edges.keys():
                 render_attributes[prop] = gdf_edges[prop]
+        
+        # # If edges don't have color but nodes do, inherit node colors for edges
+        # if "color" not in render_attributes and "color" in gdf_nodes.keys():
+        #     # Map edge colors to their source node colors
+        #     edge_colors = []
+        #     for idx in gdf_edges.index:
+        #         if isinstance(idx, tuple) and len(idx) >= 2:
+        #             source_node = idx[0]  # u node
+        #             if source_node in gdf_nodes.index:
+        #                 edge_colors.append(gdf_nodes.loc[source_node, "color"])
+        #             else:
+        #                 edge_colors.append("blue")  # fallback
+        #         else:
+        #             edge_colors.append("blue")  # fallback
+        #     render_attributes["color"] = edge_colors
 
     plotted_edges = gdf_edges.plot(ax=ax, **render_attributes).collections[-1]
 
@@ -317,7 +358,8 @@ def plot_without_projection(Gs, pss):
             preplot_graph(G,  ax, **properties) 
         else:
             G = obj
-            preplot_graph(G,  ax) 
+            properties = {"color": my_colors(color_names[i])}
+            preplot_graph(G,  ax, node_properties=properties, edge_properties=properties)
 
     for i, obj in enumerate(pss):
         print(f"Plotting paths {i}.")
