@@ -82,7 +82,7 @@ def obtain_sat_graph(place, phases=2):
 
     # Convert to networkX graph.
     G = inferred_satellite_image_neighborhood_to_graph(metadata, G)
-    write_graph(sat_locations(place)["result"], G)
+    write_graph(sat_locations(place)["graph_file"], G)
     
 
 def load_model():

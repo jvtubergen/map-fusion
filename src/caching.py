@@ -46,10 +46,10 @@ def sat_locations(place):
         "image": get_data_file(f"sat/{place}.png"),
         "pbmodel": get_cache_file(f"sat/sat2graph/globalv2.pb"),
         # Intermediate data files.
-        "partial_gtes": get_cache_file(f"sat/sat2graph/partial-gtes/{place}"),
-        "intermediate": get_cache_file(f"sat/sat2graph"),
+        "partial_gtes": get_cache_file(f"sat/sat2graph/{place}/partial-gtes"),
+        "intermediate": get_cache_file(f"sat/sat2graph/{place}/intermediate"),
         # Resulting files.
-        "result": get_data_file(f"graphs/sat-{place}.graph"),
+        "graph_file": get_data_file(f"graphs/sat-{place}.graph"),
         "image-results": get_data_file(f"images/sat/{place}")
     }
     
@@ -64,9 +64,9 @@ def sat_locations(place):
     
     # Add other location functions
     def partial_gte_path(counter):
-        return get_cache_file(f"sat/sat2graph/partial-gtes/{place}/{counter}.pkl")
+        return f"{base["partial_gtes"]}/{counter}.pkl"
     def image_result_path(phase):
-        return get_data_file(f"images/sat/{place}/phase {phase}")
+        return f"{base["image-results"]}/phase {phase}"
     
     base.update({
         "gte_path": gte_path,
