@@ -412,4 +412,4 @@ def render_graph(graph, height=None, width=None, background=None, draw_intersect
             cv2.line(image, (int(e1[0][1]),int(e1[0][0])), (int(e1[1][1]),int(e1[1][0])), (0,255,0),edge_width)
             cv2.line(image, (int(e2[0][1]),int(e2[0][0])), (int(e2[1][1]),int(e2[1][0])), (0,0,255),edge_width)
     
-    return image.astype(float) / 255.0
+    return image
