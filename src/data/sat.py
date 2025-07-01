@@ -5,6 +5,9 @@ from caching import *
 
 from data.sat2graph.code import obtain_sat_graph
 
+def read_sat_graph(place):
+    return read_graph(sat_locations(place)["graph_file"])
+
 
 def get_satellite_image(place, gsd_goal=0.5, deviation=0.25):
     """Generate satellite image on the place of interest and write to disk."""

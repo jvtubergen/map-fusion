@@ -3,6 +3,8 @@ from spatial_reference_systems.utm import utm_to_latlon
 from data_handling import *
 from caching import *
 
+def read_gps_graph(place):
+    return read_graph(gps_locations(place)["graph_file"])
 
 def obtain_gps_graph(place):
     """End-to-end logic to infer GPS graph of a place.

@@ -47,8 +47,16 @@ def pickle_to_graph(data):
         G = nx.Graph()
 
     G.graph = data["graph"]
+    if "simplified" not in data["graph"]:
+        G.graph["simplified"] = False
+    if "coordinates" not in data["graph"]:
+        G.graph["coordinates"] = "latlon"
+
     G.add_nodes_from(data["nodes"])
     G.add_edges_from([(*eid, attrs) for eid, attrs in data["edges"]])
+
+    graph_annotate_edge_curvature(G)
+    graph_correctify_edge_curvature(G)
 
     return G
 

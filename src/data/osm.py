@@ -4,6 +4,9 @@ from data_handling import *
 
 from data.gps import derive_roi
 
+def read_osm_graph(place):
+    return read_graph(osm_locations(place)["graph_file"])
+
 def obtain_osm_graph(place):
     """Download OpenStreetMaps graph on the ROI of the place and store as graph."""
 
