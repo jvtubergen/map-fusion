@@ -3,7 +3,7 @@ from data_handling import *
 from data.gmaps import fine_tune_image_coordinates, download_and_construct_image
 from caching import *
 
-from data.sat2graph.code import obtain_sat_graph
+from data.sat2graph.lib import obtain_sat_graph
 
 def read_sat_graph(place):
     return read_graph(sat_locations(place)["graph_file"])
