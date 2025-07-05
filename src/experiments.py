@@ -2,7 +2,7 @@ from data_handling import *
 from graph.merging import *
 from graph.simplifying import *
 from graph.deduplicating import *
-from graph.curvature import * 
+from graph.edge_cutting import * 
 from rendering import * 
 from map_similarity import *
 

@@ -1,5 +1,6 @@
 from external import *
 from utilities import *
+from graph.utilities import *
 
 # Extract subgraph by a point and a radius (using a square rather than circle for distance measure though).
 def extract_subgraph(G, ps, lam):

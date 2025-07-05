@@ -1,6 +1,6 @@
 from external import *
-from graph.deduplicating import *
 from utilities import *
+from graph.deduplicating import *
 
 import matplotlib as mpl
 from matplotlib import cm

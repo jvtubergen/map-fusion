@@ -1,21 +1,11 @@
 from external import *
-
 from utilities import *
 from spatial_reference_systems.utm import *
 
-# Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
-def graph_middle_latitute(G):
-    assert G.graph["coordinates"] == "latlon"
-    uvk, data = zip(*G.nodes(data=True))
-    df = gpd.GeoDataFrame(data, index=uvk)
-    alat, alon = df["y"].mean(), df["x"].mean()
-    return alat
-
-
-
-# Obtain bounding box (the region of interest).
+# Obtain the region of interest (south, west, east, north), the bounding box, on graph nodes..
 def graph_roi(G):
     assert G.graph["coordinates"] == "latlon"
+    assert G.graph["simplified"]
 
     G = read_graph(get_graph_path(graphset=graphset, place=place))
     coordinates = extract_node_positions_list(G)
@@ -32,6 +22,15 @@ def graph_roi(G):
     }
 
     return roi
+
+# Obtain middle latitude coordinate for bounding box that captures all nodes in the graph.
+def graph_middle_latitute(G):
+    assert G.graph["coordinates"] == "latlon"
+    uvk, data = zip(*G.nodes(data=True))
+    df = gpd.GeoDataFrame(data, index=uvk)
+    alat, alon = df["y"].mean(), df["x"].mean()
+    return alat
+
 
 
 

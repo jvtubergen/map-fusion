@@ -1,46 +1,26 @@
 from external import *
 from utilities import *
-from network import *
-from graph.coordinates import *
-
-###  Curve by curve coverage
-
-# Curve coverage of ps by qs.
-# either return false or provide subcurve with step sequence
-# TODO: Optimization to check on bounding boxes before doing the interpolation.
-def curve_by_curve_coverage(ps, qs, lam):
-    return is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam)
+from graph.utilities import *
 
 
-# Check coverage of a curve by a curve-set.
-def curve_by_curveset_coverage(ps, qss, lam):
-    for qs in qss:
-        if is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam):
-            return True
-    return False
+# Convert a nx.T2 into a graph structure used by the partial curve matching algorithm.
+def graph_to_rust_graph(G):
 
+    assert type(G) == nx.Graph
 
-# Obtain edges covered by specific node.
-def edges_covered_by_nid(G, nid, threshold):
+    # Extract node data as Vectors from the graph.
+    def extract_nodes_list(G):
+        l = []
+        for nid, data in G.nodes(data = True):
+            l.append((nid, Vector(data['y'], data['x'])))
+        return l
 
-    # Find nearby edges.
-    edge_tree = graphedges_to_rtree(G)
-    node_bbox = graphnode_to_bbox(G, nid, padding=threshold)
-    nearby_eids = intersect_rtree_bbox(edge_tree, node_bbox)
+    # Extract vertices as Vec<(NID, Vector)>.
+    vertices = extract_nodes_list(G)
+    # Extract edges as Vec<(NID, NID)>.
+    eids = [eid for eid, _ in iterate_edges(G)]
+    return make_graph(vertices, eids)
 
-    # Obtain max distance.
-    point = graphnode_position(G, nid)
-
-    # Max distance per edge to node.
-    distances = [max([norm(vec) for vec in graphedge_curvature(G, eid) - point]) for eid in nearby_eids]
-
-    # Return those below threshold.
-    eids_below_threshold = [eid for eid, distance in zip(nearby_eids, distances) if distance <= threshold]
-
-    return eids_below_threshold
-
-
-###  Curve by network coverage
 
 # Obtain threshold per simplified edge of S in comparison to T.
 @info()

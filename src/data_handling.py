@@ -1,5 +1,5 @@
 from external import *
-from graph.curvature import *
+from graph.edge_cutting import *
 from graph.deduplicating import *
 from utilities import *
 

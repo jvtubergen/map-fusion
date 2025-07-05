@@ -1,5 +1,4 @@
 from external import * 
-from graph.node_extraction import *
 
 #######################################
 ### Printing stuff with decorators.
@@ -51,8 +50,9 @@ def logger(*args):
     print(f"{" - ".join(current_context)}:", *args)
 
 
-
+#######################################
 ### R-Tree
+#######################################
 
 # Construct R-Tree on graph nodes.
 def graphnodes_to_rtree(G):
@@ -82,41 +82,9 @@ def graphedges_to_rtree(G):
     return tree
 
 
+#######################################
 ### Bounding boxes
-
-def graphedge_curvature(G, eid):
-    attrs = get_edge_attributes(G, eid)
-    ps = attrs["curvature"]
-    return ps
-
-def graphedge_to_bbox(G, eid, padding=0):
-    ps = graphedge_curvature(G, eid)
-    miny = min(ps[:,0])
-    maxy = max(ps[:,0])
-    minx = min(ps[:,1])
-    maxx = max(ps[:,1])
-    bbox = array([(miny, minx), (maxy, maxx)])
-    return pad_bounding_box(bbox, padding)
-
-# Construct dictionary that links edge id to a bounding box.
-# Note: Padding has to be added manually afterwards if needed.
-def graphedges_to_bboxs(G, padding=0):
-    return {eid: graphedge_to_bbox(G, eid, padding=padding) for eid, _ in iterate_edges(G)}
-
-def graphnode_position(G, nid):
-    position = y, x = G._node[nid]['y'], G._node[nid]['x'],
-    return array(position)
-
-# Construct bounding box around node position.
-def graphnode_to_bbox(G, nid, padding=0):
-    position = y, x = G._node[nid]['y'], G._node[nid]['x'],
-    bbox = bounding_box(array([position]))
-    return pad_bounding_box(bbox, padding)
-
-# Construct dictionary that links node id to a bounding box.
-# Note: Padding has to be added manually afterwards if needed.
-def graphnodes_to_bboxs(G, padding=0):
-    return {nid: graphnode_to_bbox(G, nid, padding=padding) for nid in G.nodes()}
+#######################################
 
 # Extract bounding box on a curve. Use padding to lambda pad.
 def bounding_box(ps, padding=0):
@@ -136,7 +104,10 @@ add_rtree_bbox       = lambda tree, bbox, value: tree.insert(value, flatten_bbox
 intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection(flatten_bbox(bbox)))
 nearest_rtree_bbox   = lambda tree, bbox: list(tree.nearest(flatten_bbox(bbox), num_results=len(tree)))
 
+
+#######################################
 ## Curves
+#######################################
 
 # Generate a random curve.
 def random_curve(length = 100, a = np.array([-10,-10]), b = np.array([10,10])):
@@ -242,8 +213,10 @@ def curve_cut_intervals(ps, intervals):
 # Cut a curve at a percentage (interval of [0, 1]).
 curve_cut = lambda ps, percentage: curve_cut_intervals(ps, [percentage])
 
+
 # Cut curve in half.
 curve_cut_in_half = lambda ps: curve_cut(ps, 0.5)
+
 
 # Find cutpoints, cut curve into pieces, store curvature for each cut curve segment.
 def curve_cut_pieces(ps, amount=10):
@@ -344,7 +317,9 @@ def test_curve_cut_max_distance():
     assert np.max(array([curve_length(qs[i]) for i in range(len(qs))])) < 1.4 + 0.0001 # Expect each subcurve to be a length of 1.4.
 
 
-## Linestring and curves.
+#######################################
+### Linestring
+#######################################
 
 # Convert an array into a LineString consisting of Points.
 to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvature]) # Coordinates are flipped.
@@ -353,7 +328,9 @@ to_linestring   = lambda curvature: LineString([Point(x, y) for y, x in curvatur
 from_linestring = lambda geometry : array([(y, x) for x, y in geometry.coords]) # Coordinates are flipped.
 
 
+#######################################
 ### Partial curve matching logic
+#######################################
 
 # Convert 2d numpy array into a list of Vectors used by the partial curve matching algorithm.
 def curve_to_vector_list(ps):
@@ -362,24 +339,6 @@ def curve_to_vector_list(ps):
         result.append(Vector(y, x))
     return result
 
-
-# Convert a nx.T2 into a graph structure used by the partial curve matching algorithm.
-def graph_to_rust_graph(G):
-
-    assert type(G) == nx.Graph
-
-    # Extract node data as Vectors from the graph.
-    def extract_nodes_list(G):
-        l = []
-        for nid, data in G.nodes(data = True):
-            l.append((nid, Vector(data['y'], data['x'])))
-        return l
-
-    # Extract vertices as Vec<(NID, Vector)>.
-    vertices = extract_nodes_list(G)
-    # Extract edges as Vec<(NID, NID)>.
-    eids = [eid for eid, _ in iterate_edges(G)]
-    return make_graph(vertices, eids)
 
 # Compute partial curve matching between curve ps and some subcurve of qs within eps distance threshold.
 # If convert is true automatically convert input curves into vector lists.
@@ -399,141 +358,24 @@ def is_partial_curve_undirected(ps, qs, eps, convert=False):
         print("  eps: ", eps)
 
 
-### Graph related
-
-# Enum to differentiate between node or edge-related task (used by abstract functions).
-class GraphEntity(Enum):
-    Edges = 0
-    Nodes = 1
-
-get_eids = lambda G: [eid for eid, _ in iterate_edges(G)]
-get_nids = lambda G: list(G.nodes())
-
-# Iterate all edge identifiers alongside their attributes. Iterated element attributes are overwritable.
-def iterate_edges(G):
-    if G.graph["simplified"]:
-        for u, v, k, attrs in G.edges(data=True, keys=True):
-            if u <= v: 
-                yield (u, v, k), attrs
-            else:
-                yield (v, u, k), attrs
-    else:
-        for u, v, attrs in G.edges(data=True):
-            if u <= v: 
-                yield (u, v), attrs
-            else:
-                yield (v, u), attrs
-
-def iterate_nodes(G):
-    for nid, attrs in G.nodes(data=True):
-        yield nid, attrs
+# Curve coverage of ps by qs.
+# either return false or provide subcurve with step sequence
+# TODO: Optimization to check on bounding boxes before doing the interpolation.
+def curve_by_curve_coverage(ps, qs, lam):
+    return is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam)
 
 
-# Format edge identifier to graph type.
-def format_eid(G, eid):
-
-    u, v = sorted(eid[:2])
-
-    # Obtain `k`.
-    k = 0
-    if len(eid) == 3:
-        k = eid[2]
-
-    # Pair or triplet.
-    eid = u, v
-    if G.graph["simplified"]:
-        eid = u, v, k 
-    
-    return eid
+# Check coverage of a curve by a curve-set.
+def curve_by_curveset_coverage(ps, qss, lam):
+    for qs in qss:
+        if is_partial_curve_undirected(curve_to_vector_list(ps), curve_to_vector_list(qs), lam):
+            return True
+    return False
 
 
-# Get specific edge from graph. Using built-in `eid` filter hopefully improves performance (in comparison to list filtering).
-def get_edge_attributes(G, eid):
-    # eid = format_eid(G, eid)
-    return G.get_edge_data(*eid)
-
-# Set edge attribute.
-def set_edge_attributes(G, eid, attrs):
-    # eid = format_eid(G, eid)
-    nx.set_edge_attributes(G, {eid: attrs})
-
-
-def get_node_attributes(G, nid):
-    return G.get_node_data(nid)
-
-def set_node_attributes(G, nid, attrs):
-    nx.set_node_attributes(G, {nid: attrs})
-
-
-# Obtain connected edge identifiers to the provided node identifier.
-# Note: `(u, v)` or `(u, v, k)` always have lowest nid first (thus `u <= v`).
-def get_connected_eids(G, nid):
-    if G.graph["simplified"]:
-        return [(u, v, k) if u <= v else (v, u, k) for (u, v, k) in list(G.edges(nid, keys=True))]
-    else:
-        return [(u, v) if u <= v else (v, u) for (u, v) in list(G.edges(nid))]
-
-# Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
-def annotate_nodes(G, new_attrs, nids=None):
-    if nids != None:
-        if len(nids) > 0:
-            check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
-        nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
-    else:
-        nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
-
-# Annotate edges by appending new attributes (optionally to a subselection of edge identifiers.
-def annotate_edges(G, new_attrs, eids=None):
-    if eids != None:
-        check(len(eids[0]) == 2 or len(eids[0]) == 3, expect="Expect to receive edge identifiers (it probably has received node identifiers).")
-        nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G) if eid in eids}) 
-    else:
-        nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G)}) 
-
-
-# Abstract function to filter node/edge identifiers by their attributes (can be both a subset of attributes or a filter function on attributes).
-def abstract_filter_by_attribute(entity, G, filter_attributes=None, filter_func=None):
-
-    check(type(entity) == GraphEntity)
-    check(filter_func != None or filter_attributes != None, expect="Expect to filter either by attributes dictionary or a filter function.")
-
-    match entity:
-        case GraphEntity.Edges:
-            iterator = iterate_edges
-        case GraphEntity.Nodes:
-            iterator = iterate_nodes
-
-    if filter_func != None:
-
-        return [identifier for identifier, attrs in iterator(G) if filter_func(attrs)]
-    
-    if filter_attributes != None:
-
-        filtered_identifiers = []
-        for identifier, attrs in iterator(G):
-
-            found = True
-            for filter_attr in filter_attributes.keys():
-                if filter_attr not in attrs or attrs[filter_attr] != filter_attributes[filter_attr]:
-                    found = False
-
-            if found:
-                filtered_identifiers.append(identifier)
-    
-        return filtered_identifiers
-
-# Filter out nodes either by a collection of attributes or a specific filtering function.
-filter_nids_by_attribute = lambda *params, **named: abstract_filter_by_attribute(GraphEntity.Nodes, *params, **named)
-
-# Filter out edges either by a collection of attributes or a specific filtering function.
-filter_eids_by_attribute = lambda *params, **named: abstract_filter_by_attribute(GraphEntity.Edges, *params, **named)
-
-# Compute total graph edge length.
-def graph_length(G):
-    return sum([curve_length(attrs["curvature"]) for eid, attrs in iterate_edges(G)])
-
-
+#######################################
 ## Curve-point related logic.
+#######################################
 
 # Rotating (x, y)
 def rotate(a):
@@ -612,81 +454,9 @@ def test_nearest_position_and_interval_on_curve_to_point():
     check(abs(norm(nearest_position_on_curve_to_point(curve, point) - point) - 5) < 0.001)
 
 
-### Graph distance
-
-# Compute distance between node and edge.
-@info()
-def graph_distance_node_edge(G, nid, eid):
-    point = graphnode_position(G, nid)
-    curve = graphedge_curvature(G, eid)
-    # Seek distance between point and curve.
-    curvepoint = nearest_position_on_curve_to_point(curve, point)
-    return norm(point - curvepoint)
-
-@info()
-def graph_distance_node_node(G, u, v):
-    p = graphnode_position(G, u)
-    q = graphnode_position(G, v)
-    return norm(p - q)
-
-# Obtain nearest node for nid in a graph.
-@info()
-def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
-
-    if node_tree == None:
-        node_tree = graphnodes_to_rtree(G)
-
-    bbox = graphnode_to_bbox(G, nid)
-
-    # Exclude target nid from hitting.
-    to_exclude = excluded_nids.union([nid])
-
-    # Iterate node tree till we find a nid not excluded.
-    for found in nearest_rtree_bbox(node_tree, bbox):
-        check(found != None, expect="Expect non-null node identifier found on seeking nearest element in rtree.")
-        if found not in to_exclude:
-            return found
-    
-    logger(f"Checked {len(nearest_rtree_bbox(node_tree, bbox))} nearest elements out of {len(node_tree)} node-tree elements.")
-    check(False, expect="Expect to find nearest node.")
-
-# Obtain nearest edge for 
-@info()
-def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
-
-    if edge_tree == None:
-        edge_tree = graphedges_to_rtree(G)
-
-    # Seek distance to edge of first hit.
-    bbox = graphnode_to_bbox(G, nid)
-
-    # Extend excluded eids with those connected to nid.
-    to_exclude = excluded_eids.union(set([format_eid(G, eid) for eid in G.edges(nid, keys=True)]))
-
-    eid = None
-    for found in nearest_rtree_bbox(edge_tree, bbox):
-        if found not in to_exclude:
-            eid = found
-            break
-    
-    check(eid != None, expect="Expect to find nearby edge.")
-
-    distance = graph_distance_node_edge(G, nid, eid)
-
-    # Use this distance to find all edge bounding boxes within that distance.
-    bbox = graphnode_to_bbox(G, nid, padding=distance)
-    eids = intersect_rtree_bbox(edge_tree, bbox)
-
-    # Rerun against all edges and return lowest.
-    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in to_exclude]
-
-    # Obtain lowest
-    eid, distance = min(distances, key=lambda x: x[1])
-
-    return eid
-
-
-## Arbitrary
+#######################################
+### Arbitrary
+#######################################
 
 # Unzip a list of pairs into a pair of lists.
 def unzip(data):
@@ -696,127 +466,6 @@ def unzip(data):
         right.append(r)
     return left, right
 
-
-#######################################
-### Sanity check functionality
-#######################################
-
-# Perform a few sanity checks on the graph to prevent computation errors down the line.
-def graph_sanity_check(G):
-    print("Check graph.")
-
-    # Simplification.
-    if "simplified" not in G.graph:
-        raise Exception("Expect 'simplified' dictionary key in graph.")
-
-    # If simplified, then multigraph.
-    if G.graph["simplified"] and type(G) != type(nx.MultiGraph()):
-        raise Exception("Expect simplified graph to be an undirected multi-graph.") 
-    if not G.graph["simplified"] and type(G) != type(nx.Graph()):
-        raise Exception("Expect vectorized graph to be a undirected single-graph.") 
-
-    # Coordinates.    
-    if "coordinates" not in G.graph:
-        raise Exception("Expect 'coordinates' dictionary key in graph.")
-    if G.graph["coordinates"] != "utm" and G.graph["coordinates"] != "latlon":
-        raise Exception("Expect 'coordinates' dictionary value to be either 'utm' or 'latlon'.")
-
-    # Nodes.
-    sanity_check_node_positions(G)
-    nodes = extract_node_positions_dictionary(G)
-    if G.graph["coordinates"] == "utm":
-        if np.min(nodes) < 100: 
-            print(nodes)
-            raise Exception("Expect graph in utm coordinate system. Big chance some node is in latlon coordinate system.")
-    if G.graph["coordinates"] == "latlon":
-        if np.min(nodes) > 100: 
-            print(nodes)
-            raise Exception("Expect graph in latlon coordinate system. Big chance some node is in utm coordinate system.")
-
-    # Node (x,y coordinates) flipping.
-    coord0 = np.min(nodes, axis=0)
-    coord1 = np.max(nodes, axis=0)
-    diffa = np.max(nodes[:,0]) - np.min(nodes[:,0])
-    diffb = np.max(nodes[:,1]) - np.min(nodes[:,1])
-    # print(diffa, diffb)
-    diffc = np.max(nodes[:,0]) - np.min(nodes[:,1])
-    diffd = np.max(nodes[:,1]) - np.min(nodes[:,0])
-    # print(diffc, diffd)
-
-    if G.graph["coordinates"] == "latlon" and (abs(diffa) > 1 or abs(diffb) > 1):
-        print(nodes)
-        print(abs(diffa), abs(diffb))
-        raise Exception("Expect node y, x coordinate consistency.") 
-    if G.graph["coordinates"] == "utm" and (abs(diffa) > 100000 or abs(diffb) > 100000):
-        print(nodes)
-        print(abs(diffa), abs(diffb))
-        raise Exception("Expect node y, x coordinate consistency.") 
-    
-    # Edges.
-    nodes = extract_node_positions_dictionary(G)
-    if G.graph["simplified"]: 
-        for eid, attrs in iterate_edges(G):
-            a, b, k = eid
-            ps = edge_curvature(G, a, b, k)
-            if G.graph["coordinates"] == "latlon": # Convert to utm for computing in meters.
-                ps = array([latlon_to_utm(latlon) for latlon in ps])
-            if curve_length(ps) > 1000: # Expect reasonable curvature length.
-                raise Exception("Expect edge length less than 1000 meters. Probably some y, x coordinate in edge curvature got flipped.")
-            # Expect start and endpoint of edge curvature match the node position.
-            ps = edge_curvature(G, a, b, k) # Expect startpoint matches curvature.
-            try:
-                if (not np.all(ps[0] == nodes[a])) and (not np.all(ps[-1] != nodes[b])):
-                    raise Exception("Expect curvature have same directionality as edge start and end edge.")
-            except Exception as e:
-                print(traceback.format_exc())
-                print(e)
-                breakpoint()
-            
-            assert "geometry" in attrs
-            assert "curvature" in attrs
-
-
-# Sanity check that all curvature annotations are numpy array.
-def sanity_check_curvature_type(G):
-    for eid, attrs in iterate_edges(G):
-        check(type(attrs["curvature"]) == type(array([])))
-
-
-# Sanity check all edges have non-zero edge length.
-def sanity_check_edge_length(G):
-    for eid, attrs in iterate_edges(G):
-        check(attrs["length"] > 0)
-
-
-# Sanity check nodes have unique position.
-def sanity_check_node_positions(G, eps=0.0001):
-
-    assert G.graph["coordinates"] == "utm" # Act only on UTM for epsilon to make sense.
-
-    positions = extract_node_positions_dictionary(G)
-    tree = graphnodes_to_rtree(G)
-    bboxs = graphnodes_to_bboxs(G)
-
-    for nid in G.nodes():
-
-        # Find nearby nodes.
-        bbox = pad_bounding_box(bboxs[nid], eps)
-        nids = intersect_rtree_bbox(tree, bbox)
-        assert len(nids) == 1 # Expect to only intersect with itself.
-
-
-# Sanity check graph curvature starts/end at node positions _and_ in the correct direction (starting at `u` and ending at `v` with `u <= v`).
-def sanity_check_graph_curvature(G):
-
-    nid_positions = extract_node_positions_dictionary(G)
-    for eid, attrs in iterate_edges(G):
-        check("curvature" in attrs, expect="Expect every edge to have 'curvature' attribute annotation.")
-        u, v = eid[:2]
-        ps = attrs["curvature"]
-        check(u <= v, expect="Expect `u < v` for all edges.")
-        p, q = nid_positions[u], nid_positions[v]
-        check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
-        check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
 
 # Assert with a breakpoint, so we can debug if an exception occurs.
 def check(statement, expect=None):

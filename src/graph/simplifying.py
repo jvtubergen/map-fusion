@@ -1,7 +1,6 @@
 from external import *
-
-from graph.node_extraction import *
-from graph.curvature import *
+from utilities import *
+from graph.utilities import *
 
 
 #####
@@ -340,7 +339,7 @@ def vectorize_graph(G):
                 geometry = to_linestring(curvature)
                 length = curve_length(curvature)
 
-                # Note: Set key at zero, because nodes in curvature implies a single path between nodes.
+                # Note: Set key at zero, because nodes in edge_cutting implies a single path between nodes.
                 new_edges.append((u, v, {**old_edge_attrs, "curvature": curvature, "geometry": geometry, "length": length}))
 
                 # Track "vectorized_by".

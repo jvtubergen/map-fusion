@@ -1,31 +1,29 @@
 from external import *
-
-from graph.simplifying import *
-from graph.coverage import * # Necessary for coverage computing of duplicated sat edges on injected gps edges.
 from utilities import *
+from graph.utilities import *
+from graph.coverage import *
 
 
-# Prune graph with threshold-annotated edges.
-# * TODO: Only add edge connections with sat if gps edge as adjacent covered edges (thus concatenate with `merge_graph` logic).
-# * Rather than filtering out below threshold, we can as well seek edges above threshold (thus inverting the result).
-@info()
-def prune_coverage_graph(G, prune_threshold=10, invert=False):
+# Obtain edges covered by specific node.
+def edges_covered_by_nid(G, nid, threshold):
 
-    check(G.graph["simplified"], expect="Expect the graph is simplified when edges have a threshold annotated.")
-    check(prune_threshold <= G.graph['max_threshold'], expect="Expect we are pruning (on a threshold) below the maximum computed.")
+    # Find nearby edges.
+    edge_tree = graphedges_to_rtree(G)
+    node_bbox = graphnode_to_bbox(G, nid, padding=threshold)
+    nearby_eids = intersect_rtree_bbox(edge_tree, node_bbox)
 
-    if invert:
-        attribute_filter = lambda attrs: attrs["threshold"] > prune_threshold
-    else:
-        attribute_filter = lambda attrs: attrs["threshold"] <= prune_threshold
+    # Obtain max distance.
+    point = graphnode_position(G, nid)
 
-    retain = filter_eids_by_attribute(G, filter_func=attribute_filter)
-    G = G.edge_subgraph(retain)
+    # Max distance per edge to node.
+    distances = [max([norm(vec) for vec in graphedge_curvature(G, eid) - point]) for eid in nearby_eids]
 
-    # We have to simplify this graph again as some crossroads may have disappeared.
-    G = simplify_graph(G, retain_attributes=True)
+    # Return those below threshold.
+    eids_below_threshold = [eid for eid, distance in zip(nearby_eids, distances) if distance <= threshold]
 
-    return G
+    return eids_below_threshold
+
+
 
 
 # Merges graph A into graph C.

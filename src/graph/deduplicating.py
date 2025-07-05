@@ -1,8 +1,6 @@
 from external import *
-from graph.node_extraction import *
-from graph.curvature import *
-from graph.coordinates import *
 from utilities import *
+from graph.utilities import *
 
 # Group duplicated nodes.
 def duplicated_nodes(G, eps=0.001):

@@ -23,6 +23,7 @@ from matplotlib.collections import PatchCollection
 from shapely.geometry import Point, LineString
 
 from utilities import *
+from graph import *
 
 
 ###############################################################################
