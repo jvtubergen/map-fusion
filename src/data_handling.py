@@ -3,17 +3,6 @@ from graph.edge_cutting import *
 from graph.deduplicating import *
 from utilities import *
 
-# Valid graph sets to work with. GPS: Roadster, Sat: Sat2Graph, Truth: OpenStreetMaps. Extend with techniques as you see fit.
-graphsets = ["roadster", "sat2graph", "openstreetmaps", "mapconstruction", "intersection", "merge_A", "merge_B", "merge_C"]
-places    = ["athens", "berlin", "chicago"]
-
-# Link active graphset to representative of gps, sat, and truth.
-links = {
-    "gps": "roadster",
-    "osm": "openstreetmaps",
-    "sat": "sat2graph"
-}
-
 ### Write and reading graphs.
 
 def write_graph(location, G):
@@ -47,16 +36,8 @@ def pickle_to_graph(data):
         G = nx.Graph()
 
     G.graph = data["graph"]
-    if "simplified" not in data["graph"]:
-        G.graph["simplified"] = False
-    if "coordinates" not in data["graph"]:
-        G.graph["coordinates"] = "latlon"
-
     G.add_nodes_from(data["nodes"])
     G.add_edges_from([(*eid, attrs) for eid, attrs in data["edges"]])
-
-    graph_annotate_edge_curvature(G)
-    graph_correctify_edge_curvature(G)
 
     return G
 
@@ -94,9 +75,7 @@ def read_graph_csv(folderpath):
     G.graph["simplified"] = False
 
     # Annotate graph edges.
-    graph_annotate_edge_curvature(G)
-    graph_annotate_edge_length(G)
-    graph_annotate_edge_geometry(G)
+    graph_annotate_edges(G)
 
     return G
 
@@ -113,47 +92,13 @@ def file_age(filename):
 
 # Read and/or write pickle or graph with a specific action to perform in case we failed to read.
 @info()
-def read_and_or_write(filename, action, use_storage=True, is_graph=True, overwrite=False, rerun=False, reset_time=None, overwrite_if_old=False):
+def read(filename, is_graph=True):
     
     filename = f"{filename}.pkl"
-
-    result = None
-    file_exists = os.path.exists(filename)
-    
-    is_old = file_age(filename) > reset_time if reset_time != None else True
-
-    # If we provide a reset time, it can set the overwrite and rerun variable.
-    if reset_time != None and is_old:
-        hours = file_age(filename) / 3600
-        logger(f"Age of file ({hours} hours) exceeds reset time. Rerunning.")
-        rerun = True
-
-    # Reading previous result from disk.
-    if file_exists and use_storage and not rerun: # No need to read if we are going to rerun.
-        logger("Try reading file from disk.")
-        try:
-            if is_graph:
-                result = pickle_to_graph(pickle.load(open(filename, "rb")))
-            else:
-                result = pickle.load(open(filename, "rb"))
-        except Exception as e:
-            logger(traceback.format_exc())
-            logger(e)
-            logger(f"Failed to read {filename}. Running instead.")
-        
-    # Rerunning result.
-    if type(result) == type(None):
-        logger("Performing action.")
-        result = action()
-
-    # Store (overwrite) data.
-    # * We save if the file does not exist or we mention to overwrite (which can be so only if outdated file).
-    if (not file_exists) or overwrite or (is_old and overwrite_if_old):
-        logger(f"(Over)writing {filename}")
-        if is_graph:
-            pickle.dump(graph_to_pickle(result), open(filename, "wb"))
-        else:
-            pickle.dump(result, open(filename, "wb"))
+    if is_graph:
+        result = pickle_to_graph(pickle.load(open(filename, "rb")))
+    else:
+        result = pickle.load(open(filename, "rb"))
 
     return result
 

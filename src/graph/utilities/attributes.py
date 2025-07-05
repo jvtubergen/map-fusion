@@ -1,5 +1,7 @@
 from external import *
 from utilities import *
+from graph.utilities.general import *
+from graph.utilities.distance import graphnode_position
 
 #######################################
 ### Attribute retrieval general
@@ -223,5 +225,59 @@ def graph_correctify_edge_curvature(G, eid=None):
     for eid, attrs in iterate_edges(G):
         graph_correctify_edge_curvature_single(G, eid)
 
+#######################################
+### New edge annotation logic
+#######################################
+
+@info()
+def graph_annotate_edges(G):
+    """ Annotate each edge with (corrected) curvature, geometry, length and delete if zero-length edge length."""
+
+    eids_to_delete = []
+    for eid, attrs in iterate_edges(G):
+        graph_annotate_edge2(G, eid, attrs)
+        if eid[0] == eid[1] and attrs["length"] <= 0.0001:
+            eids_to_delete.append(eid)
+
+    G.remove_edges_from(eids_to_delete)
+    
+    return G
 
 
+def graph_annotate_edge2(G, eid, attrs, from_geometry=False):
+    # Retrieve curvature from (curvature or geometry) attribute or construct straight line segment.
+    if "curvature" in attrs:
+        if type(attrs["curvature"]) != type(array([])):
+            ps = array(attrs["curvature"])
+        else:
+            ps = attrs["curvature"]
+    elif "geometry" in attrs and from_geometry:
+        ps = from_linestring(attrs["geometry"])
+    else: # Construct straight line segment.
+        u, v = eid[0:2]
+        p1 = G.nodes()[u]
+        p2 = G.nodes()[v]
+        ps = array([[p1["y"], p1["x"]], [p2["y"], p2["x"]]])
+
+    # Check start/end position of curvature.
+    u, v = eid[0:2]
+    p1 = graphnode_position(G, u)
+    p2 = graphnode_position(G, v)
+    is_correct_direction = np.all(array(ps[0]) == array(p1)) and np.all(array(ps[-1]) == array(p2))
+    is_inverted_direction = np.all(array(ps[0]) == array(p2)) and np.all(array(ps[-1]) == array(p1))
+    check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
+
+    # In case the direction of the curvature is inverted.
+    if u != v and is_inverted_direction: 
+        k = 0 if len(eid) == 2 else eid[2]
+        # Then invert the direction back.
+        logger("Invert curvature of edge ", (u, v, k))
+        ps = ps[::-1]
+
+    geometry = to_linestring(ps)
+    length = curve_length(ps)
+
+    attrs["curvature"] = ps
+    attrs["geometry"] = geometry
+    attrs["length"] = length
+    

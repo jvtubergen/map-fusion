@@ -1,5 +1,6 @@
 from external import *
 from utilities import *
+from graph.utilities.general import *
 import graph.utilities.attributes as attributes
 
 #######################################
@@ -168,3 +169,35 @@ def graphnodes_to_bboxs(G, padding=0):
 # Note: Padding has to be added manually afterwards if needed.
 def graphedges_to_bboxs(G, padding=0):
     return {eid: graphedge_to_bbox(G, eid, padding=padding) for eid, _ in iterate_edges(G)}
+
+
+#######################################
+### Rtree
+#######################################
+
+# Construct R-Tree on graph nodes.
+def graphnodes_to_rtree(G):
+
+    tree = rtree.index.Index()
+
+    for nid, attrs in iterate_nodes(G):
+        y, x = attrs['y'], attrs['x']
+        tree.insert(nid, (y, x, y, x))
+
+    return tree
+
+
+# Construct R-Tree on graph edges.
+def graphedges_to_rtree(G):
+
+    tree = rtree.index.RtreeContainer()
+
+    for eid, attrs in iterate_edges(G):
+        curvature = attrs["curvature"]
+        miny = min(curvature[:,0])
+        maxy = max(curvature[:,0])
+        minx = min(curvature[:,1])
+        maxx = max(curvature[:,1])
+        tree.insert(eid, (miny, minx, maxy, maxx))
+
+    return tree

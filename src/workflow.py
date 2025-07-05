@@ -1,6 +1,12 @@
 from external import *
 from internal import *
 
+def workflow_obtain_graphs():
+    for place in places:
+        obtain_gps_graph(place)
+        obtain_sat_graph(place)
+        obtain_osm_graph(place)
+
 
 def workflow_render_gps_alongside_truth(place=None):
 

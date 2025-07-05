@@ -4,5 +4,6 @@ from graph.deduplicating import *
 from graph.edge_cutting import *
 from graph.merging import *
 from graph.pruning import *
-from graph.simplifying import *
+from graph.sanitizing import *
+from graph.subgraphing import *
 from graph.subgraphing import *

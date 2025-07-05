@@ -1,7 +1,5 @@
 import utm
 
-places = ["athens", "berlin", "chicago"]
-
 # Latlons for obtaining zone-numbers and zone-letters.
 centrums = {
     "athens" : (37.97, 23.72),

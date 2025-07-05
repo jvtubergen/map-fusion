@@ -1,8 +1,9 @@
 from external import *
-
+from utilities import *
 from caching import *
 from data_handling import *
 from spatial_reference_systems import *
+from graph import *
 
 from data.sat2graph.decoder import * 
 from data.sat2graph.common import * 
@@ -80,8 +81,10 @@ def obtain_sat_graph(place, phases=2):
     _G_for_render  = double_graph(G)
     write_png(f"{sat_locations(place)['image-results']}/graph-with-background.png", render_graph(_G_for_render, height=height, width=width, background=img, draw_intersection=False))
 
-    # Convert to networkX graph.
+    # Obtain graph for usage.
     G = inferred_satellite_image_neighborhood_to_graph(metadata, G)
+    G = sanitize_graph(G)
+    sanity_check_graph(G)
     write_graph(sat_locations(place)["graph_file"], G)
     
 

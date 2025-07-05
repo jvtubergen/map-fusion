@@ -1,7 +1,8 @@
 from external import *
-from spatial_reference_systems.utm import utm_to_latlon
 from data_handling import *
 from caching import *
+from spatial_reference_systems.utm import utm_to_latlon
+from graph import *
 
 def read_gps_graph(place):
     return read_graph(gps_locations(place)["graph_file"])
@@ -13,6 +14,8 @@ def obtain_gps_graph(place):
     """
     paths = gps_locations(place)
     G = read_graph_csv(paths["inferred_folder"])
+    G = sanitize_graph(G)
+    sanity_check_graph(G)
     write_graph(paths["graph_file"], G)
 
 

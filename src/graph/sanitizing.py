@@ -1,3 +1,7 @@
+from utilities import *
+from spatial_reference_systems import *
+from graph.utilities import *
+
 #######################################
 ### Sanity check functionality
 #######################################
@@ -119,3 +123,99 @@ def sanity_check_graph_curvature(G):
         check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
         check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
 
+
+
+#######################################
+### New sanitization logic.
+#######################################
+
+EPS=0.0001
+
+def sanitize_graph(G):
+    """Sanitize Berlin|Chicago OSM|SAT|GPS graph for map fusion and experiments.
+    Expects as input a graph that is simplified in WSG coordinates, then constructs and returns a graph with the following properties:
+    * Simplified.
+    * UTM coordinates.
+    * Duplicated nodes deleted.
+    * Edge length annotated.
+    * Edge curvature annotated.
+    * Zero-length edges deleted.
+    """
+    from graph.deduplicating import deduplicate_graph
+    from graph.simplifying import simplify_graph
+    G.graph["simplified"]  = False
+    G.graph["coordinates"] = "latlon"
+    G = graph_annotate_edges(G)
+    G = graph_transform_latlon_to_utm(G)
+    G = graph_annotate_edges(G)
+    G = deduplicate_graph(G)
+    G = simplify_graph(G)
+    return G
+
+
+def sanity_check_graph(G):
+    """
+    Check sanity of graph:
+    * simplified
+    * in utm coordinates
+    * every node has a unique coordinate
+    * every edge has curvature 
+    * every edge has a length
+    """
+
+    check(G.graph["simplified"] == True,    expect="Expect graph to be simplified.")
+    check(type(G) == type(nx.MultiGraph()), expect="Expect graph to be an undirected multi-graph.")
+    check(G.graph["coordinates"] == "utm",  expect="Expect graph to be in UTM coordinates.")
+
+    sanity_check_edges(G)
+    sanity_check_nodes(G)
+    
+
+def sanity_check_nodes(G):
+    """
+    Sanity check nodes 
+    * coordinate consistency: All coordinates larger than 100 (we're in UTM)
+    * to have unique position.
+    """
+
+    # Coordinate node coordinates in UTM (and not in WSG).
+    positions = extract_node_positions_list(G)
+    check(np.min(positions) > 100, expect="Expect graph in utm coordinate system. Big chance some node coordinates are in latlon coordinate system.")
+
+    # Check unique position.
+    tree = graphnodes_to_rtree(G)
+    bboxs = graphnodes_to_bboxs(G)
+    for nid in G.nodes():
+        # Find nearby nodes.
+        bbox = pad_bounding_box(bboxs[nid], EPS)
+        nids = intersect_rtree_bbox(tree, bbox)
+        check(len(nids) == 1, expect="Expect to only intersect with itself.")
+
+
+def sanity_check_edges(G):
+    """
+    Sanity check edges
+    * has curvature attribute
+    * curvature is a numpy array
+    * curvature starts/end at node positions
+    * curvature moves in the correct direction (starting at `u` and ending at `v` with `u <= v`).
+    * has length attribute
+    * length is non-zero yet smaller than 1000
+    """
+
+    nid_positions = extract_node_positions_dictionary(G)
+    for eid, attrs in iterate_edges(G):
+        # Edge curvature.
+        check("curvature" in attrs, expect="Expect every edge to have 'curvature' attribute annotation.")
+        check(type(attrs["curvature"]) == type(array([])), expect="Expect that all curvature annotations are numpy array.")
+        # * Edge curvature direction.
+        u, v = eid[:2]
+        ps = attrs["curvature"]
+        check(u <= v, expect="Expect `u < v` for all edges.")
+        p, q = nid_positions[u], nid_positions[v]
+        check(np.all(p == ps[0]), expect="Expect curvature of all connected edges starts/end at node position.")
+        check(np.all(q == ps[-1]), expect="Expect curvature of all connected edges starts/end at node position.")
+        # Edge length.
+        check(attrs["length"] > EPS, expect="Expect non-zero edge length.")
+        check(attrs["length"] < 10000, expect="Expect edge length less than 10000 meters. Probably some y, x coordinate in edge curvature got flipped.")
+    

@@ -1,6 +1,5 @@
-import requests
-
 from external import *
+from utilities import *
 from caching import *
 from data_handling import *
 from spatial_reference_systems import *

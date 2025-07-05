@@ -52,7 +52,7 @@ def duplicated_nodes(G, eps=0.001):
 
 # Deduplicates a graph. Reconnects edges of removed nodes (if any). 
 @info()
-def graph_deduplicate(G, eps=0.001):
+def deduplicate_graph(G, eps=0.001):
 
     check(not G.graph["simplified"])
     check(G.graph["coordinates"] == "utm")

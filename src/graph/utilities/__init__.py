@@ -3,4 +3,3 @@ from graph.utilities.coordinates import *
 from graph.utilities.distance import *
 from graph.utilities.general import *
 from graph.utilities.paths import *
-from graph.utilities.sanitization import *

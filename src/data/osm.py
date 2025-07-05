@@ -1,8 +1,8 @@
 from external import *
 from caching import *
 from data_handling import * 
-
 from data.gps import derive_roi
+from graph import *
 
 def read_osm_graph(place):
     return read_graph(osm_locations(place)["graph_file"])
@@ -19,6 +19,7 @@ def obtain_osm_graph(place):
 
     G = ox.graph_from_bbox(bbox=(west, south, east, north), network_type="drive", retain_all=False, simplify=False)
     G = nx.Graph(G.to_undirected())
-    G.graph["simplified"] = False
+    G = sanitize_graph(G)
+    sanity_check_graph(G)
 
     write_graph(osm_locations(place)["graph_file"], G)

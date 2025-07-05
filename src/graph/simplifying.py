@@ -1,6 +1,7 @@
 from external import *
 from utilities import *
 from graph.utilities import *
+from graph.sanitizing import sanity_check_graph_curvature
 
 
 #####
