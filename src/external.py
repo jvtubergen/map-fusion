@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 # Remote libraries
 import pandas as pd
 import geopandas as gpd
