@@ -1,6 +1,7 @@
 from external import *
 from utilities import *
 from graph.utilities import *
+from graph.simplifying import vectorize_graph
 
 
 # Convert a nx.T2 into a graph structure used by the partial curve matching algorithm.

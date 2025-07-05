@@ -146,7 +146,7 @@ def graph_length(G):
 
 
 def graphedge_to_bbox(G, eid, padding=0):
-    ps = graphedge_curvature(G, eid)
+    ps = attributes.graphedge_curvature(G, eid)
     miny = min(ps[:,0])
     maxy = max(ps[:,0])
     minx = min(ps[:,1])

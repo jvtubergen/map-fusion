@@ -1,53 +1,34 @@
 from data_handling import *
-from graph.merging import *
-from graph.simplifying import *
-from graph.deduplicating import *
-from graph.edge_cutting import * 
-from rendering import * 
+from utilities import *
+from data import *
 from map_similarity import *
+from graph import *
+from rendering import * 
 
 #TODO: Organize this piece of code.
 
-# Generate all maps related to thesis.
-# * Allow to customize the coverage threshold.
-# * Allow to instead of gps against sat to act on subselection of sat which is nearby gps edges (easier to look at merging effect).
 @info()
 def generate_maps(threshold = 30, debugging=False, **reading_props):
 
     maps = {}
+    for place in places: 
 
-    simp = simplify_graph
-    dedup = graph_deduplicate
-    to_utm = graph_transform_latlon_to_utm
+        logger(f"Read graphs.")
+        osm = read_osm_graph(place)
+        gps = read_gps_graph(place)
+        sat = read_sat_graph(place)
 
-    for place in ["chicago", "berlin"]: # First run chicago (that one goes faster, so earlier error detection).
-
-        logger(f"{place}.")
-        logger("Preparing input graphs (osm, sat, gps).")
-
-        _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **props)
-
-        # Source graph.
-        osm = _read_and_or_write("osm", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place=place))))), **reading_props)
-
-        # Starting graphs.
-        sat = _read_and_or_write("sat", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["sat"], place=place))))), **reading_props)
-        gps = _read_and_or_write("gps", lambda:simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["gps"], place=place))))), **reading_props)
-
-        # If we are debugging on the merging logic.
         if debugging:
-            # Then (it is convenient) to only act around sat edges nearby gps edges (where the action happens).
-
+            # Prune Sat graph from edges too far away from GPS edge.s
+            # In some cases it is convenient to only act around sat edges nearby gps edges where the action happens.
             logger("DEBUGGING: Pruning Sat graph for relevant edges concerning merging.")
-
             sat_vs_gps   = edge_graph_coverage(sat, gps, max_threshold=threshold)
             intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=threshold)
             sat = intersection # (Update sat so we can continue further logic.)
 
-        # Three merging graphs.
-        logger(f"Generating merging graphs.")
+        logger(f"Apply map fusion.")
         gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
-        graphs     = merge_graphs(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
+        graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
         maps[place] = {
             "osm": osm,
@@ -175,7 +156,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
         # * Each edge which has a threshold above 20m is inserted into sat.
-        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
+        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
         merge_a = graphs["a"]
 
         if plot:
@@ -193,7 +174,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
-        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
+        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
         merge_b = graphs["b"]
 
         if plot:
@@ -218,7 +199,7 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
         gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
 
-        graphs = merge_graphs(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
+        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
         merge_c = graphs["c"]
 
         if plot:

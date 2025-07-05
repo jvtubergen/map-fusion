@@ -3,6 +3,7 @@ from utilities import *
 from graph.utilities import *
 from graph.coverage import *
 from graph.sanitizing import sanity_check_graph_curvature
+from graph.edge_cutting import graph_cut_edge_intervals
 
 
 # Obtain edges covered by specific node.
@@ -33,7 +34,7 @@ def edges_covered_by_nid(G, nid, threshold):
 # * Extension 1: Removal of duplicates.
 # * Extension 2: Reconnecting C edges to injected A edges.
 @info()
-def merge_graphs(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
+def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
 
     # Result object where the merge variants are stored under.
     graphs = {
