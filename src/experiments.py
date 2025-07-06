@@ -7,6 +7,18 @@ from rendering import *
 
 #TODO: Organize this piece of code.
 
+
+def read_fusion_maps(threshold = 30):
+    """Read fusion maps from disk."""
+    maps = {}
+    for place in places:
+        maps[place] = {}
+        maps[place]["A"]   = read_graph(data_location(place, "A", threshold = threshold)["graph_file"])
+        maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
+        maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+    return maps
+
+
 @info()
 def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
     """Obtain fusion maps and write them to disk."""
@@ -30,13 +42,13 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
         gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
         graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
-        A: graphs["a"]
-        B: graphs["b"]
-        C: graphs["c"]
+        A = graphs["a"]
+        B = graphs["b"]
+        C = graphs["c"]
 
-        write_graph(data_location(place, "A", threshold = threshold), A)
-        write_graph(data_location(place, "B", threshold = threshold), B)
-        write_graph(data_location(place, "C", threshold = threshold), C)
+        write_graph(data_location(place, "A", threshold = threshold)["graph_file"], A)
+        write_graph(data_location(place, "B", threshold = threshold)["graph_file"], B)
+        write_graph(data_location(place, "C", threshold = threshold)["graph_file"], C)
 
 
 
