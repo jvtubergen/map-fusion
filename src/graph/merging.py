@@ -55,12 +55,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     _C = C
     C = _C.copy()
 
-    if A.graph["coordinates"] == "latlon":
-        A = graph_transform_latlon_to_utm(A)
-
-    if C.graph["coordinates"] == "latlon":
-        C = graph_transform_latlon_to_utm(C)
-
     # Relabel additional to prevent node id overlap. / # Adjust nids of A to ensure uniqueness once added to C.
     nid = max(C.nodes()) + 1
     relabel_mapping = {}
@@ -121,6 +115,8 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     annotate_edges(B, {"origin": "B"})
     annotate_nodes(B, {"origin": "B"})
 
+    filter_eids_by_attribute(C, filter_func=lambda attrs: attrs["render"] != "deleted")
+
     ## Connecting B to C.
     # Inject B into C.
     C.add_nodes_from(list(iterate_nodes(B)))
@@ -171,8 +167,16 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 
     # Correctify edge curvature.
     graph_correctify_edge_curvature(C)
-
     graphs["a"] = C.copy()
+
+    #TODO: solve all edges have render attribute, some edge with key > 0 is unannotated.
+    drop_edges = []
+    for eid, attrs in iterate_edges(C):
+        if "render" not in attrs:
+            logger(f"eid {eid} is missing render attribute.")
+            drop_edges += [eid]
+    C.remove_edges_from(drop_edges)
+    filter_eids_by_attribute(C, filter_func=lambda attrs: attrs["render"] != "deleted")
     
     # Step 2: Remove duplicated edges of C.
     if remove_duplicates: 
@@ -324,13 +328,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     
         graphs["c"] = C.copy()
     
-    # Convert back graphs to latlon coordinates if necessary.
-    if _C.graph["coordinates"] == "latlon":
-        place = graph_utm_place(_C)
-        graphs["a"] = graph_transform_utm_to_latlon(graphs["a"], place) 
-        graphs["b"] = graph_transform_utm_to_latlon(graphs["b"], place) 
-        graphs["c"] = graph_transform_utm_to_latlon(graphs["c"], place) 
-
     return graphs 
 
 
