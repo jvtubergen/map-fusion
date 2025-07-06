@@ -596,13 +596,12 @@ def plot_graphs_interactively(graphs):
 
     # Toggle function based on label
     def toggle_visibility(label):
-
-        for lbl in labels:
-            plotted_graphs[lbl][0].set_visible(False)
-            plotted_graphs[lbl][1].set_visible(False)
-
-        plotted_graphs[label][0].set_visible(True)
-        plotted_graphs[label][1].set_visible(True)
+        # Toggle visibility of the specific graph without affecting others
+        current_visibility = plotted_graphs[label][0].get_visible()
+        new_visibility = not current_visibility
+        
+        plotted_graphs[label][0].set_visible(new_visibility)
+        plotted_graphs[label][1].set_visible(new_visibility)
 
         ax.legend()  # Update legend
         plt.draw()
