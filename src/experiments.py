@@ -235,93 +235,86 @@ def workflow_network_variants(place=None, plot=False, **storage_props):
 
 
 
+def remove_deleted(G):
+    """Remove nodes and edges with `{"render": "deleted"}` attribute."""
+    G = G.copy()
+    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+    G.remove_edges_from(edges_to_be_deleted)
+    G.remove_nodes_from(nodes_to_be_deleted)
+    return G
+
+
+def precompute_shortest_distance_dictionaries(place, variant, threshold = None):
+
 
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
+@info()
 def experiment_one_base_table():
 
-    threshold = 30
+    ###################
+    ### Preparation.
+    ###################
+    logger("Read all maps.")
+    maps = read_all_maps()
 
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 365*24*60*60, # Keep it for a year.
-    }
+    # logger("Sanity check every graph.")
+    # for place in places:
+    #     for variant in variants:
+    #         sanity_check_graph(maps[place][variant])
 
-    # Precompute maps for measurements.
-    def precompute_measurements_maps(maps):
+    logger("Graph B and C have edges with 'render': 'delete' attribute set, remove them.")
+    maps["berlin"]["B"] = remove_deleted(maps["berlin"]["B"])
+    maps["berlin"]["C"] = remove_deleted(maps["berlin"]["C"])
+    maps["chicago"]["B"] = remove_deleted(maps["chicago"]["B"])
+    maps["chicago"]["B"] = remove_deleted(maps["chicago"]["B"])
 
-        result = {}
+    logger("How many edges in Berlin OSM and Chicago OSM have edges > 50m?")
+    for place in places:
+        G = maps[place]["osm"]
+        num_long_edges = 0 
+        for eid, attrs in iterate_edges(G):
+            ps = attrs["curvature"]
+            if curve_length(ps) > 50:
+                num_long_edges += 1
+        logger(f"* In {place}: {num_long_edges} edges > 50m")
 
-        for place in ["chicago", "berlin"]:
+    logger("Ensure max edge length (50m) on every edge of every graph.")
+    for place in places:
+        for variant in variants:
+            maps[place][variant] = graph_ensure_max_edge_length(maps[place][variant])
+            maps[place][variant] = graph_annotate_edges(maps[place][variant])
 
-            result[place] = {}
+    logger("Sanity check every graph.")
+    for place in places:
+        for variant in variants:
+            sanity_check_graph(maps[place][variant])
 
-            for map_variant in set(maps[place].keys()):
+    ###################
+    ### Compute TOPO and APLS metrics.
+    ###################
+    result = {}
+    for place in places:
 
-                logger(f"{place} - {map_variant}.")
-                
-                # Drop deleted edges before continuing.
-                def remove_deleted(G):
+        result[place] = {}
+        for map_variant in set(variants) - set(["osm"]):
+            # TODO: Precompute shortest paths for graphs, manually add distance on last distance to point of source edge.
 
-                    G = G.copy()
+            logger(f"{place} - {map_variant}.")
+            target_graph = maps[place]["osm"]
+            source_graph = maps[place][variant]
 
-                    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
-                    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+            apls, apls_prime = symmetric_apls(target_graph, source_graph)
+            topo, topo_prime = topo_and_prime(target_graph, source_graph)
 
-                    G.remove_edges_from(edges_to_be_deleted)
-                    G.remove_nodes_from(nodes_to_be_deleted)
+            result[place][map_variant] = {
+                "apls": apls,
+                "apls_prime": apls_prime,
+                "topo": topo,
+                "topo_prime": topo_prime,
+            }
 
-                    return G
-
-                graph = maps[place][map_variant]
-                graph = remove_deleted(graph)
-
-                result[place][map_variant] = {
-                    "topo": prepare_graph_for_topo(graph),
-                    "apls": prepare_graph_for_apls(graph),
-                }
-        
-        return result
-
-
-    # Compute TOPO/APLS results on maps.
-    @info(timer=True)
-    def apply_measurements_maps(prepared_maps, threshold=30):
-
-        result = {}
-
-        for place in ["chicago", "berlin"]:
-
-            result[place] = {}
-
-            truth_apls = prepared_maps[place]["osm"]["apls"]
-            truth_topo = prepared_maps[place]["osm"]["topo"]
-
-            check("prepared" in truth_apls.graph and truth_apls.graph["prepared"] == "apls", expect="Expect prepared truth graph when computing apls metric.")
-            check("prepared" in truth_topo.graph and truth_topo.graph["prepared"] == "topo", expect="Expect prepared truth graph when computing topo metric.")
-
-            for map_variant in set(prepared_maps[place].keys()) - set(["osm"]):
-
-                logger(f"{place} - {map_variant}.")
-
-                proposed_apls = prepared_maps[place][map_variant]["apls"]
-                proposed_topo = prepared_maps[place][map_variant]["topo"]
-
-                check("prepared" in proposed_apls.graph and proposed_apls.graph["prepared"] == "apls", expect="Expect prepared proposed graph when computing apls metric.")
-                check("prepared" in proposed_topo.graph and proposed_topo.graph["prepared"] == "topo", expect="Expect prepared proposed graph when computing topo metric.")
-
-                apls, apls_prime = apls_and_prime(truth_apls, proposed_apls)
-                topo, topo_prime = topo_and_prime(truth_topo, proposed_topo)
-
-                result[place][map_variant] = {
-                    "apls": apls,
-                    "apls_prime": apls_prime,
-                    "topo": topo,
-                    "topo_prime": topo_prime,
-                }
-
-        return result
 
 
     # Construct typst table out of measurements data.
@@ -448,10 +441,10 @@ def experiment_one_base_table():
     )
     """
 
-    maps         = read_and_or_write("results/Experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
-    precomputed  = read_and_or_write("results/Experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
-    measurements = read_and_or_write("results/Experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
-    print(measurements_to_table(measurements))
+    # maps         = read_and_or_write("results/Experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
+    # precomputed  = read_and_or_write("results/Experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
+    # measurements = read_and_or_write("results/Experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
+    print(measurements_to_table(result))
 
 
 # Experiment two - A.

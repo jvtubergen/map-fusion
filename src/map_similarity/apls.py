@@ -3,16 +3,12 @@ from data_handling import *
 from utilities import *
 from graph import *
 
-# Relate nodes of G to H and inject control points if necessary.
-# If no nearby point on H can be found (in relation to a node `nid` of G), then `H_to_G[nid]` is `None`.
-# Example:
-# ```python
-# H_to_G, H_to_G_relations = inject_and_relate_control_points(H, G)
-# assert len(H_to_G.nodes()) >= len(H.nodes())
-# H_to_G.nodes()[H_to_G_relations[G.nodes()[0]]] # Link nodes of G to H.
-# ```
 @info(timer=True)
-def inject_and_relate_control_points(G, H, max_distance=4):
+def inject_and_relate_control_points(G, H, max_distance=25):
+    """
+    Relate nodes of target graph G to source graph H and inject control points if necessary.
+    Return the updated source graph H alongside a dictionary that links nodes of G to H (keys are nids of G, values are nids of H they connect to).
+    """
 
     G_to_H = {} # All nodes of G related to a node of H.
 
@@ -29,9 +25,6 @@ def inject_and_relate_control_points(G, H, max_distance=4):
 
     # Find (and optionally inject) node within H nearby every node of G.
     for G_nid, attrs in iterate_nodes(G):
-
-        # Initiate an empty relation.
-        G_to_H[G_nid] = None
 
         # Pick the node bounding box and pad it with the max distance.
         G_node_bbox = G_node_bboxs[G_nid]
@@ -99,91 +92,15 @@ def inject_and_relate_control_points(G, H, max_distance=4):
     return H_with_control_points, G_to_H
 
 
-# Prepare graph for APLS computations.
-# Note: Checks for the "prepared" attribute on whether it is already prepared.
-#       This can be a great performance gain on e.g. re-using a ground truth graph.
-def prepare_graph_for_apls(G):
 
-    if "prepared" in G.graph and G.graph["prepared"] == "apls":
-
-        return G
-    
-    if not G.graph["coordinates"] == "utm":
-        G = graph_transform_latlon_to_utm(G)
-
-    if not G.graph["simplified"]:
-        G = simplify_graph(G)
-
-    sanity_check_edge_length(G)
-    sanity_check_node_positions(G)
-
-    G = graph_ensure_max_edge_length(G, max_length=50)
-
-    sanity_check_edge_length(G)
-    sanity_check_node_positions(G)
-
-    G.graph["prepared"] = "apls"
-
-    return G
-
-
-# Prepare graph data to be sampled for APLS.
-# * G has edges of max 50m length.
-# * H has nearby control points injected.
-# * Relation between control nodes of G to H.
-# * All edges have length annotated.
-@info(timer=True)
-def prepare_graph_data(G, H):
-
-    G = prepare_graph_for_apls(G)
-    H = prepare_graph_for_apls(H)
-
-    # Find and relate control points of G to H.
-    # Note: All nodes (of the simplified graph) are control points.
-    Hc, G_to_Hc = inject_and_relate_control_points(G, H)
-
-    return {
-        "G": G,
-        "Hc": Hc,
-        "G_to_Hc": G_to_Hc
-    }
-
-
-# Compute shortest path data (between all pairs of start-end nodes within a selection of node identifiers).
-@info(timer=True)
-def precompute_shortest_path_data(G, control_nids):
-
-    # Sanity check control nids exist in graph.
-    for nid in control_nids:
-        if nid not in G.nodes():
-            raise Exception(f"Control nid {nid} does not exist in the graph.")
-
-    # Compute distance matrix between these points.
-    distance_matrix = {}
-    for u in control_nids:
-
-        # Compute all reachable points from this node.
-        distances = nx.single_source_dijkstra_path_length(G, u, weight="length")
-
-        # Filter out dictionary to only include end nodes which are:
-        # * Contained in the control nodes list.
-        # * Have a node identifier higher than the control nid coming from (prevents duplicated checks in subsequent logic).
-        filtered = {}
-        for v in distances.keys():
-            if v > u and v in control_nids:
-                filtered[v] = distances[v]
-        
-        distance_matrix[u] = filtered
-
-    return distance_matrix
-
-
-# Perform all samples and categorize them into the three categories:
-# * A. Proposed graph does not have a control point.
-# * B. Proposed graph does not have a path between control points.
-# * C. Both graphs have control points and a path between them.
 @info(timer=True)
 def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
+    """
+    Perform all samples and categorize them into the three categories:
+    * A. Proposed graph does not have a control point.
+    * B. Proposed graph does not have a path between control points.
+    * C. Both graphs have control points and a path between them.
+    """
 
     sample_paths = {} # The start and end node pair related to a sample. This is taken from the G graph (so to reconstruct for Hc you require to apply G_to_Hc).
 
@@ -207,149 +124,115 @@ def perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths):
 # * Optionally provide a predetermined set of control nodes.
 # * Optionally extract control nodes specifically viable for computing prime (thus control point is related to proposed graph).
 @info(timer=True)
-def apls_asymmetric_sampling(prepared_graph_data, n=500, prime=False):
+def apls_sampling(G, Hc, G_to_Hc, G_paths, Hc_paths, n=10000):
+    """Obtain samples.""" 
 
-    # Prepared graph data for sampling.
-    G = prepared_graph_data["G"]
-    Hc = prepared_graph_data["Hc"]
-    G_to_Hc = prepared_graph_data["G_to_Hc"]
+    all_nids       = set(G.nodes())
+    all_nids_prime = set(G_to_Hc.keys())
 
-    # Select control nodes to perform sampling on.
-    if prime:
-        nids_to_sample_from = [nid for nid in G_to_Hc.keys() if G_to_Hc[nid] != None]
-
-    else:
-        # Sample randomly from the original graph until we have the number of control nodes.
-        nids_to_sample_from = list(G.nodes())
+    # Normal: Generate `n` samples with (start, end).
+    normal_samples = set()
+    while len(normal_samples) < min(n, len(all_nids)):
+        start = random.select(all_nids, 1)
+        end   = random.select(all_nids - start, 1)
+        if end in G_paths[start]:
+            normal_samples.add(sorted([start, end]))
     
-    G_control_nids = set(random.sample(nids_to_sample_from, min(n, len(nids_to_sample_from))))
-    
-    # Take subset of `G_to_Hc` to the control nodes (these are the only nodes we have to relate with another).
-    for nid in [nid for nid in G_to_Hc.keys()]:
-        if nid not in G_control_nids:
-            G_to_Hc.pop(nid)
-    
-    # Sanity check that all control nids of G are contained in the G-to-Hc mapping.
-    for nid in G_control_nids:
-        if nid not in G_to_Hc:
-            raise Exception(f"Expect all nids of G_control_nids to be present in G_to_Hc.")
-    
-    # Obtain control nids to use in `H`.
-    Hc_control_nids = set([G_to_Hc[nid] for nid in G_control_nids if G_to_Hc[nid] != None])
+    # Primal: Generate `n` samples with (start, end).
+    primal_samples = set()
+    while len(primal_samples) < min(n, len(all_nids_prime)):
+        start = random.select(all_nids_prime, 1)
+        end   = random.select(all_nids_prime - start, 1)
+        if end in G_paths[start]:
+            primal_samples.append(sorted([start, end]))
 
-    # Compute shortest paths between this set of control nodes.
-    G_shortest_paths = precompute_shortest_path_data(G, G_control_nids)
-    Hc_shortest_paths = precompute_shortest_path_data(Hc, Hc_control_nids)
+    ## Category A: No control point in the proposed graph.
+    A_normal = set([(start, end) for (start, end) in normal_samples if start not in all_nids_prime or end not in all_nids_prime])
+    A_primal = set()
 
-    # Perform sampling.
-    samples = perform_sampling(G, Hc, G_to_Hc, G_shortest_paths, Hc_shortest_paths)
+    ## Category B: Control nodes exist and a path exists in the ground truth, but not in the proposed graph. 
+    B_normal = set([(start, end) for (start, end) in normal_samples - A_normal if G_to_Hc[end] not in Hc_paths[G_to_Hc[start]]])
+    B_primal = set([(start, end) for (start, end) in primal_samples - A_primal if G_to_Hc[end] not in Hc_paths[G_to_Hc[start]]])
 
-    # Compute path score.
-    # Note: This function is bound to scope (it relies on variables in scope) to keep things simple.
-    def score(start, end):
-        a = G_shortest_paths[start][end]
-        b = Hc_shortest_paths[G_to_Hc[start]][G_to_Hc[end]]
-        value = 1 - min(abs(a - b) / a, 1)
-        return value
+    ## Category C: Both graphs have control points and a path between them.
+    C_normal = normal_samples - A_normal.union(B_normal)
+    C_primal = primal_samples - A_primal.union(B_primal)
 
-    # Compute metric.
-    path_scores      = [score(start, end) for (start, end) in samples["C"]]
-
-    # Arbitrary data for debugging/visualization purposes.
-    data = {
-        "samples": samples,
-        "path_scores": path_scores,
-        "G_control_nids": G_control_nids,
-        "prepared_graph_data": prepared_graph_data
+    # Collect.
+    samples_normal = {
+        "A": A_normal,
+        "B": B_normal,
+        "C": C_normal,
     }
-    
-    return data
+
+    samples_primal = {
+        "A": A_primal,
+        "B": B_primal,
+        "C": C_primal,
+    }
+
+    return samples_normal, samples_primal
 
 
 # Compute score on the data object.
-def compute_score(data, prime=False):
-
-    path_scores = data["path_scores"]
-    samples     = data["samples"]
+def compute_score(samples, path_scores):
     sample_sum  = sum(path_scores)
-
-    if prime:
-        n = len(samples["B"]) + len(samples["C"])
-    else:
-        n = len(samples["B"]) + len(samples["C"]) + len(samples["A"])
-
-    score = sample_sum / (len(samples["B"]) + len(samples["C"]) + len(samples["A"]))
-    
+    n = len(samples["B"]) + len(samples["C"]) + len(samples["A"])
+    score = sample_sum / n
     return score
 
 
-# Compute the APLS metric (a similarity value between two graphs in the range [0, 1]).
 @info(timer=True)
-def apls(G, H, n=500, prime=False, prepared_graph_data=None):
+def asymmetric_apls(G, H, n=10000):
+    """Compute the APLS and APLS* metric (a similarity value between two graphs in the range [0, 1])."""
 
-    if prepared_graph_data == None:
-        prepared_graph_data = {
-            "left" : prepare_graph_data(G, H),
-            "right": prepare_graph_data(H, G),
+    Hc, G_to_Hc = inject_and_relate_control_points(G, H)
+    Hc = graph_annotate_edges(Hc)
+
+    logger("Compute shortest paths.")
+    G_paths  = dict(nx.shortest_path(G, weight="length"))
+    Hc_paths = dict(nx.shortest_path(Hc, weight="length"))
+
+    # Obtain samples.
+    samples_normal, samples_primal = apls_sampling(G, Hc, G_to_Hc, G_paths, Hc_paths, n=n)
+
+    # Obtain path scores.
+    path_scores_normal = {(start, end): {"source": Hc_paths[G_to_Hc[start]][G_to_Hc[end]], "target":G_paths[start][end]} for (start, end) in samples_normal["C"]}
+    path_scores_primal = {(start, end): {"source": Hc_paths[G_to_Hc[start]][G_to_Hc[end]], "target":G_paths[start][end]} for (start, end) in samples_primal["C"]}
+
+    # Compute sample values.
+    sample_values_normal = [0 for _ in samples_normal["A"]] + [0 for _ in samples_normal["B"]] + [0 for _ in samples_normal["A"]]
+    
+    # At this moment the APLS is computed symmetrically only.
+    apls_score       = compute_score(samples_normal, path_scores_normal)
+    apls_prime_score = compute_score(samples_primal, path_scores_primal)
+
+    # Compute metadata: 
+    metadata = {
+        "normal": {
+            "samples": samples_normal,
+            "path_scores": path_scores_normal,
+        },
+        "primal": {
+            "samples": samples_primal,
+            "path_scores": path_scores_primal,
         }
-    else:
-        # Deep copy to prevent mangling (`apls_asymmetric_sampling` pops unneeded nids from `G_to_Hc`).
-        prepared_graph_data = deepcopy(prepared_graph_data)
-
-    left  = apls_asymmetric_sampling(prepared_graph_data["left"] , n=n, prime=prime)
-    right = apls_asymmetric_sampling(prepared_graph_data["right"], n=n, prime=prime)
-
-    score = 0.5 * (compute_score(left, prime=prime) + compute_score(right, prime=prime))
-
-    data = {
-        "left" : left,
-        "right": right,
     }
 
-    return score, data
+    return apls_score, apls_prime_score, metadata
 
-# Copmute APLS and APLS* metric between two graphs.
-def apls_and_prime(truth, proposed):
 
-    prepared_graph_data = {
-        "left" : prepare_graph_data(truth, proposed),
-        "right": prepare_graph_data(proposed, truth),
+@info(timer=True)
+def symmetric_apls(G, H, n=10000):
+    left = asymmetric_apls(G, H, n=n)
+    right= asymmetric_apls(H, G, n=n)
+    gc.collect()
+
+    apls_score = 0.5 * (left[0] + right[0])
+    apls_prime_score = 0.5 * (left[1] + right[1])
+    metadata = {
+        "left": left[2],
+        "right": right[2]
     }
 
-    apls_score      , _ = _apls(truth, proposed, prepared_graph_data=prepared_graph_data)
-    apls_prime_score, _ = _apls(truth, proposed, prepared_graph_data=prepared_graph_data, prime=True)
-
-    return apls_score, apls_prime_score
-
-
-# Workflow to check apls.
-# Optionally load in "tmp_data.pkl" if graph data is already prepared.
-@info(timer=True)
-def apls_and_prime_by_place(place, setup=True):
-
-    if setup:
-
-        G = read_graph(get_graph_path(graphset=links["sat"], place=place))
-        H = read_graph(get_graph_path(graphset=links["gps"], place=place))
-
-        prepared_graph_data = {
-            "left" : prepare_graph_data(G, H),
-            "right": prepare_graph_data(H, G),
-        }
-
-        data = G, H, prepared_graph_data
-        pickle.dump(data, open(f"tmp_data.pkl", "wb"))
-
-    data = pickle.load(open("tmp_data.pkl", "rb"))
-    G, H, prepared_graph_data = data
-
-    apls_score      , data = apls(G, H, prepared_graph_data=prepared_graph_data)
-    apls_prime_score, _    = apls(G, H, prime=True, prepared_graph_data=prepared_graph_data)
-
-    print("times:")
-    print("\n".join([f"{execution_time: .2f}: {context}" for context, execution_time in times]))
-
-    print("APLS  score: ", apls_score)
-    print("APLS* score: ", apls_prime_score)
-
-    return apls_score, apls_prime_score
+    return apls_score, apls_prime_score, metadata
