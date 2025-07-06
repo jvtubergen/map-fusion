@@ -8,12 +8,12 @@ from rendering import *
 #TODO: Organize this piece of code.
 
 @info()
-def generate_maps(threshold = 30, debugging=False, **reading_props):
+def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
+    """Obtain fusion maps and write them to disk."""
 
-    maps = {}
     for place in places: 
 
-        logger(f"Read graphs.")
+        logger(f"Apply map fusion to {place}.")
         osm = read_osm_graph(place)
         gps = read_gps_graph(place)
         sat = read_sat_graph(place)
@@ -30,16 +30,14 @@ def generate_maps(threshold = 30, debugging=False, **reading_props):
         gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
         graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
-        maps[place] = {
-            "osm": osm,
-            "sat": sat,
-            "gps": gps,
-            "a": graphs["a"],
-            "b": graphs["b"],
-            "c": graphs["c"],
-        }
+        A: graphs["a"]
+        B: graphs["b"]
+        C: graphs["c"]
 
-    return maps    
+        write_graph(data_location(place, "A", threshold = threshold), A)
+        write_graph(data_location(place, "B", threshold = threshold), B)
+        write_graph(data_location(place, "C", threshold = threshold), C)
+
 
 
 

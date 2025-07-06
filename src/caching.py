@@ -41,7 +41,7 @@ def get_data_file(file_path):
         os.makedirs(parent_dir, exist_ok=True)
     return location
 
-def data_location(place, variant):
+def data_location(place, variant, threshold = None):
     """Unified location logic for different data variants and places."""
     if variant == "osm":
         return {
@@ -93,8 +93,9 @@ def data_location(place, variant):
         
         return base
     elif variant in ["A", "B", "C"]:
+        assert threshold != None
         return {
-            "graph_file": get_data_file(f"graphs/{variant}-{place}.graph")
+            "graph_file": get_data_file(f"graphs/{variant}-{place}-{threshold}.graph")
         }
     else:
         raise ValueError(f"Unknown variant: {variant}")
