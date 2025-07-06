@@ -2,6 +2,8 @@ import os
 
 places = ["berlin", "chicago"]
 base_variants = ["osm", "sat", "gps"]
+fusion_variants = ["A", "B", "C"]
+variants = base_variants + fusion_variants
 
 # This file provides functions to cache your computation results so they can be re-used.
 

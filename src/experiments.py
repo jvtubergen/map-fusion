@@ -6,8 +6,6 @@ from graph import *
 from rendering import * 
 
 #TODO: Organize this piece of code.
-
-
 def read_fusion_maps(threshold = 30):
     """Read fusion maps from disk."""
     maps = {}
@@ -17,6 +15,20 @@ def read_fusion_maps(threshold = 30):
         maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
         maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
     return maps
+
+
+def read_all_maps(threshold = 30):
+    maps = {}
+    for place in places:
+        maps[place] = {}
+        maps[place]["osm"] = read_osm_graph(place)
+        maps[place]["gps"] = read_gps_graph(place)
+        maps[place]["sat"] = read_sat_graph(place)
+        maps[place]["A"]   = read_graph(data_location(place, "A", threshold = threshold)["graph_file"])
+        maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
+        maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+    return maps
+
 
 
 @info()
