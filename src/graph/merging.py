@@ -7,10 +7,11 @@ from graph.edge_cutting import graph_cut_edge_intervals
 
 
 # Obtain edges covered by specific node.
-def edges_covered_by_nid(G, nid, threshold):
+def edges_covered_by_nid(G, nid, threshold, edge_tree=None):
+    if edge_tree == None:
+        edge_tree = graphedges_to_rtree(G)
 
     # Find nearby edges.
-    edge_tree = graphedges_to_rtree(G)
     node_bbox = graphnode_to_bbox(G, nid, padding=threshold)
     nearby_eids = intersect_rtree_bbox(edge_tree, node_bbox)
 
@@ -228,7 +229,8 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         B_eids = filter_eids_by_attribute(C, filter_attributes={"origin": "B"})
         subgraph = C.edge_subgraph(B_eids)
         connect_nodes = [nid for nid, _ in iterate_nodes(subgraph) if subgraph.degree[nid] == 1] # Nodes of B with a degree of 1.
-        edges_to_ignore = [eid for nid in connect_nodes for eid in edges_covered_by_nid(C, nid, prune_threshold)] # Edges of C covered by these connect nodes.
+        _edge_tree = graphedges_to_rtree(C)
+        edges_to_ignore = [eid for nid in connect_nodes for eid in edges_covered_by_nid(C, nid, prune_threshold, edge_tree=_edge_tree)] # Edges of C covered by these connect nodes.
 
         # Mark edges for deletion.
         annotate_edges(C, {"render": "deleted"}, eids=list(set(edges_to_be_deleted) - set(edges_to_ignore)))
