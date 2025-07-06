@@ -96,6 +96,16 @@ def edge_graph_coverage(S, T, max_threshold=None):
         eids = set(flatten([get_connected_eids(S, nid) for nid in nearby_nids]))
         check(eid in eids, expect="Expect the eid to be present within the set: The edges adjacent to nodes captured by the edgebbox of eid.")
 
+    # Pre-filter out edges above max-threshold.
+    logger("Pre-filter out edges above max-threshold.")
+    for eid in leftS:
+        curve = curves[eid]
+        subgraph = subgraphs[eid]
+        path = partial_curve_graph(subgraph, curve, max_threshold + 1)
+        if path == None:
+            thresholds[eid] = inf
+            covered_by[eid] = []
+
     # Increment threshold and seek nearby path till all edges have found a threshold (or max threshold is reached).
     logger("Seek path for threshold.")
     while len(leftS) > 0 and (max_threshold == None or lam <= max_threshold):
