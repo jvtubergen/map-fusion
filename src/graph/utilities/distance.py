@@ -124,9 +124,9 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
     return eid
 
 
-# Obtain nearest edge for position p.
-@info()
-def nearest_edge_for_position(G, p, edge_tree=None, excluded_eids=set()):
+# Obtain nearest edge and the related position on the edge curvature for position p.
+# Note: This does not exclude nodes or edges of the graph.
+def nearest_edge_and_position_for_position(G, p, edge_tree=None):
 
     if edge_tree == None:
         edge_tree = graphedges_to_rtree(G)
@@ -134,14 +134,10 @@ def nearest_edge_for_position(G, p, edge_tree=None, excluded_eids=set()):
     # Seek distance to edge of first hit.
     bbox = bounding_box(array([p]))
 
-    # Extend excluded eids with those connected to nid.
-    to_exclude = excluded_eids.union(set([format_eid(G, eid) for eid in G.edges(nid, keys=True)]))
-
     eid = None
     for found in nearest_rtree_bbox(edge_tree, bbox):
-        if found not in to_exclude:
-            eid = found
-            break
+        eid = found
+        break
     
     check(eid != None, expect="Expect to find nearby edge.")
 
@@ -152,15 +148,23 @@ def nearest_edge_for_position(G, p, edge_tree=None, excluded_eids=set()):
     eids = intersect_rtree_bbox(edge_tree, bbox)
 
     # Rerun against all edges and return lowest.
-    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in to_exclude]
+    distances = [(eid, graph_distance_position_edge(G, p, eid)) for eid in eids]
 
     # Obtain lowest
     eid, distance = min(distances, key=lambda x: x[1])
 
+    return eid, distance
+
+
+# Obtain nearest edge of G for position p.
+# Note: This does not exclude nodes or edges of the graph.
+@info()
+def nearest_edge_for_position(G, p, edge_tree=None):
+    eid, distance = nearest_edge_and_position_for_position(G, p, edge_tree=edge_tree)
     return eid
 
 
-# Compute distance between node and edge.
+# Compute distance between node of G and an edge of G.
 @info()
 def graph_distance_node_edge(G, nid, eid):
     point = graphnode_position(G, nid)
@@ -169,11 +173,12 @@ def graph_distance_node_edge(G, nid, eid):
     curvepoint = nearest_position_on_curve_to_point(curve, point)
     return norm(point - curvepoint)
 
+# Compute distance between a point and an edge of G.
 @info()
 def graph_distance_position_edge(G, p, eid):
     curve = attributes.graphedge_curvature(G, eid)
-    curvepoint = nearest_position_on_curve_to_point(curve, point)
-    return norm(point - curvepoint)
+    curvepoint = nearest_position_on_curve_to_point(curve, p)
+    return norm(p - curvepoint)
 
 
 # Compute total graph edge length.

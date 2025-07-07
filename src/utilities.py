@@ -212,6 +212,22 @@ def curve_cut_max_distance(ps, max_distance=10):
     return curve_cut_pieces(ps, amount=pieces)
 
 
+# Obtain position at interval (in [0,1]) along curve ps.
+def position_at_curve_interval(ps, interval):
+    lengths    = norm(ps[1:] - ps[:-1], axis=1)
+    weights    = lengths / sum(lengths)
+
+    cumulative = 0
+    for i, weight in enumerate(weights):
+        cumulative += weight
+        if value < cumulative: # value > cumulative - weight
+            percentage = (value - (cumulative - weight)) / weight
+            return ps[i] * (1 - percentage) + ps[i+1] * percentage
+    
+    # This should never be reached given the bounds check above
+    return ps[-1]
+
+
 #### Curve tests
 def test_curve_cut_intervals():
     ps = random_curve()
@@ -387,7 +403,7 @@ def distance_point_to_linesegment(p, q, a):
         return a[1], a[0] / q[0]
 
 
-# Compute position on curve which lies nearest to a point.
+# Compute position on curve which lies nearest to a point and its related interval in range [0, length].
 def nearest_position_and_interval_on_curve_to_point(ps, point): 
     
     items = []

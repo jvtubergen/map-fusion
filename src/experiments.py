@@ -74,27 +74,32 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
 
 
 def obtain_prepared_graphs():
-    """Obtain prepared graphs (inject node every 50 meters)."""
+    """
+    DEPRECATED: APLS computes directly on stored graph, the max edge length not necessary with updated APLS logic.
+    Obtain prepared graphs (inject node every 50 meters).
+    """
     for place in places: 
         for variant in variants:
             G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
             G = remove_deleted(G)
-            G = graph_ensure_max_edge_length(G)
+            logger(f"Nodes before: {len(G.nodes())}")
+            G = graph_ensure_max_edge_length(G, max_length=100)
             G = graph_annotate_edges(G)
             sanity_check_graph(G)
+            logger(f"Nodes after: {len(G.nodes())}")
             write_graph(experiment_location(place, variant, threshold=threshold)["prepared_graph"], G)
 
 
-def obtain_shortest_distance_dictionaries(threshold = 30, amount = 5000):
-    """Obtain shortest distance on a graph and write to disk."""
-    # limit to 1000 nodes
+def obtain_shortest_distance_dictionaries(threshold = 30):
+    """
+    Obtain shortest distance on a graph and write to disk.
+    """
     for place in places: 
         for variant in variants:
             print(f"{place}-{variant}")
             shortest_paths = None
-            G = read_graph(experiment_location(place, variant, threshold = threshold)["prepared_graph"])
-            breakpoint()
-            shortest_paths = dict(nx.shortest_path_length(G, weight="length"))
+            G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
+            shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold)["shortest_paths"], shortest_paths)
     
 
@@ -117,6 +122,8 @@ def obtain_apls_score(threshold = 30):
             print(f"{place}-{variant}")
             location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
             maps[place][variant] = read_graph(location)
+            if variant in ["B","C"]:
+                maps[place][variant] = remove_deleted(maps[place][variant])
     
     logger("Reading shortest paths maps.")
     shortest_paths = {}
@@ -128,7 +135,6 @@ def obtain_apls_score(threshold = 30):
             shortest_paths = read_pickle(location)
 
     logger("Computing APLS metric.")
-    # Compute TOPO and APLS metrics.
     result = {}
     for place in places:
 

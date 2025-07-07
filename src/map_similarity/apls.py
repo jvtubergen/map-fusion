@@ -3,12 +3,57 @@ from data_handling import *
 from utilities import *
 from graph import *
 
+@info(timer=True)
+def precompute_shortest_path_data(G):
+    """
+    Compute shortest path data (between all pairs of start-end nodes within a selection of node identifiers).
+    
+    Storing distances as floats and constructing the distance matrix with v > u results in significantly better data
+    sizes compared to running nx.shortest_path_lengths:
+    ```txt
+    55M	 vs 832M on shortest_paths/A-berlin-30.pkl
+    57M	 vs 607M on shortest_paths/A-chicago-30.pkl
+    55M	 vs 728M on shortest_paths/B-berlin-30.pkl
+    57M	 vs 544M on shortest_paths/B-chicago-30.pkl
+    56M	 vs 752M on shortest_paths/C-berlin-30.pkl
+    62M	 vs 612M on shortest_paths/C-chicago-30.pkl
+    20M	 vs 322M on shortest_paths/gps-berlin.pkl
+    8.0K vs 140K on shortest_paths/gps-chicago.pkl
+    28M	 vs 424M on shortest_paths/osm-berlin.pkl
+    4.2M vs 73M  on shortest_paths/osm-chicago.pkl
+    38M	 vs 638M on shortest_paths/sat-berlin.pkl
+    57M	 vs 600M on shortest_paths/sat-chicago.pkl
+    ```
+    """
+
+    nids = G.nodes()
+
+    # Compute distance matrix between these points.
+    distance_matrix = {}
+    for u in nids:
+
+        # Compute all reachable points from this node.
+        distances = nx.single_source_dijkstra_path_length(G, u, weight="length")
+
+        # Filter out dictionary to only include end nodes which are:
+        # * Contained in the control nodes list.
+        # * Have a node identifier higher than the control nid coming from (prevents duplicated checks in subsequent logic).
+        filtered = {}
+        for v in distances.keys():
+            if v > u and v in nids:
+                filtered[v] = float(distances[v])
+        
+        distance_matrix[u] = filtered
+
+    return distance_matrix
+
 
 @info(timer=True)
 def relate_control_points(G, H, max_distance=25):
     """
     Relate nodes of target graph G to edges of source graph H and mention offset in H edge (so we can compute distance of shortest path).
-    Return a dictionary that links nodes of G to H (keys are nids of G, values are nid with distance offset of H it connects to).
+    Return a dictionary that links nodes of G to H (keys are nids of G, values are eid with distance offset of H it connects to).
+    Note: eid always has lowest nid first. In combination with offset from lowest nid this provides therefore all information necessary.
     """
 
     G_to_H = {} # All nodes of G related to a node alongside offset of H.
@@ -21,18 +66,30 @@ def relate_control_points(G, H, max_distance=25):
         G_position = graphnode_position(G, G_nid)
         H_eid = nearest_edge_for_position(H, G_position, edge_tree=H_edge_rtree)
         H_nid = H_eid[0] # Take start value.
-        H_curve = graphedge_curvature(H_eid)
-        G_H_distance, interval = nearest_interval_on_curve_to_point(H_curve, G_position)
-        H_length = curve_length(H_curve) * interval
+        H_curve = graphedge_curvature(H, H_eid)
+        H_position, H_edge_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_position)
+        G_H_distance = norm(H_position - G_position)
 
         if G_H_distance <= max_distance:
-            G_to_H[G_nid] = (H_nid, H_length)
+            G_to_H[G_nid] = (H_nid, H_edge_interval)
 
     return G_to_H
 
 
+def pick_random_edge_weighted(G):
+    """
+    Pick a random edge on G.
+    Scale chance to pick an edge by its edge length.
+    """
+    eids    = get_eids(G)
+    lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
+    total   = sum(lengths)
+    weights = lengths / total
+    return np.random.choice(eids, 1, weights)
+
+
 @info(timer=True)
-def apls_sampling(G, H, G_to_H, G_paths, H_paths, n=10000):
+def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
     """
     Obtain samples. 
     * G: Target graph
@@ -42,48 +99,101 @@ def apls_sampling(G, H, G_to_H, G_paths, H_paths, n=10000):
     * H_paths: Shortest paths dictionary on graph H
     """ 
 
-    all_nids       = set(G.nodes())
-    all_nids_prime = set(G_to_H.keys())
 
-    # Normal: Generate `n` samples with (start, end).
-    normal_samples = set()
-    while len(normal_samples) < min(n, len(all_nids)):
-        start = random.select(all_nids, 1)
-        end   = random.select(all_nids - start, 1)
-        if end in G_paths[start]:
-            normal_samples.add(sorted([start, end]))
+    # Pick n samples at random in G.
+    eids    = get_eids(G)
+    lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
+    total   = sum(lengths)
+    weights = lengths / total
+
+    H_edge_rtree = graphedges_to_rtree(H)
+
+    def gen_random_position(G):
+        _eid_indices = [i for i in range(len(eids))]
+        _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
+        G_eid    = eids[_eid_index]
+        attrs  = get_edge_attributes(G, G_eid)
+        length = attrs["length"]
+        offset = random.random()
+        G_distance = offset * length
+        G_position = position_at_curve_interval(attrs["curvature"], offset)
+        return {
+            "eid": G_eid,
+            "position": G_position,
+            "distance": G_distance
+        }
+
+
+    def get_sample():
+        """Obtain a random position on G and its nearest position on H."""
+        # Start position
+        G_start = gen_random_position(G)
+        G_end   = gen_random_position(G)
+        u, v = sorted([G_start["eid"][0], G_end["eid"][0]])
+        if v not in G_paths[u]:
+            return None
     
-    # Primal: Generate `n` samples with (start, end).
-    primal_samples = set()
-    while len(primal_samples) < min(n, len(all_nids_prime)):
-        start = random.select(all_nids_prime, 1)
-        end   = random.select(all_nids_prime - start, 1)
-        if end in G_paths[start]:
-            primal_samples.append(sorted([start, end]))
+        H_eid   = nearest_edge_for_position(H, G_start["position"], edge_tree=H_edge_rtree)
+        H_curve = graphedge_curvature(H, H_eid)
+        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_start["position"])
+        H_distance = graphedge_length(H, H_eid) * H_interval
+        H_start = {
+            "eid": H_eid,
+            "position": H_position,
+            "distance": H_distance
+        }
 
-    ## Category A: No control point in the proposed graph.
-    A_normal = set([(start, end) for (start, end) in normal_samples if start not in all_nids_prime or end not in all_nids_prime])
-    A_primal = set()
+        # End position
+        H_eid   = nearest_edge_for_position(H, G_start["position"], edge_tree=H_edge_rtree)
+        H_curve = graphedge_curvature(H, H_eid)
+        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_start["position"])
+        H_distance = graphedge_length(H, H_eid) * H_interval
+        H_end   = {
+            "eid": H_eid,
+            "position": H_position,
+            "distance": H_distance
+        }
 
-    ## Category B: Control nodes exist and a path exists in the ground truth, but not in the proposed graph. 
-    B_normal = set([(start, end) for (start, end) in normal_samples - A_normal if G_to_H[end] not in H_paths[G_to_H[start]]])
-    B_primal = set([(start, end) for (start, end) in primal_samples - A_primal if G_to_H[end] not in H_paths[G_to_H[start]]])
+        is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
+        u, v = sorted([H_start["eid"][0], H_end["eid"][0]])
+        path_exists = v not in H_paths[u]
+        return {
+            "A": not is_primal,
+            "B": is_primal and not path_exists,
+            "C": is_primal and path_exists,
+            "G": {
+                "start": G_start,
+                "end"  : G_end,
+            }, 
+            "H": {
+                "start": H_start,
+                "end"  : H_end,
+            }, 
+        }
 
-    ## Category C: Both graphs have control points and a path between them.
-    C_normal = normal_samples - A_normal.union(B_normal)
-    C_primal = primal_samples - A_primal.union(B_primal)
+    normal_samples = []
+    while len(normal_samples) < n:
+        sample = get_sample()
+        if sample != None:
+            normal_samples.append(sample)
+
+    primal_samples = [sample for sample in normal_samples if not sample["A"]]
+    while len(primal_samples) < n:
+        sample = get_sample()
+        if sample != None and not sample["A"]:
+            primal_samples.append(sample)
 
     # Collect.
     samples_normal = {
-        "A": A_normal,
-        "B": B_normal,
-        "C": C_normal,
+        "A": [sample for sample in normal_samples if sample["A"]],
+        "B": [sample for sample in normal_samples if sample["B"]],
+        "C": [sample for sample in normal_samples if sample["C"]],
     }
 
     samples_primal = {
-        "A": A_primal,
-        "B": B_primal,
-        "C": C_primal,
+        "A": [],
+        "B": [sample for sample in primal_samples if sample["B"]],
+        "C": [sample for sample in primal_samples if sample["C"]],
     }
 
     return samples_normal, samples_primal
@@ -109,11 +219,8 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
     Uses an alternative G_to_H structure, which stores nearest edge instead of nearest node G
     """
 
-    # Relate control points.
-    G_to_H = relate_control_points(G, H, max_distance=threshold)
-
     # Obtain samples.
-    samples_normal, samples_primal = apls_sampling(G, H, G_to_H, G_paths, H_paths, n=n)
+    samples_normal, samples_primal = apls_sampling(G, H, G_paths, H_paths, n=n)
 
     def sample_score(a, b):
         """
@@ -126,12 +233,47 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
         n = len(samples["A"]) + len(samples["B"]) + len(samples["C"])
         sample_sum = sum(path_scores)
         return sample_sum / n
+    
+    def reconstruct_shortest_path(paths, sample):
+        # Obtain distance target path.
+        # TODO: Which of the four edge endpoint combinations is lowest distance?
+        # Account for distance offset from edge endpoint.
+
+        u, v = sample["start"]["eid"][:2]
+        x, y = sample["end"]["eid"][:2]
+        d1   = sample["start"]["distance"]
+        d2   = sample["start"]["distance"]
+
+        a = paths[u][x]
+        b = paths[u][y]
+        c = paths[v][x]
+        d = paths[v][y]
+
+        lowest = min(a,b,c,d)
+        l1 = get_edge_attributes(G, sample["start"]["eid"])["length"]
+        l2 = get_edge_attributes(G, sample["end"]["eid"])["length"]
+
+        check(d1 <= l1)
+        check(d2 <= l2)
+    
+        check(abs(c - a) <= l1)
+        check(abs(d - b) <= l2)
+
+        if a == lowest:
+            return a + d1 + d2
+        elif b == lowest:
+            return a + d1 + (l2 - d2)
+        elif c == lowest:
+            return a + (l1 - d1) + d2
+        elif d == lowest:
+            return a + (l1 - d1) + (l2 - d2)
 
     # Obtain path scores.
     path_scores_normal = {}
-    for (start, end) in samples_normal["C"]:
-        target_path_distance = G_paths[start][end]
-        source_path_distance = H_paths[G_to_H[start][0]][G_to_H[end][0]] + G_to_H[start][1] + G_to_H[end][1], # Include distance offset from H node.
+    for sample in samples_normal["C"]:
+        
+        target_path_distance = reconstruct_shortest_path(G_paths, sample["G"])
+        source_path_distance = reconstruct_shortest_path(H_paths, sample["H"])
         score = sample_score(target_path_distance, source_path_distance)
         path_scores_normal[(start, end)] = {
             "target": target_path_distance,
@@ -140,9 +282,11 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
         }
 
     path_scores_primal = {}
-    for (start, end) in samples_primal["C"]:
-        target_path_distance = G_paths[start][end]
-        source_path_distance = H_paths[G_to_H[start][0]][G_to_H[end][0]] + G_to_H[start][1] + G_to_H[end][1], # Include distance offset from H node.
+    # TODO: Re-use overlap from normal samples.
+    for sample in samples_primal["C"]:
+
+        target_path_distance = reconstruct_shortest_path(G_paths, sample["G"])
+        source_path_distance = reconstruct_shortest_path(H_paths, sample["H"])
         score = sample_score(target_path_distance, source_path_distance)
         path_scores_primal[(start, end)] = {
             "target": target_path_distance,

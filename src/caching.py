@@ -121,7 +121,7 @@ def experiment_location(place, variant, threshold = None, metric = None):
         }
         if metric != None:
             base.update({
-                "metrics"       : get_data_file(f"experiments/metric/{variant}-{place}-{threshold}-{metric}.pkl")
+                "metrics"       : get_data_file(f"experiments/metrics/{variant}-{place}-{threshold}-{metric}.pkl")
             })
         return base
     else:
