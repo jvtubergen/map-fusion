@@ -40,7 +40,7 @@ def precompute_shortest_path_data(G):
         # * Have a node identifier higher than the control nid coming from (prevents duplicated checks in subsequent logic).
         filtered = {}
         for v in distances.keys():
-            if v > u and v in nids:
+            if v >= u and v in nids:
                 filtered[v] = float(distances[v])
         
         distance_matrix[u] = filtered
@@ -99,7 +99,6 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
     * H_paths: Shortest paths dictionary on graph H
     """ 
 
-
     # Pick n samples at random in G.
     eids    = get_eids(G)
     lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
@@ -111,52 +110,57 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
     def gen_random_position(G):
         _eid_indices = [i for i in range(len(eids))]
         _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
-        G_eid    = eids[_eid_index]
+        G_eid  = eids[_eid_index]
         attrs  = get_edge_attributes(G, G_eid)
         length = attrs["length"]
-        offset = random.random()
-        G_distance = offset * length
-        G_position = position_at_curve_interval(attrs["curvature"], offset)
+        interval = random.random()
+        G_distance = interval * length
+        G_position = position_at_curve_interval(attrs["curvature"], interval)
         return {
             "eid": G_eid,
             "position": G_position,
             "distance": G_distance
         }
-
+    
+    def gen_position_by_nearest_point(H, p):
+        """Obtain nearest point on H for a point p on G."""
+        H_eid   = nearest_edge_for_position(H, p, edge_tree=H_edge_rtree)
+        H_curve = graphedge_curvature(H, H_eid)
+        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, p)
+        H_distance = graphedge_length(H, H_eid) * H_interval
+        return {
+            "eid": H_eid,
+            "position": H_position,
+            "distance": H_distance
+        }
 
     def get_sample():
         """Obtain a random position on G and its nearest position on H."""
-        # Start position
+        # Start and end position in G.
         G_start = gen_random_position(G)
         G_end   = gen_random_position(G)
-        u, v = sorted([G_start["eid"][0], G_end["eid"][0]])
-        if v not in G_paths[u]:
+        a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
+        if b not in G_paths[a]:
             return None
-    
-        H_eid   = nearest_edge_for_position(H, G_start["position"], edge_tree=H_edge_rtree)
-        H_curve = graphedge_curvature(H, H_eid)
-        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_start["position"])
-        H_distance = graphedge_length(H, H_eid) * H_interval
-        H_start = {
-            "eid": H_eid,
-            "position": H_position,
-            "distance": H_distance
-        }
-
-        # End position
-        H_eid   = nearest_edge_for_position(H, G_start["position"], edge_tree=H_edge_rtree)
-        H_curve = graphedge_curvature(H, H_eid)
-        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_start["position"])
-        H_distance = graphedge_length(H, H_eid) * H_interval
-        H_end   = {
-            "eid": H_eid,
-            "position": H_position,
-            "distance": H_distance
-        }
+        # Expect shortest path for other three edge endpoints exist as well.
+        u, v = G_start["eid"][:2]
+        x, y = G_end["eid"][:2]
+        # Related positions in H.
+        H_start = gen_position_by_nearest_point(H, G_start["position"])
+        H_end   = gen_position_by_nearest_point(H, G_end["position"])
 
         is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
-        u, v = sorted([H_start["eid"][0], H_end["eid"][0]])
-        path_exists = v not in H_paths[u]
+        a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
+        path_exists = b in H_paths[a]
+
+        if path_exists:
+            u, v = H_start["eid"][:2]
+            x, y = H_end["eid"][:2]
+            H_paths[u][x] if u <= x else H_paths[x][u] 
+            H_paths[u][y] if u <= y else H_paths[y][u] 
+            H_paths[v][x] if v <= x else H_paths[x][v]
+            H_paths[v][y] if v <= y else H_paths[y][v]
+
         return {
             "A": not is_primal,
             "B": is_primal and not path_exists,
@@ -173,6 +177,8 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
 
     normal_samples = []
     while len(normal_samples) < n:
+        if random.random() < 0.001:
+            print(len(normal_samples))
         sample = get_sample()
         if sample != None:
             normal_samples.append(sample)
@@ -234,30 +240,29 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
         sample_sum = sum(path_scores)
         return sample_sum / n
     
-    def reconstruct_shortest_path(paths, sample):
+    def reconstruct_shortest_path(sample, graph, paths):
         # Obtain distance target path.
-        # TODO: Which of the four edge endpoint combinations is lowest distance?
+        # Expect shortest path exists.
+        # Pick one of the four edge endpoint combinations is lowest distance?
         # Account for distance offset from edge endpoint.
 
         u, v = sample["start"]["eid"][:2]
         x, y = sample["end"]["eid"][:2]
         d1   = sample["start"]["distance"]
-        d2   = sample["start"]["distance"]
+        d2   = sample["end"]["distance"]
 
-        a = paths[u][x]
-        b = paths[u][y]
-        c = paths[v][x]
-        d = paths[v][y]
-
-        lowest = min(a,b,c,d)
-        l1 = get_edge_attributes(G, sample["start"]["eid"])["length"]
-        l2 = get_edge_attributes(G, sample["end"]["eid"])["length"]
+        l1 = get_edge_attributes(graph, sample["start"]["eid"])["length"]
+        l2 = get_edge_attributes(graph, sample["end"]["eid"])["length"]
 
         check(d1 <= l1)
         check(d2 <= l2)
     
-        check(abs(c - a) <= l1)
-        check(abs(d - b) <= l2)
+        check(abs(c - a) - l1 < 0.0001)
+        check(abs(d - b) - l1 < 0.0001)
+        check(abs(b - a) - l2 < 0.0001)
+        check(abs(d - c) - l2 < 0.0001)
+        
+        lowest = min(a,b,c,d)
 
         if a == lowest:
             return a + d1 + d2
@@ -269,34 +274,34 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
             return a + (l1 - d1) + (l2 - d2)
 
     # Obtain path scores.
-    path_scores_normal = {}
+    path_scores_normal = []
     for sample in samples_normal["C"]:
         
-        target_path_distance = reconstruct_shortest_path(G_paths, sample["G"])
-        source_path_distance = reconstruct_shortest_path(H_paths, sample["H"])
+        target_path_distance = reconstruct_shortest_path(sample["G"], G, G_paths)
+        source_path_distance = reconstruct_shortest_path(sample["H"], H, H_paths)
         score = sample_score(target_path_distance, source_path_distance)
-        path_scores_normal[(start, end)] = {
+        path_scores_normal.append({
             "target": target_path_distance,
             "source": source_path_distance,
             "score" : score,
-        }
+        })
 
-    path_scores_primal = {}
-    # TODO: Re-use overlap from normal samples.
+    path_scores_primal = []
+    # TODO: Re-use overlap with normal samples.
     for sample in samples_primal["C"]:
 
-        target_path_distance = reconstruct_shortest_path(G_paths, sample["G"])
-        source_path_distance = reconstruct_shortest_path(H_paths, sample["H"])
+        target_path_distance = reconstruct_shortest_path(sample["G"], G, G_paths)
+        source_path_distance = reconstruct_shortest_path(sample["H"], H, H_paths)
         score = sample_score(target_path_distance, source_path_distance)
-        path_scores_primal[(start, end)] = {
+        path_scores_primal.append({
             "target": target_path_distance,
             "source": source_path_distance,
             "score" : score,
-        }
+        })
     
     # Compute APLS score (accumulate all sample scores).
-    apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples["A"]) + len(samples["B"]) + len(samples["C"]))
-    apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples["A"]) + len(samples["B"]) + len(samples["C"]))
+    apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
+    apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
 
     # Compute metadata: 
     metadata = {
@@ -316,7 +321,7 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
 @info(timer=True)
 def symmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
     left = asymmetric_apls(G, H, G_paths, H_paths, n=n, threshold=threshold)
-    right= asymmetric_apls(H, G, G_paths, H_paths, n=n, threshold=threshold)
+    right= asymmetric_apls(H, G, H_paths, G_paths, n=n, threshold=threshold)
 
     apls_score = 0.5 * (left[0] + right[0])
     apls_prime_score = 0.5 * (left[1] + right[1])

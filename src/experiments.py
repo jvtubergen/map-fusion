@@ -99,6 +99,8 @@ def obtain_shortest_distance_dictionaries(threshold = 30):
             print(f"{place}-{variant}")
             shortest_paths = None
             G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
+            if variant in ["B","C"]:
+                G = remove_deleted(G)
             shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold)["shortest_paths"], shortest_paths)
     

@@ -158,7 +158,6 @@ def nearest_edge_and_position_for_position(G, p, edge_tree=None):
 
 # Obtain nearest edge of G for position p.
 # Note: This does not exclude nodes or edges of the graph.
-@info()
 def nearest_edge_for_position(G, p, edge_tree=None):
     eid, distance = nearest_edge_and_position_for_position(G, p, edge_tree=edge_tree)
     return eid
@@ -174,7 +173,6 @@ def graph_distance_node_edge(G, nid, eid):
     return norm(point - curvepoint)
 
 # Compute distance between a point and an edge of G.
-@info()
 def graph_distance_position_edge(G, p, eid):
     curve = attributes.graphedge_curvature(G, eid)
     curvepoint = nearest_position_on_curve_to_point(curve, p)
