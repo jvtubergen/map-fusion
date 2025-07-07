@@ -23,6 +23,12 @@ def graphedge_curvature(G, eid):
     return ps
 
 
+def graphedge_length(G, eid):
+    attrs = get_edge_attributes(G, eid)
+    ps = attrs["length"]
+    return ps
+
+
 # Enum to differentiate between node or edge-related task (used by abstract functions).
 class GraphEntity(Enum):
     Edges = 0

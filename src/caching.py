@@ -105,8 +105,8 @@ def data_location(place, variant, threshold = None):
 def experiment_location(place, variant, threshold = None, metric = None):
     if variant in base_variants:
         base =  {
-            "prepared_graph": get_data_file(f"experiments/prepared_graph/{variant}-{place}.graph"),
-            "shortest_paths": get_data_file(f"experiments/shortest_paths/{variant}-{place}.pkl"),
+            "apls_prepared_graph": get_data_file(f"experiments/apls_prepared_graph/{variant}-{place}.graph"),
+            "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{variant}-{place}.pkl"),
         }
         if metric != None:
             base.update({
@@ -116,8 +116,8 @@ def experiment_location(place, variant, threshold = None, metric = None):
     elif variant in fusion_variants: 
         assert threshold != None
         base = {
-            "prepared_graph": get_data_file(f"experiments/prepared_graph/{variant}-{place}-{threshold}.graph"),
-            "shortest_paths": get_data_file(f"experiments/shortest_paths/{variant}-{place}-{threshold}.pkl")
+            "apls_prepared_graph": get_data_file(f"experiments/apls_prepared_graph/{variant}-{place}-{threshold}.graph"),
+            "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{variant}-{place}-{threshold}.pkl")
         }
         if metric != None:
             base.update({

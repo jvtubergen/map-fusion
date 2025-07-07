@@ -28,6 +28,10 @@ def precompute_shortest_path_data(G):
 
     nids = G.nodes()
 
+    # Expect all edges to have edge length annotated.
+    for eid, attrs in iterate_edges(G):
+        assert attrs["length"] > 0
+
     # Compute distance matrix between these points.
     distance_matrix = {}
     for u in nids:
@@ -36,11 +40,10 @@ def precompute_shortest_path_data(G):
         distances = nx.single_source_dijkstra_path_length(G, u, weight="length")
 
         # Filter out dictionary to only include end nodes which are:
-        # * Contained in the control nodes list.
         # * Have a node identifier higher than the control nid coming from (prevents duplicated checks in subsequent logic).
         filtered = {}
         for v in distances.keys():
-            if v >= u and v in nids:
+            if v >= u:
                 filtered[v] = float(distances[v])
         
         distance_matrix[u] = filtered
@@ -142,9 +145,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
         a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
         if b not in G_paths[a]:
             return None
-        # Expect shortest path for other three edge endpoints exist as well.
-        u, v = G_start["eid"][:2]
-        x, y = G_end["eid"][:2]
+
         # Related positions in H.
         H_start = gen_position_by_nearest_point(H, G_start["position"])
         H_end   = gen_position_by_nearest_point(H, G_end["position"])
@@ -178,7 +179,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
     normal_samples = []
     while len(normal_samples) < n:
         if random.random() < 0.001:
-            print(len(normal_samples))
+            print(f"Number of samples generated: {len(normal_samples)}/{n}.")
         sample = get_sample()
         if sample != None:
             normal_samples.append(sample)
@@ -251,16 +252,21 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
         d1   = sample["start"]["distance"]
         d2   = sample["end"]["distance"]
 
+        a = paths[u][x] if u <= x else paths[x][u] 
+        b = paths[u][y] if u <= y else paths[y][u] 
+        c = paths[v][x] if v <= x else paths[x][v]
+        d = paths[v][y] if v <= y else paths[y][v]
+        
         l1 = get_edge_attributes(graph, sample["start"]["eid"])["length"]
         l2 = get_edge_attributes(graph, sample["end"]["eid"])["length"]
 
-        check(d1 <= l1)
-        check(d2 <= l2)
-    
-        check(abs(c - a) - l1 < 0.0001)
-        check(abs(d - b) - l1 < 0.0001)
-        check(abs(b - a) - l2 < 0.0001)
-        check(abs(d - c) - l2 < 0.0001)
+        check(float(abs(d1 - l1)) < 0.0001)
+        check(float(abs(d2 - l2)) < 0.0001)
+
+        check(float(abs(abs(c - a)) - l1) < 0.0001)
+        check(float(abs(abs(d - b)) - l1) < 0.0001)
+        check(float(abs(abs(b - a)) - l2) < 0.0001)
+        check(float(abs(abs(d - c)) - l2) < 0.0001)
         
         lowest = min(a,b,c,d)
 
