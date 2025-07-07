@@ -220,11 +220,10 @@ def position_at_curve_interval(ps, interval):
     cumulative = 0
     for i, weight in enumerate(weights):
         cumulative += weight
-        if value < cumulative: # value > cumulative - weight
-            percentage = (value - (cumulative - weight)) / weight
+        if interval < cumulative: # interval > cumulative - weight
+            percentage = (interval - (cumulative - weight)) / weight
             return ps[i] * (1 - percentage) + ps[i+1] * percentage
     
-    # This should never be reached given the bounds check above
     return ps[-1]
 
 
