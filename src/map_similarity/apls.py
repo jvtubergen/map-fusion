@@ -79,8 +79,11 @@ def gen_position_by_nearest_point(H, p, H_edge_rtree):
     }
 
 
-def random_position_on_graph(G):
+def random_position_on_graph(G, random_edge_picker=None):
     """Obtain a random position on graph G alongside related eid and (curvature) distance from eid[0] endpoint."""
+    if random_edge_picker != None:
+        return random_edge_picker()
+
     G_eid = pick_random_edge_weighted(G)
     attrs  = get_edge_attributes(G, G_eid)
     length = attrs["length"]
@@ -94,11 +97,12 @@ def random_position_on_graph(G):
     }
 
 
-def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance):
+def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=None):
     """Obtain a random position on G and its nearest position on H."""
     # Start and end position in G.
     G_start = random_position_on_graph(G)
     G_end   = random_position_on_graph(G)
+
     a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
     if b not in G_paths[a]:
         return None
@@ -143,15 +147,20 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
     lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
     total   = sum(lengths)
     weights = lengths / total
+    _eid_indices = [i for i in range(len(eids))]
+
+    def _random_edge_picker():
+        """Define a local random edge picker to save significant computation costs (in computing weights)."""
+        _eid_index = np.random.choice(_eid_indices, 1, list(weights))[0]
+        return _eid_indices[_eid_index]
 
     H_edge_rtree = graphedges_to_rtree(H)
-
     
     normal_samples = []
     while len(normal_samples) < n:
         if random.random() < 0.001:
             print(f"Number of normal samples generated: {len(normal_samples)}/{n}.")
-        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance)
+        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
         if sample != None:
             normal_samples.append(sample)
 
@@ -161,7 +170,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
         i += 1
         if random.random() < 0.001:
             print(f"Number of primal samples generated: {len(primal_samples)}/{n}. (Total attempts: {i})")
-        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance)
+        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
         if sample != None and not sample["A"]:
             primal_samples.append(sample)
 
