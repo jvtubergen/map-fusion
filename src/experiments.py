@@ -106,7 +106,7 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False):
             G = read_graph(experiment_location(place, variant, threshold = threshold)["apls_prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"], shortest_paths)
-    
+
 
 def remove_deleted(G):
     """Remove nodes and edges with `{"render": "deleted"}` attribute."""
@@ -118,12 +118,9 @@ def remove_deleted(G):
     return G
 
 
-def obtain_apls_score(threshold = 30, fusion_only=False):
-    """Obtain APLS and APLS* for all maps vs ground truth."""
-    if fusion_only:
-        _variants = fusion_variants + ["osm"]
-    else:
-        _variants = variants
+def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000): # APLS
+    """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
+
     logger("Reading prepared maps.")
     maps = {}
     for place in places: 
@@ -142,13 +139,9 @@ def obtain_apls_score(threshold = 30, fusion_only=False):
             location = experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"]
             shortest_paths[place][variant] = read_pickle(location)
 
-    logger("Computing APLS metric.")
-    result = {}
-    for place in places:
-
-        result[place] = {}
-        for variant in set(variants) - set(["osm"]):
-
+    logger("Computing metadata.")
+    for place in places: 
+        for variant in variants:
             logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
@@ -156,8 +149,29 @@ def obtain_apls_score(threshold = 30, fusion_only=False):
             target_paths = shortest_paths[place]["osm"]
             source_paths = shortest_paths[place][variant]
 
-            apls, apls_prime, metadata = symmetric_apls(target_graph, source_graph, target_paths, source_paths, threshold=25, n=10000)
+            apls, apls_prime, metadata = symmetric_apls(target_graph, source_graph, target_paths, source_paths, threshold=apls_threshold, n=sample_count)
 
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
+            write_pickle(location, metadata)
+    
+
+
+
+def obtain_apls_score(threshold = 30, fusion_only=False): # APLS
+    """Obtain APLS and APLS* for all maps vs ground truth."""
+    
+    logger("Reading APLS metadata and computing score.")
+    metadata = {}
+    for place in places: 
+        metadata[place] = {}
+        for variant in variants:
+            print(f"{place}-{variant}")
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
+            metadata = read_pickle(location)
+
+            apls, apls_prime = symmetric_apls_from_metadata(metadata)
+            print(f"APLS : {apls}")
+            print(f"APLS*: {apls_prime}")
             obj = {
                 "apls": apls,
                 "apls_prime": apls_prime,
@@ -165,7 +179,7 @@ def obtain_apls_score(threshold = 30, fusion_only=False):
 
             location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics"]
             write_pickle(location, obj)
-
+    
 
 def obtain_topo_score(threshold = 30):
     # TODO

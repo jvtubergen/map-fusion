@@ -110,7 +110,8 @@ def experiment_location(place, variant, threshold = None, metric = None):
         }
         if metric != None:
             base.update({
-                "metrics"       : get_data_file(f"experiments/metric/{variant}-{place}-{metric}.pkl")
+                "metrics"         : get_data_file(f"experiments/metrics/{variant}-{place}-{metric}.pkl"),
+                "metrics_metadata": get_data_file(f"experiments/metrics_metadata/{variant}-{place}-{metric}.pkl"),
             })
         return base
     elif variant in fusion_variants: 
@@ -121,7 +122,8 @@ def experiment_location(place, variant, threshold = None, metric = None):
         }
         if metric != None:
             base.update({
-                "metrics"       : get_data_file(f"experiments/metrics/{variant}-{place}-{threshold}-{metric}.pkl")
+                "metrics"         : get_data_file(f"experiments/metrics/{variant}-{place}-{threshold}-{metric}.pkl"),
+                "metrics_metadata": get_data_file(f"experiments/metrics_metadata/{variant}-{place}-{threshold}-{metric}.pkl"),
             })
         return base
     else:

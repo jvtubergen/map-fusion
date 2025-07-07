@@ -337,7 +337,7 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
 
 
 @info(timer=True)
-def symmetric_apls_samples(G, H, G_paths, H_paths, n=1000, threshold=5):
+def symmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
     """
     Obtain _symmetric_ APLS aand APLS* score alongside metadata to reconstruct APLS and APLS* score from.
     Input variables are:
@@ -361,3 +361,35 @@ def symmetric_apls_samples(G, H, G_paths, H_paths, n=1000, threshold=5):
     }
 
     return apls_score, apls_prime_score, metadata
+
+
+def symmetric_apls_from_metadata(metadata):
+    """
+    Compute/Derive symmetric APLS and APLS* value from metadata.
+    Ideal for experimentation with large graphs/data and many samples (saves a lot of recomputing sample data).
+    """
+
+    # Left
+    samples_normal     = metadata["left"]["normal"]["samples"]
+    samples_primal     = metadata["left"]["primal"]["samples"]
+
+    path_scores_normal = metadata["left"]["normal"]["path_scores"]
+    path_scores_primal = metadata["left"]["primal"]["path_scores"]
+
+    l_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
+    l_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
+
+    # Right
+    samples_normal     = metadata["right"]["normal"]["samples"]
+    samples_primal     = metadata["right"]["primal"]["samples"]
+
+    path_scores_normal = metadata["right"]["normal"]["path_scores"]
+    path_scores_primal = metadata["right"]["primal"]["path_scores"]
+
+    r_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
+    r_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
+
+    apls_score       = 0.5 * (l_apls_score + r_apls_score)
+    apls_prime_score = 0.5 * (l_apls_prime_score + r_apls_prime_score)
+
+    return apls_score, apls_prime_score
