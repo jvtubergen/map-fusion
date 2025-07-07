@@ -56,6 +56,7 @@ def relate_control_points(G, H, max_distance=25):
     """
     Relate nodes of target graph G to edges of source graph H and mention offset in H edge (so we can compute distance of shortest path).
     Return a dictionary that links nodes of G to H (keys are nids of G, values are eid with distance offset of H it connects to).
+
     Note: eid always has lowest nid first. In combination with offset from lowest nid this provides therefore all information necessary.
     """
 
@@ -111,6 +112,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
     H_edge_rtree = graphedges_to_rtree(H)
 
     def gen_random_position(G):
+        """Obtain a random position on G alongside related eid and (curvature) distance from eid[0] endpoint."""
         _eid_indices = [i for i in range(len(eids))]
         _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
         G_eid  = eids[_eid_index]
@@ -125,7 +127,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
             "distance": G_distance
         }
     
-    def gen_position_by_nearest_point(H, p):
+    def gen_position_by_nearest_point(H, p, H_edge_rtree):
         """Obtain nearest point on H for a point p on G."""
         H_eid   = nearest_edge_for_position(H, p, edge_tree=H_edge_rtree)
         H_curve = graphedge_curvature(H, H_eid)
@@ -139,6 +141,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
 
     def get_sample():
         """Obtain a random position on G and its nearest position on H."""
+        # TODO: Make function self-contained (paramaters).
         # Start and end position in G.
         G_start = gen_random_position(G)
         G_end   = gen_random_position(G)
@@ -147,8 +150,8 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
             return None
 
         # Related positions in H.
-        H_start = gen_position_by_nearest_point(H, G_start["position"])
-        H_end   = gen_position_by_nearest_point(H, G_end["position"])
+        H_start = gen_position_by_nearest_point(H, G_start["position"], H_edge_rtree)
+        H_end   = gen_position_by_nearest_point(H, G_end["position"], H_edge_rtree)
 
         is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
         a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
@@ -214,16 +217,15 @@ def compute_score(samples, path_scores):
     return score
 
 
-def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
-    """Compute asymmetric APLS that leverages the following precomputed data:
-    * G has edges to 50m pregenerated.
-    * H has edges to 50m pregenerated.
-    * G_paths has shortest path distances between all nodes of G precomputed.
-    * H_paths has shortest path distances between all nodes of H precomputed.
-    * n provides the total number of samples to take (in case of prime this are 10000 primal samples).
-    * threshold is control point distance of node of G to edge curvature of H.
-
-    Uses an alternative G_to_H structure, which stores nearest edge instead of nearest node G
+def asymmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
+    """
+    Obtain _asymmetric_ APLS aand APLS* score alongside metadata to reconstruct APLS and APLS* score from.
+    Input variables are:
+    * G: Target graph (ground truth).
+    * H: Source graph (inferred graph).
+    * H_paths: Shortest paths matrix (generated with `precompute_shortest_path_data`).
+    * n: Number of samples (start to endpoint pairs)
+    * threshold: APLS distance threshold seeking nearest curvature to target point.
     """
 
     # Obtain samples.
@@ -231,21 +233,29 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
 
     def sample_score(a, b):
         """
+        Compute score of a sample.
         * a: target path length
         * b: source path length
         """ 
         return 1 - min(abs(a - b) / a, 1)
     
     def total_score(samples, path_scores):
+        """
+        Compute score of all samples (category A, B, C) combined.
+        """
         n = len(samples["A"]) + len(samples["B"]) + len(samples["C"])
         sample_sum = sum(path_scores)
         return sample_sum / n
     
     def reconstruct_shortest_path(sample, graph, paths):
-        # Obtain distance target path.
-        # Expect shortest path exists.
-        # Pick one of the four edge endpoint combinations is lowest distance?
-        # Account for distance offset from edge endpoint.
+        """
+        Reconstruct the shortest path from a sample.
+        Expect the shortest path for this sample exists.
+
+        The reason its this complicated in comparison to just picking nodes on the graph:
+        * This logic allows to sample _all_ locations on source graph.
+        * It uses the most minimal distance matric (see `precompute_shortest_path_data`) which improves drastically computation and storage costs by not having to deal with thousands of additional nodes.
+        """
 
         u, v = sample["start"]["eid"][:2]
         x, y = sample["end"]["eid"][:2]
@@ -260,13 +270,13 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
         l1 = get_edge_attributes(graph, sample["start"]["eid"])["length"]
         l2 = get_edge_attributes(graph, sample["end"]["eid"])["length"]
 
-        check(float(abs(d1 - l1)) < 0.0001)
-        check(float(abs(d2 - l2)) < 0.0001)
+        check(float(d1 - l1) < 0.0001)
+        check(float(d2 - l2) < 0.0001)
 
-        check(float(abs(abs(c - a)) - l1) < 0.0001)
-        check(float(abs(abs(d - b)) - l1) < 0.0001)
-        check(float(abs(abs(b - a)) - l2) < 0.0001)
-        check(float(abs(abs(d - c)) - l2) < 0.0001)
+        check(float(abs(c - a) - l1) < 0.0001)
+        check(float(abs(d - b) - l1) < 0.0001)
+        check(float(abs(b - a) - l2) < 0.0001)
+        check(float(abs(d - c) - l2) < 0.0001)
         
         lowest = min(a,b,c,d)
 
@@ -311,6 +321,8 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
 
     # Compute metadata: 
     metadata = {
+        "n": n,
+        "apls_threshold": threshold, 
         "normal": {
             "samples": samples_normal,
             "path_scores": path_scores_normal,
@@ -325,13 +337,25 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
 
 
 @info(timer=True)
-def symmetric_apls(G, H, G_paths, H_paths, n=10000, threshold=25):
+def symmetric_apls_samples(G, H, G_paths, H_paths, n=1000, threshold=5):
+    """
+    Obtain _symmetric_ APLS aand APLS* score alongside metadata to reconstruct APLS and APLS* score from.
+    Input variables are:
+    * G: Target graph (ground truth).
+    * H: Source graph (inferred graph).
+    * H_paths: Shortest paths matrix (generated with `precompute_shortest_path_data`).
+    * n: Number of samples (start to endpoint pairs)
+    * threshold: APLS distance threshold seeking nearest curvature to target point.
+    """
     left = asymmetric_apls(G, H, G_paths, H_paths, n=n, threshold=threshold)
     right= asymmetric_apls(H, G, H_paths, G_paths, n=n, threshold=threshold)
 
-    apls_score = 0.5 * (left[0] + right[0])
+    apls_score       = 0.5 * (left[0] + right[0])
     apls_prime_score = 0.5 * (left[1] + right[1])
+
     metadata = {
+        "n": n,
+        "apls_threshold": threshold, 
         "left": left[2],
         "right": right[2]
     }
