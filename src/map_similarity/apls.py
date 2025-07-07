@@ -51,35 +51,6 @@ def precompute_shortest_path_data(G):
     return distance_matrix
 
 
-@info(timer=True)
-def relate_control_points(G, H, max_distance=25):
-    """
-    Relate nodes of target graph G to edges of source graph H and mention offset in H edge (so we can compute distance of shortest path).
-    Return a dictionary that links nodes of G to H (keys are nids of G, values are eid with distance offset of H it connects to).
-
-    Note: eid always has lowest nid first. In combination with offset from lowest nid this provides therefore all information necessary.
-    """
-
-    G_to_H = {} # All nodes of G related to a node alongside offset of H.
-
-    H_edge_rtree = graphedges_to_rtree(H)
-
-    # Find (and optionally inject) node within H nearby every node of G.
-    for G_nid, attrs in iterate_nodes(G):
-
-        G_position = graphnode_position(G, G_nid)
-        H_eid = nearest_edge_for_position(H, G_position, edge_tree=H_edge_rtree)
-        H_nid = H_eid[0] # Take start value.
-        H_curve = graphedge_curvature(H, H_eid)
-        H_position, H_edge_interval = nearest_position_and_interval_on_curve_to_point(H_curve, G_position)
-        G_H_distance = norm(H_position - G_position)
-
-        if G_H_distance <= max_distance:
-            G_to_H[G_nid] = (H_nid, H_edge_interval)
-
-    return G_to_H
-
-
 def pick_random_edge_weighted(G):
     """
     Pick a random edge on G.
@@ -90,6 +61,78 @@ def pick_random_edge_weighted(G):
     total   = sum(lengths)
     weights = lengths / total
     return np.random.choice(eids, 1, weights)
+
+
+def gen_position_by_nearest_point(H, p, H_edge_rtree):
+    """Obtain nearest point on H for a point p on G."""
+    H_eid   = nearest_edge_for_position(H, p, edge_tree=H_edge_rtree)
+    H_curve = graphedge_curvature(H, H_eid)
+    H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, p)
+    H_distance = graphedge_length(H, H_eid) * H_interval
+    return {
+        "eid": H_eid,
+        "position": H_position,
+        "distance": H_distance
+    }
+
+
+def random_position_on_graph(G):
+    """Obtain a random position on graph G alongside related eid and (curvature) distance from eid[0] endpoint."""
+    _eid_indices = [i for i in range(len(eids))]
+    _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
+    G_eid  = eids[_eid_index]
+    attrs  = get_edge_attributes(G, G_eid)
+    length = attrs["length"]
+    interval = random.random()
+    G_distance = interval * length
+    G_position = position_at_curve_interval(attrs["curvature"], interval)
+    return {
+        "eid": G_eid,
+        "position": G_position,
+        "distance": G_distance
+    }
+
+
+def get_sample():
+    """Obtain a random position on G and its nearest position on H."""
+    # TODO: Make function self-contained (paramaters).
+    # Start and end position in G.
+    G_start = random_position_on_graph(G)
+    G_end   = random_position_on_graph(G)
+    a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
+    if b not in G_paths[a]:
+        return None
+
+    # Related positions in H.
+    H_start = gen_position_by_nearest_point(H, G_start["position"], H_edge_rtree)
+    H_end   = gen_position_by_nearest_point(H, G_end["position"], H_edge_rtree)
+
+    is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
+    a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
+    path_exists = b in H_paths[a]
+
+    if path_exists:
+        u, v = H_start["eid"][:2]
+        x, y = H_end["eid"][:2]
+        H_paths[u][x] if u <= x else H_paths[x][u] 
+        H_paths[u][y] if u <= y else H_paths[y][u] 
+        H_paths[v][x] if v <= x else H_paths[x][v]
+        H_paths[v][y] if v <= y else H_paths[y][v]
+
+    return {
+        "A": not is_primal,
+        "B": is_primal and not path_exists,
+        "C": is_primal and path_exists,
+        "G": {
+            "start": G_start,
+            "end"  : G_end,
+        }, 
+        "H": {
+            "start": H_start,
+            "end"  : H_end,
+        }, 
+    }
+
 
 
 @info(timer=True)
@@ -111,74 +154,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
 
     H_edge_rtree = graphedges_to_rtree(H)
 
-    def gen_random_position(G):
-        """Obtain a random position on G alongside related eid and (curvature) distance from eid[0] endpoint."""
-        _eid_indices = [i for i in range(len(eids))]
-        _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
-        G_eid  = eids[_eid_index]
-        attrs  = get_edge_attributes(G, G_eid)
-        length = attrs["length"]
-        interval = random.random()
-        G_distance = interval * length
-        G_position = position_at_curve_interval(attrs["curvature"], interval)
-        return {
-            "eid": G_eid,
-            "position": G_position,
-            "distance": G_distance
-        }
     
-    def gen_position_by_nearest_point(H, p, H_edge_rtree):
-        """Obtain nearest point on H for a point p on G."""
-        H_eid   = nearest_edge_for_position(H, p, edge_tree=H_edge_rtree)
-        H_curve = graphedge_curvature(H, H_eid)
-        H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, p)
-        H_distance = graphedge_length(H, H_eid) * H_interval
-        return {
-            "eid": H_eid,
-            "position": H_position,
-            "distance": H_distance
-        }
-
-    def get_sample():
-        """Obtain a random position on G and its nearest position on H."""
-        # TODO: Make function self-contained (paramaters).
-        # Start and end position in G.
-        G_start = gen_random_position(G)
-        G_end   = gen_random_position(G)
-        a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
-        if b not in G_paths[a]:
-            return None
-
-        # Related positions in H.
-        H_start = gen_position_by_nearest_point(H, G_start["position"], H_edge_rtree)
-        H_end   = gen_position_by_nearest_point(H, G_end["position"], H_edge_rtree)
-
-        is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
-        a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
-        path_exists = b in H_paths[a]
-
-        if path_exists:
-            u, v = H_start["eid"][:2]
-            x, y = H_end["eid"][:2]
-            H_paths[u][x] if u <= x else H_paths[x][u] 
-            H_paths[u][y] if u <= y else H_paths[y][u] 
-            H_paths[v][x] if v <= x else H_paths[x][v]
-            H_paths[v][y] if v <= y else H_paths[y][v]
-
-        return {
-            "A": not is_primal,
-            "B": is_primal and not path_exists,
-            "C": is_primal and path_exists,
-            "G": {
-                "start": G_start,
-                "end"  : G_end,
-            }, 
-            "H": {
-                "start": H_start,
-                "end"  : H_end,
-            }, 
-        }
-
     normal_samples = []
     while len(normal_samples) < n:
         if random.random() < 0.001:
@@ -391,5 +367,7 @@ def symmetric_apls_from_metadata(metadata):
 
     apls_score       = 0.5 * (l_apls_score + r_apls_score)
     apls_prime_score = 0.5 * (l_apls_prime_score + r_apls_prime_score)
+
+    breakpoint()
 
     return apls_score, apls_prime_score
