@@ -5,9 +5,19 @@ from map_similarity import *
 from graph import *
 from rendering import * 
 
-#TODO: Organize this piece of code.
+
+def read_base_maps():
+    maps = {}
+    for place in places:
+        maps[place] = {}
+        maps[place]["osm"] = read_osm_graph(place)
+        maps[place]["gps"] = read_gps_graph(place)
+        maps[place]["sat"] = read_sat_graph(place)
+    return maps
+
+
 def read_fusion_maps(threshold = 30):
-    """Read fusion maps from disk."""
+    """Read fusion maps of a specific threshold from disk."""
     maps = {}
     for place in places:
         maps[place] = {}
@@ -18,6 +28,7 @@ def read_fusion_maps(threshold = 30):
 
 
 def read_all_maps(threshold = 30):
+    """Read fusion maps of a specific threshold alongside the ground truth and two base maps from disk."""
     maps = {}
     for place in places:
         maps[place] = {}
@@ -28,7 +39,6 @@ def read_all_maps(threshold = 30):
         maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
         maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
     return maps
-
 
 
 @info()
@@ -63,177 +73,30 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
         write_graph(data_location(place, "C", threshold = threshold)["graph_file"], C)
 
 
+def obtain_prepared_graphs():
+    """Obtain prepared graphs (inject node every 50 meters)."""
+    for place in places: 
+        for variant in variants:
+            G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
+            G = remove_deleted(G)
+            G = graph_ensure_max_edge_length(G)
+            G = graph_annotate_edges(G)
+            sanity_check_graph(G)
+            write_graph(experiment_location(place, variant, threshold=threshold)["prepared_graph"], G)
 
 
-# ## Test getting subgraph by edges connected to set of nids.
-def run_computations(threshold=30):
-
-    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{filename}", action, **props)
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 8*60*60
-    }
-
-    maps         = _read_and_or_write("maps"                        , lambda: generate_maps(threshold=threshold), **reading_props)
-    precomputed  = _read_and_or_write("precomputed maps for metrics", lambda: precompute_measurements_maps(maps), **reading_props)
-    measurements = _read_and_or_write("apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
-
-threshold=30
-_read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{filename}", action, **props)
-reading_props = {
-    "is_graph": False,
-    "overwrite_if_old": True,
-    "reset_time": 7*24*60*60, # Keep it for a week.
-}
-
-reset_reading_props = {
-    "is_graph": False,
-    "overwrite_if_old": True,
-    "reset_time": 1, 
-}
-
-
-
-# Full workflow on computing generated graph variants versus the ground truth:
-# 1. Collect and generate related maps (osm, gps, sat, a, b, c)
-# 2. Precompute prepared maps for computing TOPO and APLS.
-# 3. Compute the similarity metric values for the variants
-# 4. Converting the results into a typst table for presentation.
-def workflow_full_run_metrics(threshold=30):
-
-    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{threshold}-{filename}", action, **props)
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 7*24*60*60 # Keep results for a week.
-    }
-
-    maps         = _read_and_or_write("maps"                        , lambda: generate_maps(threshold=threshold), **reading_props)
-    precomputed  = _read_and_or_write("precomputed maps for metrics", lambda: precompute_measurements_maps(maps), **reading_props)
-    measurements = _read_and_or_write("apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
-    table_string = measurements_to_table(measurements)
-
-    return table_string
-
-
-
-# Generating network variants (Benchmarking your algorithms).
-# Variants:
-# * a. Coverage of sat edges by gps.
-# * b. Extend sat with gps edges algorithm 1.
-# * c. Extend sat with gps edges algorithm 2.
-# * d. Extend sat with gps edges algorithm 3.
-@info()
-def workflow_network_variants(place=None, plot=False, **storage_props):
-
-    threshold_computations = 30
-    prune_thresholds = 30
-
-    do_intersect = False
-    do_merge_a = False
-    do_merge_b = False
-    do_merge_c = True
-    do_merge_x = False
-
-    _read_and_or_write = lambda filename, action, **props: read_and_or_write(f"data/pickled/{place}-{filename}", action, **storage_props, **props)
-
-    logger("Obtaining sat, gps, and osm.")
-    # sat = _read_and_or_write("sat", lambda: read_graph(place=place, graphset=links["sat"]))
-    # gps = _read_and_or_write("gps", lambda: read_graph(place=place, graphset=links["gps"]))
-    # osm = _read_and_or_write("osm", lambda: read_graph(place=place, graphset=links["osm"]))
-
-    # check(not sat.graph["simplified"])
-    # check(not gps.graph["simplified"])
-    # check(not osm.graph["simplified"])
-
-    # plot_graph(simplify_graph(sat))
-    # plot_graph(simplify_graph(osm))
-    # plot_graph(simplify_graph(gps))
-
-    simp = simplify_graph
-    dedup = graph_deduplicate
-    to_utm = graph_transform_latlon_to_utm
-
-    sat = _read_and_or_write("sat", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["sat"], place=place))))))
-    gps = _read_and_or_write("gps", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["gps"], place=place))))))
-    osm = _read_and_or_write("osm", lambda: simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place=place))))))
-
-    #### Intersection.
-    logger("Constructing Sat-vs-GPS coverage graph.") # Start with satellite graph and per edge check coverage by GPS.
-    sat_vs_gps   = _read_and_or_write("sat_vs_graph", lambda: edge_graph_coverage(sat, gps, max_threshold=threshold_computations))
-
-    logger("Pruning Sat-vs-GPS graph.") # Extract edges of sat which are covered by gps.
-    intersection = _read_and_or_write("intersection", lambda: prune_coverage_graph(sat_vs_gps, prune_threshold=prune_thresholds))
-
-    ### Plot graph.
-    if do_intersect and plot:
-        plot_graph(intersection)
-
-    #### Naive merging.
-    if do_merge_a:
-
-        logger("Naive Merging.")
-        # * We pick the edges from gps vs sat.
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
-
-        # * Each edge which has a threshold above 20m is inserted into sat.
-        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds)
-        merge_a = graphs["a"]
-
-        if plot:
-            logger("Plot naive merging (without extensions).")
-            merge_a = apply_coloring(merge_a)
-            # merge_a = remove_deleted(merge_a)
-            graph_annotate_edge_geometry(merge_a)
-
-            plot_graph(merge_a)
-
-    ### Naive merging with duplicate removal.
-    if do_merge_b:
-
-        logger("Naive merging with duplicate removal.")
-
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
-
-        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True)
-        merge_b = graphs["b"]
-
-        if plot:
-            logger("Plot naive merging with duplicate removal.")
-
-            # Test (annotation function correctness): Make B nodes and edges green, C nodes and edges black, other nodes and edges red.
-            # annotate_nodes(merge_b, {"render": "deleted"})
-            # annotate_edges(merge_b, {"render": "deleted"})
-            # annotate_nodes(merge_b, {"render": "original"}, nids=filter_nids_by_attribute(merge_b, filter_attributes={"origin": "C"}))
-            # annotate_edges(merge_b, {"render": "original"}, eids=filter_eids_by_attribute(merge_b, filter_attributes={"origin": "C"}))
-            # annotate_nodes(merge_b, {"render": "injected"}, nids=filter_nids_by_attribute(merge_b, filter_attributes={"origin": "B"}))
-            # annotate_edges(merge_b, {"render": "injected"}, eids=filter_eids_by_attribute(merge_b, filter_attributes={"origin": "B"}))
-
-            merge_b = apply_coloring(merge_b)
-            # merge_b = remove_deleted(merge_b)
-
-            plot_graph(merge_b)
-        
-    ### Naive merging with duplicate removal and sat edge reconnection.
-    if do_merge_c:
-        logger("Naive merging with duplicate removal and reconnection.")
-
-        gps_vs_intersection = _read_and_or_write("gps_vs_intersection", lambda: edge_graph_coverage(gps, intersection, max_threshold=threshold_computations))
-
-        graphs = map_fusion(C=intersection, A=gps_vs_intersection, prune_threshold=prune_thresholds, remove_duplicates=True, reconnect_after=True)
-        merge_c = graphs["c"]
-
-        if plot:
-            logger("Plot naive merging with duplicate removal and reconnection.")
-            merge_c = apply_coloring(merge_c)
-            # merge_c = remove_deleted(merge_c)
-            plot_graph(merge_c)
-
-
-
-
-
+def obtain_shortest_distance_dictionaries(threshold = 30, amount = 5000):
+    """Obtain shortest distance on a graph and write to disk."""
+    # limit to 1000 nodes
+    for place in places: 
+        for variant in variants:
+            print(f"{place}-{variant}")
+            shortest_paths = None
+            G = read_graph(experiment_location(place, variant, threshold = threshold)["prepared_graph"])
+            breakpoint()
+            shortest_paths = dict(nx.shortest_path_length(G, weight="length"))
+            write_pickle(experiment_location(place, variant, threshold=threshold)["shortest_paths"], shortest_paths)
+    
 
 def remove_deleted(G):
     """Remove nodes and edges with `{"render": "deleted"}` attribute."""
@@ -245,76 +108,58 @@ def remove_deleted(G):
     return G
 
 
-def precompute_shortest_distance_dictionaries(place, variant, threshold = None):
+def obtain_apls_score(threshold = 30):
+    logger("Reading prepared maps.")
+    maps = {}
+    for place in places: 
+        maps[place] = {}
+        for variant in variants:
+            print(f"{place}-{variant}")
+            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
+            maps[place][variant] = read_graph(location)
+    
+    logger("Reading shortest paths maps.")
+    shortest_paths = {}
+    for place in places: 
+        shortest_paths[place] = {}
+        for variant in variants:
+            print(f"{place}-{variant}")
+            location = experiment_location(place, variant, threshold=threshold)["shortest_paths"]
+            shortest_paths = read_pickle(location)
+
+    logger("Computing APLS metric.")
+    # Compute TOPO and APLS metrics.
+    result = {}
+    for place in places:
+
+        result[place] = {}
+        for variant in set(variants) - set(["osm"]):
+
+            logger(f"{place} - {variant}.")
+            target_graph = maps[place]["osm"]
+            source_graph = maps[place][variant]
+
+            apls, apls_prime = symmetric_apls(target_graph, source_graph)
+
+            obj = {
+                "apls": apls,
+                "apls_prime": apls_prime,
+            }
+
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")
+            write_pickle(location, obj)
+
+
+def obtain_topo_score(threshold = 30):
+    # TODO
+    return
 
 
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
 @info()
-def experiment_one_base_table():
-
-    ###################
-    ### Preparation.
-    ###################
-    logger("Read all maps.")
-    maps = read_all_maps()
-
-    # logger("Sanity check every graph.")
-    # for place in places:
-    #     for variant in variants:
-    #         sanity_check_graph(maps[place][variant])
-
-    logger("Graph B and C have edges with 'render': 'delete' attribute set, remove them.")
-    maps["berlin"]["B"] = remove_deleted(maps["berlin"]["B"])
-    maps["berlin"]["C"] = remove_deleted(maps["berlin"]["C"])
-    maps["chicago"]["B"] = remove_deleted(maps["chicago"]["B"])
-    maps["chicago"]["B"] = remove_deleted(maps["chicago"]["B"])
-
-    logger("How many edges in Berlin OSM and Chicago OSM have edges > 50m?")
-    for place in places:
-        G = maps[place]["osm"]
-        num_long_edges = 0 
-        for eid, attrs in iterate_edges(G):
-            ps = attrs["curvature"]
-            if curve_length(ps) > 50:
-                num_long_edges += 1
-        logger(f"* In {place}: {num_long_edges} edges > 50m")
-
-    logger("Ensure max edge length (50m) on every edge of every graph.")
-    for place in places:
-        for variant in variants:
-            maps[place][variant] = graph_ensure_max_edge_length(maps[place][variant])
-            maps[place][variant] = graph_annotate_edges(maps[place][variant])
-
-    logger("Sanity check every graph.")
-    for place in places:
-        for variant in variants:
-            sanity_check_graph(maps[place][variant])
-
-    ###################
-    ### Compute TOPO and APLS metrics.
-    ###################
-    result = {}
-    for place in places:
-
-        result[place] = {}
-        for map_variant in set(variants) - set(["osm"]):
-            # TODO: Precompute shortest paths for graphs, manually add distance on last distance to point of source edge.
-
-            logger(f"{place} - {map_variant}.")
-            target_graph = maps[place]["osm"]
-            source_graph = maps[place][variant]
-
-            apls, apls_prime = symmetric_apls(target_graph, source_graph)
-            topo, topo_prime = topo_and_prime(target_graph, source_graph)
-
-            result[place][map_variant] = {
-                "apls": apls,
-                "apls_prime": apls_prime,
-                "topo": topo,
-                "topo_prime": topo_prime,
-            }
-
+def experiment_one_base_table(threshold = 30):
+    # TODO: Read in TOPO and APLS.
 
 
     # Construct typst table out of measurements data.

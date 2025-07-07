@@ -102,6 +102,31 @@ def data_location(place, variant, threshold = None):
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
+def experiment_location(place, variant, threshold = None, metric = None):
+    if variant in base_variants:
+        base =  {
+            "prepared_graph": get_data_file(f"experiments/prepared_graph/{variant}-{place}.graph"),
+            "shortest_paths": get_data_file(f"experiments/shortest_paths/{variant}-{place}.pkl"),
+        }
+        if metric != None:
+            base.update({
+                "metrics"       : get_data_file(f"experiments/metric/{variant}-{place}-{metric}.pkl")
+            })
+        return base
+    elif variant in fusion_variants: 
+        assert threshold != None
+        base = {
+            "prepared_graph": get_data_file(f"experiments/prepared_graph/{variant}-{place}-{threshold}.graph"),
+            "shortest_paths": get_data_file(f"experiments/shortest_paths/{variant}-{place}-{threshold}.pkl")
+        }
+        if metric != None:
+            base.update({
+                "metrics"       : get_data_file(f"experiments/metric/{variant}-{place}-{threshold}-{metric}.pkl")
+            })
+        return base
+    else:
+        raise ValueError(f"Unknown variant: {variant}")
+
 ## Legacy functions for backward compatibility
 def sat_locations(place):
     return data_location(place, "sat")

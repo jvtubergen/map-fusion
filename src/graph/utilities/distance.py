@@ -88,7 +88,7 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 ### Edges
 #######################################
 
-# Obtain nearest edge for 
+# Obtain nearest edge for nid.
 @info()
 def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
 
@@ -124,12 +124,54 @@ def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
     return eid
 
 
+# Obtain nearest edge for position p.
+@info()
+def nearest_edge_for_position(G, p, edge_tree=None, excluded_eids=set()):
+
+    if edge_tree == None:
+        edge_tree = graphedges_to_rtree(G)
+
+    # Seek distance to edge of first hit.
+    bbox = bounding_box(array([p]))
+
+    # Extend excluded eids with those connected to nid.
+    to_exclude = excluded_eids.union(set([format_eid(G, eid) for eid in G.edges(nid, keys=True)]))
+
+    eid = None
+    for found in nearest_rtree_bbox(edge_tree, bbox):
+        if found not in to_exclude:
+            eid = found
+            break
+    
+    check(eid != None, expect="Expect to find nearby edge.")
+
+    distance = graph_distance_position_edge(G, p, eid)
+
+    # Use this distance to find all edge bounding boxes within that distance.
+    bbox = pad_bounding_box(bbox, distance)
+    eids = intersect_rtree_bbox(edge_tree, bbox)
+
+    # Rerun against all edges and return lowest.
+    distances = [(eid, graph_distance_node_edge(G, nid, eid)) for eid in eids if eid not in to_exclude]
+
+    # Obtain lowest
+    eid, distance = min(distances, key=lambda x: x[1])
+
+    return eid
+
+
 # Compute distance between node and edge.
 @info()
 def graph_distance_node_edge(G, nid, eid):
     point = graphnode_position(G, nid)
     curve = attributes.graphedge_curvature(G, eid)
     # Seek distance between point and curve.
+    curvepoint = nearest_position_on_curve_to_point(curve, point)
+    return norm(point - curvepoint)
+
+@info()
+def graph_distance_position_edge(G, p, eid):
+    curve = attributes.graphedge_curvature(G, eid)
     curvepoint = nearest_position_on_curve_to_point(curve, point)
     return norm(point - curvepoint)
 
