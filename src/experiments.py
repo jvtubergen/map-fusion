@@ -73,29 +73,39 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
         write_graph(data_location(place, "C", threshold = threshold)["graph_file"], C)
 
 
-def obtain_prepared_graphs(threshold = 30):
+def obtain_prepared_apls_maps(threshold = 30, fusion_only=False):
     """
     Prepare graphs.
     Basically only "B" and "C" by deleting render: "delete" attributed nodes and edges.
     Yet for consistency in pipeline I just write over all graphs.
     """
+    if fusion_only:
+        _variants = fusion_variants
+    else:
+        _variants = variants
+
     for place in places: 
-        for variant in variants:
+        for variant in _variants:
             G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
             G = remove_deleted(G)
-            write_graph(experiment_location(place, variant, threshold=threshold)["prepared_graph"], G)
+            write_graph(experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"], G)
 
 
-def obtain_shortest_distance_dictionaries(threshold = 30):
+def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False):
     """
     Obtain shortest distance on a graph and write to disk.
     """
+    if fusion_only:
+        _variants = fusion_variants
+    else:
+        _variants = variants
+
     for place in places: 
         for variant in variants:
             print(f"{place}-{variant}")
-            G = read_graph(experiment_location(place, variant, threshold = threshold)["prepared_graph"])
+            G = read_graph(experiment_location(place, variant, threshold = threshold)["apls_prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
-            write_pickle(experiment_location(place, variant, threshold=threshold)["shortest_paths"], shortest_paths)
+            write_pickle(experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"], shortest_paths)
     
 
 def remove_deleted(G):
@@ -108,15 +118,19 @@ def remove_deleted(G):
     return G
 
 
-def obtain_apls_score(threshold = 30):
+def obtain_apls_score(threshold = 30, fusion_only=False):
     """Obtain APLS and APLS* for all maps vs ground truth."""
+    if fusion_only:
+        _variants = fusion_variants + ["osm"]
+    else:
+        _variants = variants
     logger("Reading prepared maps.")
     maps = {}
     for place in places: 
         maps[place] = {}
         for variant in variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
+            location = experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"]
             maps[place][variant] = read_graph(location)
     
     logger("Reading shortest paths maps.")
@@ -125,7 +139,7 @@ def obtain_apls_score(threshold = 30):
         shortest_paths[place] = {}
         for variant in variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["shortest_paths"]
+            location = experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"]
             shortest_paths[place][variant] = read_pickle(location)
 
     logger("Computing APLS metric.")
@@ -149,7 +163,7 @@ def obtain_apls_score(threshold = 30):
                 "apls_prime": apls_prime,
             }
 
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics"]
             write_pickle(location, obj)
 
 
