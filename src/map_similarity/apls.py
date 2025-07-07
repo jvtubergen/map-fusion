@@ -93,7 +93,7 @@ def pick_random_edge_weighted(G):
 
 
 @info(timer=True)
-def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=25):
+def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
     """
     Obtain samples. 
     * G: Target graph
@@ -229,7 +229,7 @@ def asymmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
     """
 
     # Obtain samples.
-    samples_normal, samples_primal = apls_sampling(G, H, G_paths, H_paths, n=n)
+    samples_normal, samples_primal = apls_sampling(G, H, G_paths, H_paths, n=n, max_distance=threshold)
 
     def sample_score(a, b):
         """
