@@ -60,7 +60,10 @@ def pick_random_edge_weighted(G):
     lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
     total   = sum(lengths)
     weights = lengths / total
-    return np.random.choice(eids, 1, weights)
+
+    _eid_indices = [i for i in range(len(eids))]
+    _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
+    return  eids[_eid_index]
 
 
 def gen_position_by_nearest_point(H, p, H_edge_rtree):
@@ -78,9 +81,7 @@ def gen_position_by_nearest_point(H, p, H_edge_rtree):
 
 def random_position_on_graph(G):
     """Obtain a random position on graph G alongside related eid and (curvature) distance from eid[0] endpoint."""
-    _eid_indices = [i for i in range(len(eids))]
-    _eid_index   = np.random.choice(_eid_indices, 1, list(weights))[0]
-    G_eid  = eids[_eid_index]
+    G_eid = pick_random_edge_weighted(G)
     attrs  = get_edge_attributes(G, G_eid)
     length = attrs["length"]
     interval = random.random()
@@ -93,9 +94,8 @@ def random_position_on_graph(G):
     }
 
 
-def get_sample():
+def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance):
     """Obtain a random position on G and its nearest position on H."""
-    # TODO: Make function self-contained (paramaters).
     # Start and end position in G.
     G_start = random_position_on_graph(G)
     G_end   = random_position_on_graph(G)
@@ -107,17 +107,10 @@ def get_sample():
     H_start = gen_position_by_nearest_point(H, G_start["position"], H_edge_rtree)
     H_end   = gen_position_by_nearest_point(H, G_end["position"], H_edge_rtree)
 
-    is_primal = norm(H_start["position"] - G_start["position"]) < max_distance and norm(H_end["position"] - G_end["position"]) < max_distance,
+    # Compute categorization properties.
+    is_primal = float(norm(H_start["position"] - G_start["position"])) < max_distance and float(norm(H_end["position"] - G_end["position"]) < max_distance)
     a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
     path_exists = b in H_paths[a]
-
-    if path_exists:
-        u, v = H_start["eid"][:2]
-        x, y = H_end["eid"][:2]
-        H_paths[u][x] if u <= x else H_paths[x][u] 
-        H_paths[u][y] if u <= y else H_paths[y][u] 
-        H_paths[v][x] if v <= x else H_paths[x][v]
-        H_paths[v][y] if v <= y else H_paths[y][v]
 
     return {
         "A": not is_primal,
@@ -132,7 +125,6 @@ def get_sample():
             "end"  : H_end,
         }, 
     }
-
 
 
 @info(timer=True)
@@ -158,14 +150,18 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
     normal_samples = []
     while len(normal_samples) < n:
         if random.random() < 0.001:
-            print(f"Number of samples generated: {len(normal_samples)}/{n}.")
-        sample = get_sample()
+            print(f"Number of normal samples generated: {len(normal_samples)}/{n}.")
+        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance)
         if sample != None:
             normal_samples.append(sample)
 
     primal_samples = [sample for sample in normal_samples if not sample["A"]]
+    i = 0
     while len(primal_samples) < n:
-        sample = get_sample()
+        i += 1
+        if random.random() < 0.001:
+            print(f"Number of primal samples generated: {len(primal_samples)}/{n}. (Total attempts: {i})")
+        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance)
         if sample != None and not sample["A"]:
             primal_samples.append(sample)
 
