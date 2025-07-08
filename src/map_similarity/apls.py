@@ -381,7 +381,19 @@ def asymmetric_apls_from_metadata(metadata):
     Compute/Derive asymmetric APLS and APLS* value from metadata.
     Ideal for experimentation with large graphs/data and many samples (saves a lot of recomputing sample data).
     """
-    todo("Implement")
+    samples_normal     = metadata["left"]["normal"]["samples"]
+    samples_primal     = metadata["left"]["primal"]["samples"]
+
+    path_scores_normal = metadata["left"]["normal"]["path_scores"]
+    path_scores_primal = metadata["left"]["primal"]["path_scores"]
+
+    l_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
+    l_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
+
+    apls_score       = l_apls_score
+    apls_prime_score = l_apls_prime_score 
+
+    return apls_score, apls_prime_score
 
 
 def extend_apls_metadata(metadata, old_metadata):
