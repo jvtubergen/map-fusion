@@ -24,7 +24,7 @@ from shapely.geometry import Point, LineString
 
 from utilities import *
 from graph import *
-
+import map_similarity.topo_utils as topo_utils
 
 ###############################################################################
 def cut_linestring(line, distance, verbose=False):
@@ -579,7 +579,7 @@ def insert_holes_or_marbles(G_, origin_node, interval=50, n_id_add_val=1,
 
 
 ###############################################################################
-def compute_single_topo(G_sub_gt_, G_sub_p_,
+def sample(G_sub_gt_, G_sub_p_,
                         x_coord='x', y_coord='y', hole_size=5,
                         allow_multi_hole=False,
                         verbose=False, super_verbose=False):
@@ -587,13 +587,13 @@ def compute_single_topo(G_sub_gt_, G_sub_p_,
     By default, Only allow one marble in each hole (allow_multi_hole=False)'''
 
     # get node positions
-    pos_gt = apls_utils._get_node_positions(G_sub_gt_, x_coord=x_coord,
+    pos_gt = topo_utils._get_node_positions(G_sub_gt_, x_coord=x_coord,
                                             y_coord=y_coord)
-    pos_p = apls_utils._get_node_positions(G_sub_p_, x_coord=x_coord,
+    pos_p = topo_utils._get_node_positions(G_sub_p_, x_coord=x_coord,
                                            y_coord=y_coord)
 
     # construct kdtree of ground truth
-    kd_idx_dic0, kdtree0, pos_arr0 = apls_utils.G_to_kdtree(G_sub_gt_)
+    kd_idx_dic0, kdtree0, pos_arr0 = topo_utils.G_to_kdtree(G_sub_gt_)
 
     prop_tp, prop_fp = [], []
     gt_tp, gt_fn = [], []
@@ -648,67 +648,38 @@ def compute_single_topo(G_sub_gt_, G_sub_p_,
     gt_fn = list(set(range(len(pos_gt))) - gt_match_idxs_set)
     n_empty_holes = n_holes - true_pos_count
     false_neg_count = n_empty_holes
-    try:
-        precision = float(true_pos_count) / \
-            float(true_pos_count + false_pos_count)
-    except:
-        precision = 0
-    try:
-        recall = float(true_pos_count) / \
-            float(true_pos_count + false_neg_count)
-    except:
-        recall = 0
-    try:
-        f1 = 2. * precision * recall / (precision + recall)
-    except:
-        f1 = 0
-
-    if verbose:
-        print(("Num holes:", n_holes))
-        print(("Num marbles:", n_marbles))
-        print(("gt_match_idxs_set:", gt_match_idxs_set))
-        print(("Num marbles in holes (true pos):", true_pos_count))
-        print(("Num extra marbles:", false_pos_count))
-        print(("Num holes filled:", n_holes_filled))
-        print(("Num empty holes0:", false_neg_count))
-        print(("Num empty holes1:", len(gt_fn)))
-        print(("precision:", precision))
-        print(("recall:", recall))
-        print(("f1:", f1))
-
-    # return  pos_gt, gt_tp, gt_fn, \
-    #        pos_p, prop_tp, prop_fp
 
     return true_pos_count, false_pos_count, false_neg_count, \
         precision, recall, f1
 
 
 ###############################################################################
-def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
+def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
                  n_measurement_nodes=10000, x_coord='x', y_coord='y',
-                 allow_multi_hole=False, prime=False,
+                 allow_multi_hole=False,
                  make_plots=False, verbose=False):
-    '''Compute topo metric
-     subgraph_radius = radius for topo computation
-     interval is spacing of inserted points
-     hole_size is the buffer within which proposals must fall
+    '''Obtain samples.
+     * subgraph_radius: radius at sample point to extract subgraph from for performing sample.
+     * interval: spacing of inserting marbles/holes.
+     * hole_size: hole size is the radius in which a marble must be for it to be a match .
+     * n: number of samples to obtain.
      '''
 
-    t0 = time.time()
+    samples = [] # Capture samples.
+
     if (len(G_gt_) == 0) or (len(G_p_) == 0):
-        return 0, 0, 0, 0, 0, 0
+        return samples
 
     if verbose:
         print(("G_gt_.nodes():", G_gt_.nodes()))
     # define ground truth kdtree
-    kd_idx_dic, kdtree, pos_arr = apls_utils.G_to_kdtree(G_gt_)
+    kd_idx_dic, kdtree, pos_arr = topo_utils.G_to_kdtree(G_gt_)
     # proposal graph kdtree
-    kd_idx_dic_p, kdtree_p, pos_arr_p = apls_utils.G_to_kdtree(G_p_)
+    kd_idx_dic_p, kdtree_p, pos_arr_p = topo_utils.G_to_kdtree(G_p_)
 
     true_pos_count_l, false_pos_count_l, false_neg_count_l = [], [], []
     # precision_l, recall_l, f1_l = [], [], []
 
-    samples_metadata = [] # Capture samples.
 
     if not prime: # In case of normal we can deal with missing start or end nodes.
         origin_nodes = G_gt_.nodes()
@@ -721,7 +692,7 @@ def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30
             x0, y0 = n_props[x_coord], n_props[y_coord]
             origin_point = [x0, y0]
 
-            node_names_p, idxs_refine_p, dists_m_refine_p = apls_utils._query_kd_ball(
+            node_names_p, idxs_refine_p, dists_m_refine_p = topo_utils._query_kd_ball(
                 kdtree_p, kd_idx_dic_p, origin_point, hole_size)
 
             if len(node_names_p) > 0:
@@ -732,16 +703,18 @@ def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30
     # Picking nodes.
     origin_nodes = np.random.choice(origin_nodes, n_pick)
 
-    for i, origin_node in enumerate(origin_nodes):
+    # TODO: Pick at arbitrary position on graph.
+    prime_samples = 0
+    while prime_samples < n_measurement_nodes:
+        if random.random() < 0.01:
+            print(f"Number of primal samples generated: {prime_samples}/{n}. (Total attempts: {len(samples)})")
 
-        if (i % 20) == 0:
-            print(i, "Origin node:", origin_node)
         n_props = G_gt_.nodes[origin_node]
         x0, y0 = n_props[x_coord], n_props[y_coord]
         origin_point = [x0, y0]
 
         # get subgraph
-        node_names, node_dists = apls_utils._nodes_near_origin(
+        node_names, node_dists = topo_utils._nodes_near_origin(
             G_gt_, origin_node,
             kdtree, kd_idx_dic,
             x_coord=x_coord, y_coord=y_coord,
@@ -776,17 +749,16 @@ def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30
 
         # determine nearast node to ground_truth origin_point
         # query kd tree for origin node
-        node_names_p, idxs_refine_p, dists_m_refine_p = apls_utils._query_kd_ball(
+        node_names_p, idxs_refine_p, dists_m_refine_p = topo_utils._query_kd_ball(
             kdtree_p, kd_idx_dic_p, origin_point, hole_size)
 
         if len(node_names_p) == 0:
-            if verbose:
-                print(("Oops, no proposal node correspnding to", origin_node))
             # all nodes are false positives in this case
-            true_pos_count_l.append(0)
-            false_pos_count_l.append(0)
-            false_neg_count_l.append(len(G_holes.nodes()))
-            samples_metadata.append(0)
+            samples.append({
+                "tp": 0,
+                "fp": 0,
+                "fn": len(G_holes.nodes()),
+            })
             continue
 
         # get closest node
@@ -798,7 +770,7 @@ def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30
             print(("origin_node_p:", origin_node_p))
 
         # get subgraph
-        node_names_p, node_dists_p = apls_utils._nodes_near_origin(
+        node_names_p, node_dists_p = topo_utils._nodes_near_origin(
             G_p_, origin_node_p,
             kdtree_p, kd_idx_dic_p,
             x_coord=x_coord, y_coord=y_coord,
@@ -828,84 +800,66 @@ def compute_topo_on_prepared_graph(G_gt_, G_p_, subgraph_radius=150, interval=30
 
         ####################
         # compute topo metric
-        true_pos_count, false_pos_count, false_neg_count, \
-            precision, recall, f1 = compute_single_topo(
+        tp, fp, fn = sample(
                 G_holes, G_holes_p,
                 x_coord=x_coord, y_coord=y_coord,
                 allow_multi_hole=allow_multi_hole,
                 hole_size=hole_size, verbose=verbose)
-        true_pos_count_l.append(true_pos_count)
-        false_pos_count_l.append(false_pos_count)
-        false_neg_count_l.append(false_neg_count)
 
-        samples_metadata.append(f1)
+        samples.append({
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+        })
+        prime_samples += 1
+
+    return samples
+
+
+def compute_topo_score(samples):
+    """
+    Compute TOPO score on samples.
+    
+    Note: Formula is the same for TOPO*. TOPO* differs in obtaining samples.
+    """
 
     # compute total score
-    tp_tot = np.sum(true_pos_count_l)
-    fp_tot = np.sum(false_pos_count_l)
-    fn_tot = np.sum(false_neg_count_l)
+    tp_tot = np.sum([sample["tp"] for sample in samples])
+    fp_tot = np.sum([sample["fp"] for sample in samples])
+    fn_tot = np.sum([sample["fn"] for sample in samples])
 
     try:
         precision = float(tp_tot) / float(tp_tot + fp_tot)
     except:
         precision = 0
+
     try:
         recall = float(tp_tot) / float(tp_tot + fn_tot)
     except:
         recall = 0
+
     try:
         f1 = 2. * precision * recall / (precision + recall)
     except:
         f1 = 0
 
-    # print("TOPO metric:")
-    # print("  total time elapsed to compute TOPO and make plots:",
-        #   time.time() - t0, "seconds")
-    # print("  total precison:", precision)
-    # print("  total recall:", recall)
-    # print("  total f1:", f1)
-
-    data = {
-        "tp_tot"   : tp_tot,
-        "fp_tot"   : fp_tot,
-        "fn_tot"   : fn_tot,
-        "precision": precision,
-        "recall"   : recall,
-        "f1"       : f1,
-        "samples"  : samples_metadata
-    }
-
-    return f1, data
+    return precision, recall, f1
 
 
-# Prepare graph for TOPO computations.
+
 @info()
-def prepare_graph_for_topo(G):
+def asymmetric_topo(G, H, **topo_params):
+    """Compute TOPO and TOPO* metric of source graph H (inferred) to target graph G (ground truth)."""
 
-    if "prepared" in G.graph and G.graph["prepared"] == "topo":
-        return G
-
-    G = G.copy()
-
-    G = simplify_graph(G)
-    G = G.to_directed(G)
-    G = nx.MultiGraph(G)
-
-    graph_annotate_edge_curvature(G)
-    graph_annotate_edge_geometry(G)
-    graph_annotate_edge_length(G)
-
-    G.graph["prepared"] = "topo"
-
-    return G
-
-
-# Compute TOPO and TOPO* metric between two graphs.
-@info()
-def topo_and_prime(truth, proposed):
-
-    truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
-    topo_score = compute_topo_on_prepared_graph(truth, proposed)
-    topo_prime_score = compute_topo_on_prepared_graph(truth, proposed, prime=True)
+    samples = topo_sampling(G, H, **topo_params)
+    
+    topo_score       = compute_topo_on_prepared_graph(G, H, prime=False, **topo_params)
+    topo_prime_score = compute_topo_on_prepared_graph(G, H, prime=True , **topo_params)
 
     return topo_score, topo_prime_score
+
+@info()
+def symmetric_topo_from_metadata(metadata):
+    """Eeconstruct TOPO and TOPO* score on metadata."""
+    # TODO: Extract metadata so it can reconstruct TOPO and TOPO* score without computing with graph data.
+    todo("Implement")

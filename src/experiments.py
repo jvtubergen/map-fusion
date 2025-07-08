@@ -191,7 +191,36 @@ def obtain_apls_score(threshold = 30, fusion_only=False): # APLS
 
             location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics"]
             write_pickle(location, obj)
-    
+
+
+##################
+### TOPO
+##################
+
+def obtain_topo_samples(threshold=30, n=10000, hole_size=6, interval=8.95):
+
+    logger("Reading prepared maps.")
+    maps = {}
+    for place in places: 
+        maps[place] = {}
+        for variant in variants:
+            print(f"{place}-{variant}")
+            location = experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"]
+            maps[place][variant] = read_graph(location)
+
+    logger("Computing samples.")
+    for place in places: 
+        for variant in set(variants) - set(["osm"]):
+            logger(f"{place} - {variant}.")
+            target_graph = maps[place]["osm"]
+            source_graph = maps[place][variant]
+
+            samples = topo_sampling(target_graph, source_graph, n_measurement_nodes=n, interval=interval, hole_size=hole_size)
+            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_metadata"]
+
+            write_pickle(location, metadata)
+            
+
 
 def obtain_topo_score(threshold = 30):
     # TODO
