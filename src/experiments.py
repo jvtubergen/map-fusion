@@ -118,7 +118,7 @@ def remove_deleted(G):
     return G
 
 
-def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000): # APLS
+def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, extend=False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
     logger("Reading prepared maps.")
@@ -152,10 +152,21 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000): # A
             apls, apls_prime, metadata = symmetric_apls(target_graph, source_graph, target_paths, source_paths, threshold=apls_threshold, n=sample_count)
 
             location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
+
+            if extend:
+                old_metadata = read_pickle(location)
+
+                for a in ["left", "right"]:
+                    for b in ["normal", "primal"]:
+                        for c in ["samples", "path_scores"]:
+                            if c == "samples":
+                                for d in ["A", "B", "C"]:
+                                    metadata[a][b][c][d] += old_metadata[a][b][c][d]
+                            else:
+                                metadata[a][b][c] += old_metadata[a][b][c]
+
             write_pickle(location, metadata)
     
-
-
 
 def obtain_apls_score(threshold = 30, fusion_only=False): # APLS
     """Obtain APLS and APLS* for all maps vs ground truth."""
