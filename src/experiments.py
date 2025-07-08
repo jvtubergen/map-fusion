@@ -73,11 +73,26 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
         write_graph(data_location(place, "C", threshold = threshold)["graph_file"], C)
 
 
-def obtain_prepared_apls_maps(threshold = 30, fusion_only=False):
+##################
+### APLS + TOPO
+##################
+
+
+def remove_deleted(G):
+    """Remove nodes and edges with `{"render": "deleted"}` attribute."""
+    G = G.copy()
+    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
+    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
+    G.remove_edges_from(edges_to_be_deleted)
+    G.remove_nodes_from(nodes_to_be_deleted)
+    return G
+
+
+def obtain_prepared_metric_maps(threshold = 30, fusion_only=False): # APLS + TOPO
     """
-    Prepare graphs.
-    Basically only "B" and "C" by deleting render: "delete" attributed nodes and edges.
-    Yet for consistency in pipeline I just write over all graphs.
+    Prepare graphs (identical for APLS and TOPO):  Remove edges and nodes with the {"render": "delete"} attribute.
+    Basically only necessary for "B" and "C" (because other graphs nowhere annotate this specific "render" attribute value),
+    yet for consistency in pipeline I just apply it to all graphs (effectively copying them over from data to experiments folder).
     """
     if fusion_only:
         _variants = fusion_variants
@@ -91,7 +106,11 @@ def obtain_prepared_apls_maps(threshold = 30, fusion_only=False):
             write_graph(experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"], G)
 
 
-def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False):
+##################
+### APLS
+##################
+
+def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False): # APLS
     """
     Obtain shortest distance on a graph and write to disk.
     """
@@ -106,16 +125,6 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False):
             G = read_graph(experiment_location(place, variant, threshold = threshold)["apls_prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"], shortest_paths)
-
-
-def remove_deleted(G):
-    """Remove nodes and edges with `{"render": "deleted"}` attribute."""
-    G = G.copy()
-    edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
-    nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
-    G.remove_edges_from(edges_to_be_deleted)
-    G.remove_nodes_from(nodes_to_be_deleted)
-    return G
 
 
 def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, extend=False): # APLS
@@ -155,15 +164,7 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
 
             if extend:
                 old_metadata = read_pickle(location)
-
-                for a in ["left", "right"]:
-                    for b in ["normal", "primal"]:
-                        for c in ["samples", "path_scores"]:
-                            if c == "samples":
-                                for d in ["A", "B", "C"]:
-                                    metadata[a][b][c][d] += old_metadata[a][b][c][d]
-                            else:
-                                metadata[a][b][c] += old_metadata[a][b][c]
+                metadata = extend_apls_metadata(metadata, old_metadata)
 
             write_pickle(location, metadata)
     
