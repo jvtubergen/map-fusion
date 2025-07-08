@@ -20,7 +20,7 @@ def _get_node_positions(G_, x_coord='x', y_coord='y'):
     arr = np.zeros((nrows, ncols))
     # populate node array
     for i, n in enumerate(G_.nodes()):
-        n_props = G_.node[n]
+        n_props = G_.nodes[n]
         x, y = n_props[x_coord], n_props[y_coord]
         arr[i] = [x, y]
     return arr
@@ -62,7 +62,7 @@ def G_to_kdtree(G_, x_coord='x', y_coord='y', verbose=False):
     # populate node array
     t1 = time.time()
     for i, n in enumerate(G_.nodes()):
-        n_props = G_.node[n]
+        n_props = G_.nodes[n]
         if x_coord == 'lon':
             lat, lon = n_props['lat'], n_props['lon']
             x, y = lon, lat
@@ -105,7 +105,7 @@ def _nodes_near_origin(G_, node, kdtree, kd_idx_dic,
     maximally simplified graph'''
 
     # get node coordinates
-    n_props = G_.node[node]
+    n_props = G_.nodes[node]
     x0, y0 = n_props[x_coord], n_props[y_coord]
     point = [x0, y0]
 

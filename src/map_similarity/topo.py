@@ -649,8 +649,7 @@ def sample(G_sub_gt_, G_sub_p_,
     n_empty_holes = n_holes - true_pos_count
     false_neg_count = n_empty_holes
 
-    return true_pos_count, false_pos_count, false_neg_count, \
-        precision, recall, f1
+    return true_pos_count, false_pos_count, false_neg_count
 
 
 ###############################################################################
@@ -667,48 +666,22 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
 
     samples = [] # Capture samples.
 
-    if (len(G_gt_) == 0) or (len(G_p_) == 0):
-        return samples
+    assert len(G_gt_) > 0 and len(G_p_) >= 0
 
-    if verbose:
-        print(("G_gt_.nodes():", G_gt_.nodes()))
     # define ground truth kdtree
     kd_idx_dic, kdtree, pos_arr = topo_utils.G_to_kdtree(G_gt_)
     # proposal graph kdtree
     kd_idx_dic_p, kdtree_p, pos_arr_p = topo_utils.G_to_kdtree(G_p_)
 
-    true_pos_count_l, false_pos_count_l, false_neg_count_l = [], [], []
-    # precision_l, recall_l, f1_l = [], [], []
-
-
-    if not prime: # In case of normal we can deal with missing start or end nodes.
-        origin_nodes = G_gt_.nodes()
-    else: # In case of prime, we prefilter origin nodes which have a proposed node nearby.
-        origin_nodes = []
-        
-        for node in G_gt_.nodes():
-
-            n_props = G_gt_.nodes[node]
-            x0, y0 = n_props[x_coord], n_props[y_coord]
-            origin_point = [x0, y0]
-
-            node_names_p, idxs_refine_p, dists_m_refine_p = topo_utils._query_kd_ball(
-                kdtree_p, kd_idx_dic_p, origin_point, hole_size)
-
-            if len(node_names_p) > 0:
-                origin_nodes.append(node)
-    
-    # Make sure we don't pick more nodes than exist in the graph
-    n_pick = min(n_measurement_nodes, len(G_gt_.nodes()))
-    # Picking nodes.
-    origin_nodes = np.random.choice(origin_nodes, n_pick)
+    origin_nodes = G_gt_.nodes()
 
     # TODO: Pick at arbitrary position on graph.
     prime_samples = 0
     while prime_samples < n_measurement_nodes:
-        if random.random() < 0.01:
-            print(f"Number of primal samples generated: {prime_samples}/{n}. (Total attempts: {len(samples)})")
+        # if random.random() < 0.01:
+        print(f"Number of primal samples generated: {prime_samples}/{n_measurement_nodes}. (Total attempts: {len(samples)})")
 
+        origin_node = np.random.choice(origin_nodes, 1)[0]
         n_props = G_gt_.nodes[origin_node]
         x0, y0 = n_props[x_coord], n_props[y_coord]
         origin_point = [x0, y0]
@@ -816,7 +789,7 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
     return samples
 
 
-def compute_topo_score(samples):
+def asymmetric_topo_from_metadata(samples):
     """
     Compute TOPO score on samples.
     
@@ -845,21 +818,3 @@ def compute_topo_score(samples):
 
     return precision, recall, f1
 
-
-
-@info()
-def asymmetric_topo(G, H, **topo_params):
-    """Compute TOPO and TOPO* metric of source graph H (inferred) to target graph G (ground truth)."""
-
-    samples = topo_sampling(G, H, **topo_params)
-    
-    topo_score       = compute_topo_on_prepared_graph(G, H, prime=False, **topo_params)
-    topo_prime_score = compute_topo_on_prepared_graph(G, H, prime=True , **topo_params)
-
-    return topo_score, topo_prime_score
-
-@info()
-def symmetric_topo_from_metadata(metadata):
-    """Eeconstruct TOPO and TOPO* score on metadata."""
-    # TODO: Extract metadata so it can reconstruct TOPO and TOPO* score without computing with graph data.
-    todo("Implement")
