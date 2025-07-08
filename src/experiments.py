@@ -141,7 +141,7 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
 
     logger("Computing metadata.")
     for place in places: 
-        for variant in variants:
+        for variant in set(variants) - set(["osm"]):
             logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
@@ -175,7 +175,7 @@ def obtain_apls_score(threshold = 30, fusion_only=False): # APLS
     metadata = {}
     for place in places: 
         metadata[place] = {}
-        for variant in variants:
+        for variant in set(variants) - set(["osm"]):
             print(f"{place}-{variant}")
             location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
             metadata = read_pickle(location)
