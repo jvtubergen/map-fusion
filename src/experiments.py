@@ -273,8 +273,7 @@ def experiment_one_base_table(threshold = 30):
         for place in places: 
 
             rows = []
-
-            for map_variant in set(measurements[place].keys()) - set(["osm"]):
+            for variant in ["sat", "gps", "A", "B", "C"]:
 
                 row = []
                 row.append(measurements[place][variant]["topo"]["recall"])
@@ -293,10 +292,9 @@ def experiment_one_base_table(threshold = 30):
 
         print(before)
 
-        # TODO: Upper-case and correct order.
         # Print berlin results.
         for rows in data["berlin"]:
-            print(f"[{rows[0]}], ", end="")
+            print(f"[*{rows[0].upper()}*], ", end="")
             for row in rows[1]:
                 print(f"[{row:.3f}], ", end="")
             print()
@@ -305,7 +303,7 @@ def experiment_one_base_table(threshold = 30):
         
         # Print chicago results.
         for rows in data["chicago"]:
-            print(f"[{rows[0]}], ", end="")
+            print(f"[*{rows[0].upper()}*], ", end="")
             for row in rows[1]:
                 print(f"[{row:.3f}], ", end="")
             print()
@@ -338,24 +336,25 @@ def experiment_one_base_table(threshold = 30):
     #place(line(start: (0%, 100%), end: (100%, 0%)))
     ]
 
-    #table(
+    #figure(
+    rect(table(
     columns: 10,
     table.header(
         [],
         [],
-        [Acc],
+        [Rec],
         [Prec],
-        [$F_1$],
+        [TOPO],
         [APLS],
-        [Acc#super[$star$]],
+        [Rec#super[$star$]],
         [Prec#super[$star$]],
-        [$F_1$#super[$star$]],
+        [TOPO#super[$star$]],
         [APLS#super[$star$]],
     ),
     table.cell(
-        rowspan: 2,
+        rowspan: 5,
         align: horizon,
-        [Berlin]
+        [*Berlin*]
     ),
     """
 
@@ -377,20 +376,19 @@ def experiment_one_base_table(threshold = 30):
         end:10 
     ),
     table.cell(
-        rowspan: 2,
+        rowspan: 5,
         align: horizon,
-        [Chicago]
+        [*Chicago*]
     ),
     """
 
     after = """
-    )
+      )),
+    caption: [Experiment 1 - Base results.],
+    ) <table:experiment-1>
     """
 
-    # maps         = read_and_or_write("results/Experiment 1 - maps 30m", lambda: generate_maps(threshold=threshold)  , **reading_props)
-    # precomputed  = read_and_or_write("results/Experiment 1 - precomputed maps for metrics", lambda: precompute_measurements_maps(maps)  , **reading_props)
-    # measurements = read_and_or_write("results/Experiment 1 - apply measurements to maps"  , lambda: apply_measurements_maps(precomputed), **reading_props)
-    print(measurements_to_table(result))
+    measurements_to_table(table_results)
 
 
 # Experiment two - A.
