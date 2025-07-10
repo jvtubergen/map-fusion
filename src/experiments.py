@@ -219,48 +219,77 @@ def obtain_topo_samples(threshold=30, n=100, hole_size=6, interval=8.95):
             location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_metadata"]
 
             write_pickle(location, samples)
-            
 
 
-def obtain_topo_score(threshold = 30):
-    # TODO
-    return
-
+##################
+### Experiment 1
+##################
 
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
 @info()
 def experiment_one_base_table(threshold = 30):
-    # TODO: Read in TOPO and APLS.
 
+    # Read in TOPO and APLS samples and compute metric scores.
+    table_results = {}
+    for place in places: 
+        table_results[place] = {}
+        for variant in set(variants) - set(["osm"]):
+            print(f"{place}-{variant}")
 
-    # Construct typst table out of measurements data.
+            # Asymmetric APLS results.
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
+            metadata = read_pickle(location)
+            apls       = asymmetric_apls_from_metadata(metadata, prime=False)
+            apls_prime = asymmetric_apls_from_metadata(metadata, prime=True)
+
+            # Asymmetric TOPO results.
+            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_metadata"]
+            metadata = read_pickle(location)
+            topo_results       = asymmetric_topo_from_metadata(metadata, False)
+            topo_prime_results = asymmetric_topo_from_metadata(metadata, True)
+
+            table_results[place][variant] = {
+                "apls": apls,
+                "apls_prime": apls_prime,
+                "topo": {
+                    "recall": topo_results["recall"],
+                    "precision": topo_results["precision"],
+                    "f1": topo_results["f1"],
+                },
+                "topo_prime": {
+                    "recall": topo_prime_results["recall"],
+                    "precision": topo_prime_results["precision"],
+                    "f1": topo_prime_results["f1"],
+                },
+            }
+
     @info()
     def measurements_to_table(measurements):
+        """Construct typst table out of measurements data."""
         
         # Construct a list of elements to print.
         data = {}
-        for place in ["berlin", "chicago"]:
+        for place in places: 
 
             rows = []
 
             for map_variant in set(measurements[place].keys()) - set(["osm"]):
 
                 row = []
-                row.append(measurements[place][map_variant]["topo"][1]["recall"])
-                row.append(measurements[place][map_variant]["topo"][1]["precision"])
-                row.append(measurements[place][map_variant]["topo"][1]["f1"])
-                row.append(measurements[place][map_variant]["apls"])
+                row.append(measurements[place][variant]["topo"]["recall"])
+                row.append(measurements[place][variant]["topo"]["precision"])
+                row.append(measurements[place][variant]["topo"]["f1"])
+                row.append(measurements[place][variant]["apls"])
 
-                row.append(measurements[place][map_variant]["topo_prime"][1]["recall"])
-                row.append(measurements[place][map_variant]["topo_prime"][1]["precision"])
-                row.append(measurements[place][map_variant]["topo_prime"][1]["f1"])
-                row.append(measurements[place][map_variant]["apls_prime"])
+                row.append(measurements[place][variant]["topo_prime"]["recall"])
+                row.append(measurements[place][variant]["topo_prime"]["precision"])
+                row.append(measurements[place][variant]["topo_prime"]["f1"])
+                row.append(measurements[place][variant]["apls_prime"])
             
-                rows.append((map_variant, row))
+                rows.append((variant, row))
         
             data[place] = rows
-
 
         print(before)
 
