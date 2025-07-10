@@ -169,30 +169,6 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
             write_pickle(location, metadata)
     
 
-def obtain_apls_score(threshold = 30, fusion_only=False): # APLS
-    """Obtain APLS and APLS* for all maps vs ground truth."""
-    
-    logger("Reading APLS metadata and computing score.")
-    metadata = {}
-    for place in places: 
-        metadata[place] = {}
-        for variant in set(variants) - set(["osm"]):
-            print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
-            metadata = read_pickle(location)
-
-            apls, apls_prime = symmetric_apls_from_metadata(metadata)
-            print(f"APLS : {apls}")
-            print(f"APLS*: {apls_prime}")
-            obj = {
-                "apls": apls,
-                "apls_prime": apls_prime,
-            }
-
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics"]
-            write_pickle(location, obj)
-
-
 ##################
 ### TOPO
 ##################
