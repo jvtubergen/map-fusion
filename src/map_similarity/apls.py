@@ -376,24 +376,21 @@ def symmetric_apls_from_metadata(metadata):
     return apls_score, apls_prime_score
 
 
-def asymmetric_apls_from_metadata(metadata):
+def asymmetric_apls_from_metadata(metadata, prime=False):
     """
     Compute/Derive asymmetric APLS and APLS* value from metadata.
     Ideal for experimentation with large graphs/data and many samples (saves a lot of recomputing sample data).
     """
-    samples_normal     = metadata["left"]["normal"]["samples"]
-    samples_primal     = metadata["left"]["primal"]["samples"]
+    if prime:
+        modus = "primal"
+    else:
+        modus = "normal"
+    
+    samples     = metadata["left"][modus]["samples"]
+    path_scores = metadata["left"][modus]["path_scores"]
+    score       = sum([element["score"] for element in path_scores]) / (len(samples["A"]) + len(samples["B"]) + len(samples["C"]))
 
-    path_scores_normal = metadata["left"]["normal"]["path_scores"]
-    path_scores_primal = metadata["left"]["primal"]["path_scores"]
-
-    l_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
-    l_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
-
-    apls_score       = l_apls_score
-    apls_prime_score = l_apls_prime_score 
-
-    return apls_score, apls_prime_score
+    return score
 
 
 def extend_apls_metadata(metadata, old_metadata):
