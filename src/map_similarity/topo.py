@@ -789,12 +789,16 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
     return samples
 
 
-def asymmetric_topo_from_metadata(samples):
+def asymmetric_topo_from_metadata(samples, prime):
     """
     Compute TOPO score on samples.
     
     Note: Formula is the same for TOPO*. TOPO* differs in obtaining samples.
     """
+
+    if prime:
+        # filter out samples which failed (only fn in sample).
+        samples = [sample for sample in samples if sample["tp"] + sample["fp"] > 0]
 
     # compute total score
     tp_tot = np.sum([sample["tp"] for sample in samples])
@@ -816,5 +820,9 @@ def asymmetric_topo_from_metadata(samples):
     except:
         f1 = 0
 
-    return precision, recall, f1
+    return {
+        "recall"   : recall,
+        "precision": precision,
+        "f1"       : f1,
+    }
 
