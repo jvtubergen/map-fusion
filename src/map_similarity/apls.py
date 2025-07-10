@@ -116,6 +116,19 @@ def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_p
     a, b = sorted([H_start["eid"][0], H_end["eid"][0]])
     path_exists = b in H_paths[a]
 
+    # Obtain path score if applicable.
+    if is_primal and path_exists:
+        target_path_distance = reconstruct_shortest_path(G_start, G_end, G, G_paths)
+        source_path_distance = reconstruct_shortest_path(H_start, H_end, H, H_paths)
+        score = sample_score(target_path_distance, source_path_distance)
+        path_data = {
+            "target": target_path_distance,
+            "source": source_path_distance,
+        }
+    else:
+        score = 0
+        path_data = None
+
     return {
         "A": not is_primal,
         "B": is_primal and not path_exists,
@@ -128,16 +141,21 @@ def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_p
             "start": H_start,
             "end"  : H_end,
         }, 
+        "path_data": path_data,
+        "score": score
     }
 
 
 @info(timer=True)
-def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
+def apls_sampling(G, H, G_paths, H_paths, n=1000, max_distance=5, prime=False):
     """
-    Obtain samples. 
+    Obtain samples (H against G only). 
+
+    It generates `n` amount of samples.
+    In case `prime=True` is given it seeks `n` primal samples (thus of category B or C).
+
     * G: Target graph
     * H: Source graph
-    * G_to_H: Link graph node of G to nearest edge of H
     * G_paths: Shortest paths dictionary on graph G
     * H_paths: Shortest paths dictionary on graph H
     """ 
@@ -155,252 +173,104 @@ def apls_sampling(G, H, G_paths, H_paths, n=10000, max_distance=5):
         return _eid_indices[_eid_index]
 
     H_edge_rtree = graphedges_to_rtree(H)
-    
-    normal_samples = []
-    while len(normal_samples) < n:
+
+    samples = []
+    primal_count = 0
+    while primal_count < n:
         if random.random() < 0.001:
-            print(f"Number of normal samples generated: {len(normal_samples)}/{n}.")
+            print(f"Number of samples generated: {primal_count}/{n}. (Total attemps: {len(samples)})")
+
         sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
+        
         if sample != None:
-            normal_samples.append(sample)
-
-    primal_samples = [sample for sample in normal_samples if not sample["A"]]
-    i = 0
-    while len(primal_samples) < n:
-        i += 1
-        if random.random() < 0.001:
-            print(f"Number of primal samples generated: {len(primal_samples)}/{n}. (Total attempts: {i})")
-        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
+            samples.append(sample)
         if sample != None and not sample["A"]:
-            primal_samples.append(sample)
+            primal_count += 1
 
-    # Collect.
-    samples_normal = {
-        "A": [sample for sample in normal_samples if sample["A"]],
-        "B": [sample for sample in normal_samples if sample["B"]],
-        "C": [sample for sample in normal_samples if sample["C"]],
-    }
-
-    samples_primal = {
-        "A": [],
-        "B": [sample for sample in primal_samples if sample["B"]],
-        "C": [sample for sample in primal_samples if sample["C"]],
-    }
-
-    return samples_normal, samples_primal
+    return samples
 
 
-# Compute score on the data object.
-def compute_score(samples, path_scores):
+def apls_score(samples, path_scores):
+    """Compute APLS score on the collection of samples and their related path scores."""
+    assert len(path_scores) == len(samples("C"))
     sample_sum  = sum(path_scores)
-    n = len(samples["B"]) + len(samples["C"]) + len(samples["A"])
+    n = len(samples["A"]) + len(samples["B"]) + len(samples["C"])
     score = sample_sum / n
     return score
 
 
-def asymmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
+def sample_score(a, b):
     """
-    Obtain _asymmetric_ APLS aand APLS* score alongside metadata to reconstruct APLS and APLS* score from.
-    Input variables are:
-    * G: Target graph (ground truth).
-    * H: Source graph (inferred graph).
-    * H_paths: Shortest paths matrix (generated with `precompute_shortest_path_data`).
-    * n: Number of samples (start to endpoint pairs)
-    * threshold: APLS distance threshold seeking nearest curvature to target point.
+    Compute score of a sample.
+    * a: target path length
+    * b: source path length
+    """ 
+    return 1 - min(abs(a - b) / a, 1)
+
+
+def reconstruct_shortest_path(start, end, graph, paths):
+    """
+    Reconstruct the shortest path from a sample.
+    Expect the shortest path for this sample exists.
+
+    The reason its this complicated in comparison to just picking nodes on the graph:
+    * This logic allows to sample _all_ locations on source graph.
+    * It uses the most minimal distance matric (see `precompute_shortest_path_data`) which improves drastically computation and storage costs by not having to deal with thousands of additional nodes.
     """
 
-    # Obtain samples.
-    samples_normal, samples_primal = apls_sampling(G, H, G_paths, H_paths, n=n, max_distance=threshold)
+    u, v = start["eid"][:2]
+    x, y = end["eid"][:2]
+    d1   = start["distance"]
+    d2   = end["distance"]
 
-    def sample_score(a, b):
-        """
-        Compute score of a sample.
-        * a: target path length
-        * b: source path length
-        """ 
-        return 1 - min(abs(a - b) / a, 1)
+    a = paths[u][x] if u <= x else paths[x][u] 
+    b = paths[u][y] if u <= y else paths[y][u] 
+    c = paths[v][x] if v <= x else paths[x][v]
+    d = paths[v][y] if v <= y else paths[y][v]
     
-    def total_score(samples, path_scores):
-        """
-        Compute score of all samples (category A, B, C) combined.
-        """
-        n = len(samples["A"]) + len(samples["B"]) + len(samples["C"])
-        sample_sum = sum(path_scores)
-        return sample_sum / n
+    l1 = get_edge_attributes(graph, start["eid"])["length"]
+    l2 = get_edge_attributes(graph, end["eid"])["length"]
+
+    check(float(d1 - l1) < 0.0001)
+    check(float(d2 - l2) < 0.0001)
+
+    check(float(abs(c - a) - l1) < 0.0001)
+    check(float(abs(d - b) - l1) < 0.0001)
+    check(float(abs(b - a) - l2) < 0.0001)
+    check(float(abs(d - c) - l2) < 0.0001)
     
-    def reconstruct_shortest_path(sample, graph, paths):
-        """
-        Reconstruct the shortest path from a sample.
-        Expect the shortest path for this sample exists.
+    lowest = min(a,b,c,d)
 
-        The reason its this complicated in comparison to just picking nodes on the graph:
-        * This logic allows to sample _all_ locations on source graph.
-        * It uses the most minimal distance matric (see `precompute_shortest_path_data`) which improves drastically computation and storage costs by not having to deal with thousands of additional nodes.
-        """
-
-        u, v = sample["start"]["eid"][:2]
-        x, y = sample["end"]["eid"][:2]
-        d1   = sample["start"]["distance"]
-        d2   = sample["end"]["distance"]
-
-        a = paths[u][x] if u <= x else paths[x][u] 
-        b = paths[u][y] if u <= y else paths[y][u] 
-        c = paths[v][x] if v <= x else paths[x][v]
-        d = paths[v][y] if v <= y else paths[y][v]
-        
-        l1 = get_edge_attributes(graph, sample["start"]["eid"])["length"]
-        l2 = get_edge_attributes(graph, sample["end"]["eid"])["length"]
-
-        check(float(d1 - l1) < 0.0001)
-        check(float(d2 - l2) < 0.0001)
-
-        check(float(abs(c - a) - l1) < 0.0001)
-        check(float(abs(d - b) - l1) < 0.0001)
-        check(float(abs(b - a) - l2) < 0.0001)
-        check(float(abs(d - c) - l2) < 0.0001)
-        
-        lowest = min(a,b,c,d)
-
-        if a == lowest:
-            return a + d1 + d2
-        elif b == lowest:
-            return a + d1 + (l2 - d2)
-        elif c == lowest:
-            return a + (l1 - d1) + d2
-        elif d == lowest:
-            return a + (l1 - d1) + (l2 - d2)
-
-    # Obtain path scores.
-    path_scores_normal = []
-    for sample in samples_normal["C"]:
-        
-        target_path_distance = reconstruct_shortest_path(sample["G"], G, G_paths)
-        source_path_distance = reconstruct_shortest_path(sample["H"], H, H_paths)
-        score = sample_score(target_path_distance, source_path_distance)
-        path_scores_normal.append({
-            "target": target_path_distance,
-            "source": source_path_distance,
-            "score" : score,
-        })
-
-    path_scores_primal = []
-    # TODO: Re-use overlap with normal samples.
-    for sample in samples_primal["C"]:
-
-        target_path_distance = reconstruct_shortest_path(sample["G"], G, G_paths)
-        source_path_distance = reconstruct_shortest_path(sample["H"], H, H_paths)
-        score = sample_score(target_path_distance, source_path_distance)
-        path_scores_primal.append({
-            "target": target_path_distance,
-            "source": source_path_distance,
-            "score" : score,
-        })
-    
-    # Compute APLS score (accumulate all sample scores).
-    apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
-    apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
-
-    # Compute metadata: 
-    metadata = {
-        "n": n,
-        "apls_threshold": threshold, 
-        "normal": {
-            "samples": samples_normal,
-            "path_scores": path_scores_normal,
-        },
-        "primal": {
-            "samples": samples_primal,
-            "path_scores": path_scores_primal,
-        }
-    }
-
-    return apls_score, apls_prime_score, metadata
+    if a == lowest:
+        return a + d1 + d2
+    elif b == lowest:
+        return a + d1 + (l2 - d2)
+    elif c == lowest:
+        return a + (l1 - d1) + d2
+    elif d == lowest:
+        return a + (l1 - d1) + (l2 - d2)
 
 
-@info(timer=True)
-def symmetric_apls(G, H, G_paths, H_paths, n=1000, threshold=5):
-    """
-    Obtain _symmetric_ APLS aand APLS* score alongside metadata to reconstruct APLS and APLS* score from.
-    Input variables are:
-    * G: Target graph (ground truth).
-    * H: Source graph (inferred graph).
-    * H_paths: Shortest paths matrix (generated with `precompute_shortest_path_data`).
-    * n: Number of samples (start to endpoint pairs)
-    * threshold: APLS distance threshold seeking nearest curvature to target point.
-    """
-    left = asymmetric_apls(G, H, G_paths, H_paths, n=n, threshold=threshold)
-    right= asymmetric_apls(H, G, H_paths, G_paths, n=n, threshold=threshold)
-
-    apls_score       = 0.5 * (left[0] + right[0])
-    apls_prime_score = 0.5 * (left[1] + right[1])
-
-    metadata = {
-        "n": n,
-        "apls_threshold": threshold, 
-        "left": left[2],
-        "right": right[2]
-    }
-
-    return apls_score, apls_prime_score, metadata
-
-
-def symmetric_apls_from_metadata(metadata):
-    """
-    Compute/Derive symmetric APLS and APLS* value from metadata.
-    Ideal for experimentation with large graphs/data and many samples (saves a lot of recomputing sample data).
-    """
-
-    # Left
-    samples_normal     = metadata["left"]["normal"]["samples"]
-    samples_primal     = metadata["left"]["primal"]["samples"]
-
-    path_scores_normal = metadata["left"]["normal"]["path_scores"]
-    path_scores_primal = metadata["left"]["primal"]["path_scores"]
-
-    l_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
-    l_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
-
-    # Right
-    samples_normal     = metadata["right"]["normal"]["samples"]
-    samples_primal     = metadata["right"]["primal"]["samples"]
-
-    path_scores_normal = metadata["right"]["normal"]["path_scores"]
-    path_scores_primal = metadata["right"]["primal"]["path_scores"]
-
-    r_apls_score       = sum([element["score"] for element in path_scores_normal]) / (len(samples_normal["A"]) + len(samples_normal["B"]) + len(samples_normal["C"]))
-    r_apls_prime_score = sum([element["score"] for element in path_scores_primal]) / (len(samples_primal["A"]) + len(samples_primal["B"]) + len(samples_primal["C"]))
-
-    apls_score       = 0.5 * (l_apls_score + r_apls_score)
-    apls_prime_score = 0.5 * (l_apls_prime_score + r_apls_prime_score)
-
-    return apls_score, apls_prime_score
-
-
-def asymmetric_apls_from_metadata(metadata, prime=False):
+def asymmetric_apls_from_samples(samples, prime=False, sample_count=None):
     """
     Compute/Derive asymmetric APLS and APLS* value from metadata.
     Ideal for experimentation with large graphs/data and many samples (saves a lot of recomputing sample data).
     """
-    if prime:
-        modus = "primal"
-    else:
-        modus = "normal"
+
+    if sample_count != None:
+        check(sample_count <= len(samples), expect="Expect to have a sample count ({sample_count}) <= samples ({samples}).")
+        samples = samples[:sample_count]
     
-    samples     = metadata["left"][modus]["samples"]
-    path_scores = metadata["left"][modus]["path_scores"]
-    score       = sum([element["score"] for element in path_scores]) / (len(samples["A"]) + len(samples["B"]) + len(samples["C"]))
+    if prime:
+        samples = [sample for sample in samples if not sample["A"]]
+    
+
+    score = sum([sample["score"] for sample in samples]) / len(samples)
 
     return score
 
 
-def extend_apls_metadata(metadata, old_metadata):
+def extend_apls_metadata(samples, old_samples):
     """Extend metadata. Useful to fill up with more precomputed samples at a later moment in time."""
-    for a in ["left", "right"]:
-        for b in ["normal", "primal"]:
-            for c in ["samples", "path_scores"]:
-                if c == "samples":
-                    for d in ["A", "B", "C"]:
-                        metadata[a][b][c][d] += old_metadata[a][b][c][d]
-                else:
-                    metadata[a][b][c] += old_metadata[a][b][c]
-    return metadata
+    samples += old_samples
+    return samples

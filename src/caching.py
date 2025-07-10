@@ -4,6 +4,7 @@ places = ["berlin", "chicago"]
 base_variants = ["osm", "sat", "gps"]
 fusion_variants = ["A", "B", "C"]
 variants = base_variants + fusion_variants
+metrics = ["apls", "topo"]
 
 # This file provides functions to cache your computation results so they can be re-used.
 
@@ -102,32 +103,33 @@ def data_location(place, variant, threshold = None):
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
-def experiment_location(place, variant, threshold = None, metric = None):
-    if variant in base_variants:
-        base =  {
-            "apls_prepared_graph": get_data_file(f"experiments/apls_prepared_graph/{variant}-{place}.graph"),
-            "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{variant}-{place}.pkl"),
-        }
-        if metric != None:
-            base.update({
-                "metrics"         : get_data_file(f"experiments/metrics/{variant}-{place}-{metric}.pkl"),
-                "metrics_metadata": get_data_file(f"experiments/metrics_metadata/{variant}-{place}-{metric}.pkl"),
-            })
-        return base
-    elif variant in fusion_variants: 
-        assert threshold != None
-        base = {
-            "apls_prepared_graph": get_data_file(f"experiments/apls_prepared_graph/{variant}-{place}-{threshold}.graph"),
-            "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{variant}-{place}-{threshold}.pkl")
-        }
-        if metric != None:
-            base.update({
-                "metrics"         : get_data_file(f"experiments/metrics/{variant}-{place}-{threshold}-{metric}.pkl"),
-                "metrics_metadata": get_data_file(f"experiments/metrics_metadata/{variant}-{place}-{threshold}-{metric}.pkl"),
-            })
-        return base
-    else:
-        raise ValueError(f"Unknown variant: {variant}")
+def experiment_location(place, variant, threshold = None, metric = None, metric_threshold = None, metric_interval = None, plot_name = None):
+
+    filename = f"{variant}-{place}"
+    if variant in fusion_variants and threshold != None:
+        filename = f"{filename}-{threshold}"
+    if metric != None:
+        filename = f"{filename}-{metric}"
+    if metric_threshold != None:
+        filename = f"{filename}-{metric_threshold}"
+    if metric_interval != None:
+        filename = f"{filename}-{metric_interval}"
+    if plot_name != None:
+        filename = f"{filename}-{plot_name}"
+
+    assert variant in variants
+    assert place in places
+    if variant in fusion_variants:
+        assert threshold != None # Expect a threshold is given if its a fuse variant.
+
+    return  {
+        "prepared_graph"     : get_data_file(f"experiments/prepared_graph/{filename}.graph"),
+        "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{filename}.pkl"),
+        "metrics"            : get_data_file(f"experiments/metrics/{filename}.pkl"),
+        "metrics_samples"    : get_data_file(f"experiments/metrics_samples/{filename}.pkl"),
+        "plots"              : get_data_file(f"experiments/plots/{filename}.svg")
+    }
+
 
 ## Legacy functions for backward compatibility
 def sat_locations(place):

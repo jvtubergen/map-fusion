@@ -103,7 +103,7 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only=False): # APLS + TOP
         for variant in _variants:
             G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
             G = remove_deleted(G)
-            write_graph(experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"], G)
+            write_graph(experiment_location(place, variant, threshold=threshold)["prepared_graph"], G)
 
 
 ##################
@@ -122,12 +122,12 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False): # 
     for place in places: 
         for variant in variants:
             print(f"{place}-{variant}")
-            G = read_graph(experiment_location(place, variant, threshold = threshold)["apls_prepared_graph"])
+            G = read_graph(experiment_location(place, variant, threshold = threshold)["prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"], shortest_paths)
 
 
-def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, extend=False): # APLS
+def obtain_apls_samples(threshold=30, apls_threshold=5, sample_count=1000, extend=False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
     logger("Reading prepared maps.")
@@ -136,7 +136,7 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
         maps[place] = {}
         for variant in variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"]
+            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
             maps[place][variant] = read_graph(location)
     
     logger("Reading shortest paths maps.")
@@ -148,7 +148,7 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
             location = experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"]
             shortest_paths[place][variant] = read_pickle(location)
 
-    logger("Computing metadata.")
+    logger("Computing samples.")
     for place in places: 
         for variant in set(variants) - set(["osm"]):
             logger(f"{place} - {variant}.")
@@ -158,22 +158,21 @@ def obtain_apls_metadata(threshold=30, apls_threshold=5, sample_count=1000, exte
             target_paths = shortest_paths[place]["osm"]
             source_paths = shortest_paths[place][variant]
 
-            apls, apls_prime, metadata = symmetric_apls(target_graph, source_graph, target_paths, source_paths, threshold=apls_threshold, n=sample_count)
-
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
+            samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=sample_count)
+            location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
 
             if extend:
-                old_metadata = read_pickle(location)
-                metadata = extend_apls_metadata(metadata, old_metadata)
+                old_samples = read_pickle(location)
+                samples = extend_apls_samples(samples, old_samples)
 
-            write_pickle(location, metadata)
+            write_pickle(location, samples)
     
 
 ##################
 ### TOPO
 ##################
 
-def obtain_topo_samples(threshold=30, n=100, hole_size=6, interval=8.95):
+def obtain_topo_samples(threshold=30, n=1000, hole_size=5.5, interval=5):
 
     logger("Reading prepared maps.")
     maps = {}
@@ -181,7 +180,7 @@ def obtain_topo_samples(threshold=30, n=100, hole_size=6, interval=8.95):
         maps[place] = {}
         for variant in variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["apls_prepared_graph"]
+            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
             maps[place][variant] = read_graph(location)
 
     logger("Computing samples.")
@@ -192,7 +191,7 @@ def obtain_topo_samples(threshold=30, n=100, hole_size=6, interval=8.95):
             source_graph = maps[place][variant]
 
             samples = topo_sampling(target_graph, source_graph, n_measurement_nodes=n, interval=interval, hole_size=hole_size)
-            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_metadata"]
+            location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
 
             write_pickle(location, samples)
 
@@ -214,16 +213,16 @@ def experiment_one_base_table(threshold = 30):
             print(f"{place}-{variant}")
 
             # Asymmetric APLS results.
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_metadata"]
-            metadata = read_pickle(location)
-            apls       = asymmetric_apls_from_metadata(metadata, prime=False)
-            apls_prime = asymmetric_apls_from_metadata(metadata, prime=True)
+            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_samples"]
+            samples = read_pickle(location)
+            apls       = asymmetric_apls_from_samples(samples, prime=False)
+            apls_prime = asymmetric_apls_from_samples(samples, prime=True)
 
             # Asymmetric TOPO results.
-            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_metadata"]
-            metadata = read_pickle(location)
-            topo_results       = asymmetric_topo_from_metadata(metadata, False)
-            topo_prime_results = asymmetric_topo_from_metadata(metadata, True)
+            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_samples"]
+            samples = read_pickle(location)
+            topo_results       = asymmetric_topo_from_samples(samples, False)
+            topo_prime_results = asymmetric_topo_from_samples(samples, True)
 
             table_results[place][variant] = {
                 "apls": apls,

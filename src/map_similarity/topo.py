@@ -789,7 +789,7 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
     return samples
 
 
-def asymmetric_topo_from_metadata(samples, prime):
+def asymmetric_topo_from_samples(samples, prime=False, sample_count=None):
     """
     Compute TOPO score on samples.
     
@@ -799,6 +799,10 @@ def asymmetric_topo_from_metadata(samples, prime):
     if prime:
         # filter out samples which failed (only fn in sample).
         samples = [sample for sample in samples if sample["tp"] + sample["fp"] > 0]
+    
+    if sample_count != None:
+        check(sample_count <= len(samples), expect="Expect to have a sample count ({sample_count}) <= samples ({samples}).")
+        samples = samples[:sample_count]
 
     # compute total score
     tp_tot = np.sum([sample["tp"] for sample in samples])
