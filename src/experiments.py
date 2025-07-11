@@ -207,8 +207,68 @@ def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, n 
 
 
 ##################
-### Experiment 1
+### Experiments 0
 ##################
+
+
+# Experiment TOPO and APLS score stabilization by sample count.
+def experiment_zero_score_stabilization():
+    """
+    Experiment TOPO and APLS score stabilization by sample count.
+
+    Starting at 1, going to 1000, generate resulting TOPO and APLS score on place - base variant.
+    """
+
+    start = 1
+    end = 1000
+
+    # Generate the data (as a DataFrame).
+    rows = []
+    for place in places:
+        for variant in set(base_variants) - set(["osm"]):
+            for metric in metrics:
+                if metric == "apls":
+                    metric_threshold = 5
+                    metric_interval = None
+                if metric == "topo":
+                    metric_threshold = 5.5
+                    metric_interval = 5
+                location = experiment_location(place, variant, threshold=None, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
+                # for sample_count in range(100, 1001, 100):
+                for sample_count in range(10, 1001, 10):
+                # for sample_count in range(1, 1001):
+                    if metric == "apls":
+                        score = asymmetric_apls_from_samples(samples, prime=False, sample_count=sample_count)
+                    else:
+                        score = asymmetric_topo_from_samples(samples, prime=False, sample_count=sample_count)["f1"]
+                    rows.append({
+                        "place": place,
+                        "variant": variant,
+                        "metric": metric,
+                        "score": score,
+                        "sample_count": sample_count
+                    })
+
+    # Convert to dataframe.
+    data = pd.DataFrame(rows)
+    # * Render single graph with apls and topo in different colors.
+    # subset = data[(data["place"] == "berlin") & (data["variant"] == "gps")]
+    # subset = subset.pivot(index="sample_count", columns="metric", values="score")
+    # sns.lineplot(data=subset)
+    # plt.show()
+
+    # Generate plot.
+    plt.figure(figsize=(30, 30))
+    # sns.set_style("whitegrid")
+    sns.set_theme(style="ticks")
+    g = sns.FacetGrid(data, col = "place", row = "variant", hue="metric", margin_titles=False,)
+    g.map(sns.lineplot, "sample_count", "score")
+    g.set_axis_labels("Sample size", "Score")
+    g.add_legend()
+    plt.show()
+
+
 
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
