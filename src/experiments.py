@@ -283,13 +283,17 @@ def experiment_one_base_table(threshold = 30):
             print(f"{place}-{variant}")
 
             # Asymmetric APLS results.
-            location = experiment_location(place, variant, threshold=threshold, metric="apls")["metrics_samples"]
+            metric_threshold = 5
+            metric_interval = None
+            location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             apls       = asymmetric_apls_from_samples(samples, prime=False)
             apls_prime = asymmetric_apls_from_samples(samples, prime=True)
 
             # Asymmetric TOPO results.
-            location = experiment_location(place, variant, threshold=threshold, metric="topo")["metrics_samples"]
+            metric_threshold = 5.5
+            metric_interval = 5
+            location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             topo_results       = asymmetric_topo_from_samples(samples, False)
             topo_prime_results = asymmetric_topo_from_samples(samples, True)
