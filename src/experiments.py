@@ -168,8 +168,16 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
             target_paths = shortest_paths[place]["osm"]
             source_paths = shortest_paths[place][variant]
 
-            samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=sample_count)
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            if extend:
+                samples = read_pickle(location)
+                sample_count = sample_count - len(samples)
+                if sample_count <= 0:
+                    continue
+                new_samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining)
+                samples += new_samples
+            else:
+                samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining)
 
             write_pickle(location, samples)
     
