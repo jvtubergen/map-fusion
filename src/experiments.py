@@ -253,7 +253,83 @@ def experiment_one_base_table(threshold = 30):
     def measurements_to_table(measurements):
         """Construct typst table out of measurements data."""
         
-        # Construct a list of elements to print.
+        before = """
+        #show table.cell.where(y: 0): strong
+        #set table(
+        stroke: (x, y) => 
+            if y == 0 {
+            if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
+            else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
+            else { ( bottom: 0.7pt + black)}
+            } else if x == 5 {
+            ( right: 0.7pt + black)
+            } else if x == 6 {
+            ( left: 0.7pt + black)
+            },
+        align: (x, y) => (
+            if x > 0 { center }
+            else { left }
+        ),
+        column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
+        )
+
+        #let pat = pattern(size: (30pt, 30pt))[
+        #place(line(start: (0%, 0%), end: (100%, 100%)))
+        #place(line(start: (0%, 100%), end: (100%, 0%)))
+        ]
+
+        #figure(
+        rect(table(
+        columns: 10,
+        table.header(
+            [],
+            [],
+            [Rec],
+            [Prec],
+            [TOPO],
+            [APLS],
+            [Rec#super[$star$]],
+            [Prec#super[$star$]],
+            [TOPO#super[$star$]],
+            [APLS#super[$star$]],
+        ),
+        table.cell(
+            rowspan: 5,
+            align: horizon,
+            [*Berlin*]
+        ),
+        """
+
+        between = """
+        table.hline(
+            stroke: (
+            paint: luma(100),
+            dash: "dashed"
+            ),
+            start: 1,
+            end: 6
+        ),
+        table.hline(
+            stroke: (
+            paint: luma(100),
+            dash: "dashed"
+            ),
+            start: 6,
+            end:10 
+        ),
+        table.cell(
+            rowspan: 5,
+            align: horizon,
+            [*Chicago*]
+        ),
+        """
+
+        after = """
+        )),
+        caption: [Experiment 1 - Base results.],
+        ) <table:experiment-1>
+        """
+
         data = {}
         for place in places: 
 
@@ -295,84 +371,180 @@ def experiment_one_base_table(threshold = 30):
 
         print(after)
 
+    measurements_to_table(table_results)
 
-    before = """
-    #show table.cell.where(y: 0): strong
-    #set table(
-    stroke: (x, y) => 
-        if y == 0 {
-        if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
-        else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
-        else { ( bottom: 0.7pt + black)}
-        } else if x == 5 {
-        ( right: 0.7pt + black)
-        } else if x == 6 {
-        ( left: 0.7pt + black)
-        },
-    align: (x, y) => (
-        if x > 0 { center }
-        else { left }
-    ),
-    column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
-    )
 
-    #let pat = pattern(size: (30pt, 30pt))[
-    #place(line(start: (0%, 0%), end: (100%, 100%)))
-    #place(line(start: (0%, 100%), end: (100%, 0%)))
-    ]
+def experiments_one_base_table_versus_inverse(threshold = 30):
+    """Compare A, B, and C to A^-1, B^-1, C^-1 in a table."""
+    # Read in TOPO and APLS samples and compute metric scores.
+    table_results = {}
+    for place in places: 
+        table_results[place] = {}
+        for variant in fusion_variants:
+            table_results[place][variant] = {}
+            for inverse in [False,True]:
+                table_results[place][variant][inverse] = {}
+                print(f"{place}-{variant}-{inverse}")
+                
+                # Asymmetric APLS results.
+                metric_threshold = 5
+                metric_interval = None
+                location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
+                apls       = asymmetric_apls_from_samples(samples, prime=False)
+                apls_prime = asymmetric_apls_from_samples(samples, prime=True)
 
-    #figure(
-    rect(table(
-    columns: 10,
-    table.header(
-        [],
-        [],
-        [Rec],
-        [Prec],
-        [TOPO],
-        [APLS],
-        [Rec#super[$star$]],
-        [Prec#super[$star$]],
-        [TOPO#super[$star$]],
-        [APLS#super[$star$]],
-    ),
-    table.cell(
-        rowspan: 5,
-        align: horizon,
-        [*Berlin*]
-    ),
-    """
+                # Asymmetric TOPO results.
+                metric_threshold = 5.5
+                metric_interval = 5
+                location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
+                topo_results       = asymmetric_topo_from_samples(samples, prime=False)
+                topo_prime_results = asymmetric_topo_from_samples(samples, prime=True)
 
-    between = """
-    table.hline(
-        stroke: (
-        paint: luma(100),
-        dash: "dashed"
+                table_results[place][variant][inverse] = {
+                    "apls": apls,
+                    "apls_prime": apls_prime,
+                    "topo": {
+                        "recall": topo_results["recall"],
+                        "precision": topo_results["precision"],
+                        "f1": topo_results["f1"],
+                    },
+                    "topo_prime": {
+                        "recall": topo_prime_results["recall"],
+                        "precision": topo_prime_results["precision"],
+                        "f1": topo_prime_results["f1"],
+                    },
+                }
+
+    @info()
+    def measurements_to_table(measurements):
+        """Construct typst table out of measurements data."""
+        
+        before = """
+        #show table.cell.where(y: 0): strong
+        #set table(
+        stroke: (x, y) => 
+            if y == 0 {
+            if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
+            else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
+            else { ( bottom: 0.7pt + black)}
+            } else if x == 5 {
+            ( right: 0.7pt + black)
+            } else if x == 6 {
+            ( left: 0.7pt + black)
+            },
+        align: (x, y) => (
+            if x > 0 { center }
+            else { left }
         ),
-        start: 1,
-        end: 6
-    ),
-    table.hline(
-        stroke: (
-        paint: luma(100),
-        dash: "dashed"
+        column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
+        )
+
+        #let pat = pattern(size: (30pt, 30pt))[
+        #place(line(start: (0%, 0%), end: (100%, 100%)))
+        #place(line(start: (0%, 100%), end: (100%, 0%)))
+        ]
+
+        #figure(
+        rect(table(
+        columns: 10,
+        table.header(
+            [],
+            [],
+            [Rec],
+            [Prec],
+            [TOPO],
+            [APLS],
+            [Rec#super[$star$]],
+            [Prec#super[$star$]],
+            [TOPO#super[$star$]],
+            [APLS#super[$star$]],
         ),
-        start: 6,
-        end:10 
-    ),
-    table.cell(
-        rowspan: 5,
-        align: horizon,
-        [*Chicago*]
-    ),
-    """
+        table.cell(
+            rowspan: 6,
+            align: horizon,
+            [*Berlin*]
+        ),
+        """
 
-    after = """
-      )),
-    caption: [Experiment 1 - Base results.],
-    ) <table:experiment-1>
-    """
+        between = """
+        table.hline(
+            stroke: (
+            paint: luma(100),
+            dash: "dashed"
+            ),
+            start: 1,
+            end: 6
+        ),
+        table.hline(
+            stroke: (
+            paint: luma(100),
+            dash: "dashed"
+            ),
+            start: 6,
+            end:10 
+        ),
+        table.cell(
+            rowspan: 6,
+            align: horizon,
+            [*Chicago*]
+        ),
+        """
 
+        after = """
+        )),
+        caption: [Experiment 1 - Base results comparing to inverse.],
+        ) <table:experiment-1-inverse>
+        """
+
+        data = {}
+        for place in places: 
+
+            rows = []
+            for variant in ["A", "B", "C"]:
+
+                for inverse in [False, True]:
+
+                    row = []
+                    row.append(measurements[place][variant][inverse]["topo"]["recall"])
+                    row.append(measurements[place][variant][inverse]["topo"]["precision"])
+                    row.append(measurements[place][variant][inverse]["topo"]["f1"])
+                    row.append(measurements[place][variant][inverse]["apls"])
+
+                    row.append(measurements[place][variant][inverse]["topo_prime"]["recall"])
+                    row.append(measurements[place][variant][inverse]["topo_prime"]["precision"])
+                    row.append(measurements[place][variant][inverse]["topo_prime"]["f1"])
+                    row.append(measurements[place][variant][inverse]["apls_prime"])
+                
+                    variant_name = f"$bold({variant})$"
+                    if inverse:
+                        variant_name = f"$bold({variant})^(-1)$"
+
+                    rows.append((variant_name, row))
+        
+            data[place] = rows
+
+        print(before)
+
+        # Print berlin results.
+        for rows in data["berlin"]:
+            print(f"[{rows[0]}], ", end="")
+            for row in rows[1]:
+                print(f"[{row:.3f}], ", end="")
+            print()
+
+        print(between)
+        
+        # Print chicago results.
+        for rows in data["chicago"]:
+            print(f"[{rows[0]}], ", end="")
+            for row in rows[1]:
+                print(f"[{row:.3f}], ", end="")
+            print()
+
+        print(after)
+    
     measurements_to_table(table_results)
 
 
