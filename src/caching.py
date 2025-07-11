@@ -44,7 +44,7 @@ def get_data_file(file_path):
         os.makedirs(parent_dir, exist_ok=True)
     return location
 
-def data_location(place, variant, threshold = None):
+def data_location(place, variant, threshold = None, inverse = False):
     """Unified location logic for different data variants and places."""
     if variant == "osm":
         return {
@@ -97,17 +97,24 @@ def data_location(place, variant, threshold = None):
         return base
     elif variant in ["A", "B", "C"]:
         assert threshold != None
-        return {
-            "graph_file": get_data_file(f"graphs/{variant}-{place}-{threshold}.graph")
-        }
+        if inverse:
+            return {
+                "graph_file": get_data_file(f"graphs/{variant}-{place}-{threshold}-inverse.graph")
+            }
+        else:
+            return {
+                "graph_file": get_data_file(f"graphs/{variant}-{place}-{threshold}.graph")
+            }
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
-def experiment_location(place, variant, threshold = None, metric = None, metric_threshold = None, metric_interval = None, plot_name = None):
+def experiment_location(place, variant, threshold = None, inverse = False, metric = None, metric_threshold = None, metric_interval = None, plot_name = None):
 
     filename = f"{variant}-{place}"
     if variant in fusion_variants and threshold != None:
         filename = f"{filename}-{threshold}"
+    if variant in fusion_variants and inverse:
+        filename = f"{filename}-inverse"
     if metric != None:
         filename = f"{filename}-{metric}"
     if metric_threshold != None:

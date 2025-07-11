@@ -42,7 +42,7 @@ def read_all_maps(threshold = 30):
 
 
 @info()
-def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
+def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False):
     """Obtain fusion maps and write them to disk."""
 
     for place in places: 
@@ -59,18 +59,23 @@ def obtain_fusion_maps(threshold = 30, debugging=False, **reading_props):
             sat_vs_gps   = edge_graph_coverage(sat, gps, max_threshold=threshold)
             intersection = prune_coverage_graph(sat_vs_gps, prune_threshold=threshold)
             sat = intersection # (Update sat so we can continue further logic.)
-
-        logger(f"Apply map fusion.")
-        gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
-        graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
+        
+        if inverse:
+            logger(f"Apply map fusion inverse.")
+            sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=threshold)
+            graphs     = map_fusion(C=gps, A=sat_vs_gps, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
+        else:
+            logger(f"Apply map fusion.")
+            gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
+            graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
         A = graphs["a"]
         B = graphs["b"]
         C = graphs["c"]
 
-        write_graph(data_location(place, "A", threshold = threshold)["graph_file"], A)
-        write_graph(data_location(place, "B", threshold = threshold)["graph_file"], B)
-        write_graph(data_location(place, "C", threshold = threshold)["graph_file"], C)
+        write_graph(data_location(place, "A", threshold = threshold, inverse=inverse)["graph_file"], A)
+        write_graph(data_location(place, "B", threshold = threshold, inverse=inverse)["graph_file"], B)
+        write_graph(data_location(place, "C", threshold = threshold, inverse=inverse)["graph_file"], C)
 
 
 ##################
@@ -88,7 +93,7 @@ def remove_deleted(G):
     return G
 
 
-def obtain_prepared_metric_maps(threshold = 30, fusion_only=False): # APLS + TOPO
+def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False): # APLS + TOPO
     """
     Prepare graphs (identical for APLS and TOPO):  Remove edges and nodes with the {"render": "delete"} attribute.
     Basically only necessary for "B" and "C" (because other graphs nowhere annotate this specific "render" attribute value),
@@ -101,16 +106,17 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only=False): # APLS + TOP
 
     for place in places: 
         for variant in _variants:
-            G = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
+            G = read_graph(data_location(place, variant, threshold = threshold, inverse = inverse)["graph_file"])
             G = remove_deleted(G)
-            write_graph(experiment_location(place, variant, threshold=threshold)["prepared_graph"], G)
+            sanity_check_graph(G)
+            write_graph(experiment_location(place, variant, threshold=threshold, inverse = inverse)["prepared_graph"], G)
 
 
 ##################
 ### APLS
 ##################
 
-def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False): # APLS
+def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False): # APLS
     """
     Obtain shortest distance on a graph and write to disk.
     """
@@ -120,37 +126,41 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only=False): # 
         _variants = variants
 
     for place in places: 
-        for variant in variants:
+        for variant in _variants:
             print(f"{place}-{variant}")
-            G = read_graph(experiment_location(place, variant, threshold = threshold)["prepared_graph"])
+            G = read_graph(experiment_location(place, variant, threshold=threshold, inverse=inverse)["prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
-            write_pickle(experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"], shortest_paths)
+            write_pickle(experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"], shortest_paths)
 
 
-def obtain_apls_samples(threshold=30, apls_threshold=5, sample_count=1000, extend=False): # APLS
+def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, apls_threshold = 5, sample_count = 500): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
+
+    _variants = variants
+    if fusion_only:
+        _variants = set(fusion_variants).union(["osm"])
 
     logger("Reading prepared maps.")
     maps = {}
     for place in places: 
         maps[place] = {}
-        for variant in variants:
+        for variant in _variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["prepared_graph"]
             maps[place][variant] = read_graph(location)
     
     logger("Reading shortest paths maps.")
     shortest_paths = {}
     for place in places: 
         shortest_paths[place] = {}
-        for variant in variants:
+        for variant in _variants:
             print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["apls_shortest_paths"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"]
             shortest_paths[place][variant] = read_pickle(location)
 
     logger("Computing samples.")
     for place in places: 
-        for variant in set(variants) - set(["osm"]):
+        for variant in set(_variants) - set(["osm"]):
             logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
@@ -159,11 +169,7 @@ def obtain_apls_samples(threshold=30, apls_threshold=5, sample_count=1000, exten
             source_paths = shortest_paths[place][variant]
 
             samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=sample_count)
-            location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
-
-            if extend:
-                old_samples = read_pickle(location)
-                samples = extend_apls_samples(samples, old_samples)
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
 
             write_pickle(location, samples)
     
@@ -172,26 +178,30 @@ def obtain_apls_samples(threshold=30, apls_threshold=5, sample_count=1000, exten
 ### TOPO
 ##################
 
-def obtain_topo_samples(threshold=30, n=1000, hole_size=5.5, interval=5):
+def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, n = 500, hole_size = 5.5, interval = 5):
+
+    _variants = variants
+    if fusion_only:
+        _variants = set(fusion_variants).union(["osm"])
 
     logger("Reading prepared maps.")
     maps = {}
     for place in places: 
         maps[place] = {}
-        for variant in variants:
+        for variant in _variants:
             print(f"{place}-{variant}")
             location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
             maps[place][variant] = read_graph(location)
 
     logger("Computing samples.")
     for place in places: 
-        for variant in set(variants) - set(["osm"]):
+        for variant in set(_variants) - set(["osm"]):
             logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
 
             samples = topo_sampling(target_graph, source_graph, n_measurement_nodes=n, interval=interval, hole_size=hole_size)
-            location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
 
             write_pickle(location, samples)
 
