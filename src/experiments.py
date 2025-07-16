@@ -367,7 +367,7 @@ def experiment_zero_edge_coverage_base_graphs():
 
     for place in places:
 
-        subset = df[(df["place"] == place) & df["amount"] != inf] 
+        subset = df[(df["place"] == place) & (df["amount"] != inf)] 
 
         # Single histplot.
         # subset = df[(df["place"] == place) & (df["target"] == "osm") & (df["source"] == "sat")]
