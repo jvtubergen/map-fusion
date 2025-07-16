@@ -354,12 +354,19 @@ def experiment_zero_edge_coverage_base_graphs():
                         "threshold": i,
                         "amount": data[place][target][source][i]
                     })
+                rows.append({
+                    "place": place,
+                    "target": target,
+                    "source": source,
+                    "threshold": inf,
+                    "amount": data[place][target][source][inf]
+                })
         
     df = pd.DataFrame(rows)
 
     for place in places:
 
-        subset = df[(df["place"] == place)]
+        subset = df[(df["place"] == place) & df["amount"] != inf] 
 
         # Single histplot.
         # subset = df[(df["place"] == place) & (df["target"] == "osm") & (df["source"] == "sat")]
@@ -368,7 +375,18 @@ def experiment_zero_edge_coverage_base_graphs():
         # Generate Facetgrid.
         plt.figure(figsize=(30, 30))
         sns.set_theme(style="whitegrid")
-        sns.displot(data=subset, x="threshold", weights="amount", col="target", kind="ecdf", row="source",stat="count", facet_kws={"margin_titles": True, "sharey":False})
+        # ylim_dict = {(source, target): sum(subset[(subset["source"] == source) & (subset["target"] == target)]["amount"]) for source in base_variants for target in base_variants}
+        ylim_dict = {source: sum(subset[(subset["source"] == source) & (subset["target"] == target)]["amount"]) for source in base_variants for target in base_variants}
+        g = sns.displot(data=subset, x="threshold", weights="amount", col="target", kind="ecdf", row="source",stat="count", facet_kws={"margin_titles": True, "sharey":False})
+        
+        # Add dashed horizontal line at ylim for each subplot
+        for (row_var, col_var), ax in g.axes_dict.items():
+            current_ylim = ax.get_ylim()
+            limit_value = ylim_dict[row_var]
+            # Set ylim first to accommodate the line
+            ax.set_ylim(current_ylim[0], max(current_ylim[1], limit_value * 1.1))
+            ax.axhline(y=limit_value, color='red', linestyle='--', alpha=0.7)
+        
         plt.show()
     
     return df
