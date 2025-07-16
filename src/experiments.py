@@ -322,6 +322,7 @@ def experiment_zero_edge_coverage_base_graphs():
             location = experiment_location(place, variant)["prepared_graph"]
             maps[place][variant] = read_graph(location)
     
+    max_thresh = 500
     logger("Generate edge coverage information.")
     data = {}
     for place in places: 
@@ -332,8 +333,8 @@ def experiment_zero_edge_coverage_base_graphs():
             for source in base_variants:
                 print(f"* {place}-{target}-{source}")
                 S = maps[place][source]
-                S = edge_graph_coverage(S, T, max_threshold=50)
-                thresholds = {i: 0 for i in range(1, 51)}
+                S = edge_graph_coverage(S, T, max_threshold=max_thresh)
+                thresholds = {i: 0 for i in range(1, max_thresh + 1)}
                 thresholds[inf] = 0
                 # Group number of edges per threshold.
                 for eid, attrs in iterate_edges(S):
@@ -346,7 +347,7 @@ def experiment_zero_edge_coverage_base_graphs():
     for place in data:
         for target in base_variants:
             for source in base_variants:
-                for i in range(1, 51):
+                for i in range(1, max_thresh + 1):
                     rows.append({
                         "place": place,
                         "target": target,
