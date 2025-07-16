@@ -270,7 +270,7 @@ def experiment_zero_score_stabilization():
     plt.figure(figsize=(30, 30))
     # sns.set_style("whitegrid")
     sns.set_theme(style="ticks")
-    g = sns.FacetGrid(data, col = "place", row = "variant", hue="metric", margin_titles=False,)
+    g = sns.FacetGrid(data, col = "place", row = "variant", hue="metric", margin_titles=True)
     g.map(sns.lineplot, "sample_count", "score")
     g.set_axis_labels("Sample size", "Score")
     g.add_legend()
@@ -309,6 +309,69 @@ def experiment_zero_base_info_graph():
             data[place][variant] = obj
     
     print(data)
+
+
+def experiment_zero_edge_coverage_base_graphs():
+    """Compute edge coverage of base graphs."""
+    logger("Reading prepared maps.")
+    maps = {}
+    for place in places: 
+        maps[place] = {}
+        for variant in base_variants:
+            print(f"* {place}-{variant}")
+            location = experiment_location(place, variant)["prepared_graph"]
+            maps[place][variant] = read_graph(location)
+    
+    logger("Generate edge coverage information.")
+    data = {}
+    for place in places: 
+        data[place] = {}
+        for target in base_variants:
+            data[place][target] = {}
+            T = vectorize_graph(maps[place][target])
+            for source in base_variants:
+                print(f"* {place}-{target}-{source}")
+                S = maps[place][source]
+                S = edge_graph_coverage(S, T, max_threshold=50)
+                thresholds = {i: 0 for i in range(1, 51)}
+                thresholds[inf] = 0
+                # Group number of edges per threshold.
+                for eid, attrs in iterate_edges(S):
+                    thresholds[attrs["threshold"]] += 1
+
+                data[place][target][source] = thresholds
+    
+    # Convert into dataframe.
+    rows = []
+    for place in data:
+        for target in base_variants:
+            for source in base_variants:
+                for i in range(1, 51):
+                    rows.append({
+                        "place": place,
+                        "target": target,
+                        "source": source,
+                        "threshold": i,
+                        "amount": data[place][target][source][i]
+                    })
+        
+    df = pd.DataFrame(rows)
+
+    for place in places:
+
+        subset = df[(df["place"] == place)]
+
+        # Single histplot.
+        # subset = df[(df["place"] == place) & (df["target"] == "osm") & (df["source"] == "sat")]
+        # sns.histplot(data=subset, x="threshold", weights="amount")
+
+        # Generate Facetgrid.
+        plt.figure(figsize=(30, 30))
+        sns.set_theme(style="whitegrid")
+        sns.displot(data=subset, x="threshold", weights="amount", col="target", kind="ecdf", row="source",stat="count", facet_kws={"margin_titles": True, "sharey":False})
+        plt.show()
+    
+    return df
 
 
 ##################

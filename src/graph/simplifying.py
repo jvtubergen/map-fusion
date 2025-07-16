@@ -301,7 +301,7 @@ def vectorize_graph(G):
         # We only have to perform work if an edge contains curvature. (If there is no geometry component, there is no curvature to take care of. Thus already vectorized format.)
         if len(ps) > 2:
 
-            logger("Vectorizing edge ", eid)
+            # logger("Vectorizing edge ", eid)
 
             # Delete this edge from the network.
             old_edges.append(eid)

@@ -26,6 +26,9 @@ def graph_to_rust_graph(G):
 # Obtain threshold per simplified edge of S in comparison to T.
 @info()
 def edge_graph_coverage(S, T, max_threshold=None): 
+    """
+    Compute for every edge of S what its Fréchet distance is to T (the distance is ceiled to integer)
+    """
     S = S.copy()
 
     # Sanity check the graph is simplified.
@@ -103,6 +106,7 @@ def edge_graph_coverage(S, T, max_threshold=None):
         subgraph = subgraphs[eid]
         path = partial_curve_graph(subgraph, curve, max_threshold + 1)
         if path == None:
+            leftS = leftS - set([eid]) 
             thresholds[eid] = inf
             covered_by[eid] = []
 
