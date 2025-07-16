@@ -277,6 +277,43 @@ def experiment_zero_score_stabilization():
     plt.show()
 
 
+def experiment_zero_base_info_graph():
+    """Obtain basic information on base graphs:
+    - Number of nodes.
+    - Average node degree.
+    - Number of edges.
+    - Average edge length.
+    """
+    logger("Reading prepared maps.")
+    maps = {}
+    for place in places: 
+        maps[place] = {}
+        for variant in base_variants:
+            print(f"* {place}-{variant}")
+            location = experiment_location(place, variant)["prepared_graph"]
+            maps[place][variant] = read_graph(location)
+    
+    logger("Generate base information.")
+    data = {}
+    for place in places: 
+        data[place] = {}
+        for variant in base_variants:
+            print(f"* {place}-{variant}")
+            G = maps[place][variant]
+            obj = {}
+            obj["nr of nodes"] = len(G.nodes)
+            obj["nr of edges"] = len(G.edges)
+            obj["avg node deg"] = sum([G.degree[nid] for nid, _ in iterate_nodes(G)]) / len(G.nodes)
+            obj["total length"] = sum([attrs["length"] for _, attrs in iterate_edges(G)])
+            obj["avg edge len"] = obj["total length"] / obj["nr of edges"]
+            data[place][variant] = obj
+    
+    print(data)
+
+
+##################
+### Experiments 1
+##################
 
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
