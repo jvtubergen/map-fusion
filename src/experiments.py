@@ -99,6 +99,8 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = F
     Basically only necessary for "B" and "C" (because other graphs nowhere annotate this specific "render" attribute value),
     yet for consistency in pipeline I just apply it to all graphs (effectively copying them over from data to experiments folder).
     """
+    if inverse:
+        fusion_only = True
     if fusion_only:
         _variants = fusion_variants
     else:
@@ -120,6 +122,8 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, i
     """
     Obtain shortest distance on a graph and write to disk.
     """
+    if inverse:
+        fusion_only = True
     if fusion_only:
         _variants = fusion_variants
     else:
@@ -173,7 +177,7 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
 
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
             print(f"* {location}")
-            if extend:
+            if extend and path_exists(location):
                 samples = read_pickle(location)
                 remaining = sample_count - len(samples)
                 if prime:
@@ -219,7 +223,7 @@ def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, sa
 
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
             print(f"* {location}")
-            if extend:
+            if extend and path_exists(location):
                 samples = read_pickle(location)
                 remaining = sample_count - len(samples)
                 if prime:
