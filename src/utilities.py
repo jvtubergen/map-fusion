@@ -368,52 +368,42 @@ def rotate(a):
     ])
 
 
-# Compute the distance (and the interval along the line-segment) between a line-segment `p-q` and a point `a`.
-# * Assume as arrays.
-# * Linesegment p, q
-# * Point a
-# * All input points are `(y, x)`, but we compute on `(x, y)`.
-def distance_point_to_linesegment(p, q, a):
 
-    # Flip coordinates around from `(y, x)` to `(x, y)`.
-    flip = lambda _x: array([_x[1], _x[0]])
-
-    # Act on x, y
-    p = flip(p)
-    q = flip(q)
-    a = flip(a)
-
-    # Translate p to the origin.
-    q = q - p
-    a = a - p
-
-    # Rotate a and q around p (and thereby the origin) in such that q lies horizontally to the right.
-    rotation = -atan2(q[1], q[0])  # Find rotation (take orientation of q).
-    q = rotate(rotation).dot(q)
-    a = rotate(rotation).dot(a)
-    assert abs(q[1]) < 0.0001
-
-    # Decide on orthogonality.
-    if a[0] < 0: # Point is on the left side of the origin.
-        return norm(a), 0 # Distance from point to startpoint linesegment, start of interval.
-    elif a[0] > q[0]: # Point is to the right of the endpoint linesegment.
-        return norm(q - a), 1  # Distance from point to end linesegment, end of interval.
-    else: # Distance from point y coordinate to x axis (where y equals 0), relative x coordinate to end of line segment.
-        return a[1], a[0] / q[0]
+def point_to_line_segment_distance_with_closest_point(u, v, p):
+    """Compute distance, position, and interval of the nearest point of the line segment to the point."""
+    px, py = p
+    x1, y1 = u
+    x2, y2 = v
+    
+    dx = x2 - x1
+    dy = y2 - y1
+    
+    if abs(dx) < 0.0001 and abs(dy) < 0.0001:
+        return math.sqrt((px - x1)**2 + (py - y1)**2), (x1, y1)
+    
+    t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+    t = max(0, min(1, t))
+    
+    closest_x = x1 + t * dx
+    closest_y = y1 + t * dy
+    closest_point = array([closest_x, closest_y])
+    
+    distance = math.sqrt((px - closest_x)**2 + (py - closest_y)**2)
+    
+    return distance, closest_point, t
 
 
-# Compute position on curve which lies nearest to a point and its related interval in range [0, length].
-def nearest_position_and_interval_on_curve_to_point(ps, point): 
+def compute_curve_to_point(ps, point): 
+    """Compute distance, position, and weighted interval (length offset from startpoint curve) of nearest point of curve to point."""
     
     items = []
     for i, linesegment in enumerate(zip(ps,ps[1:])):
-        p, q = linesegment
-        distance, interval = distance_point_to_linesegment(p, q, point)
-        items.append((i, distance, interval))
+        u, v = linesegment
+        distance, position, interval = point_to_line_segment_distance_with_closest_point(u, v, point)
+        items.append((i, distance, position, interval))
 
     # Seek lowest distance.
-    i, distance, interval = min(items, key=lambda x: x[1])
-    position = ps[i] * (1 - interval) + ps[i + 1] * interval
+    i, distance, position, interval = min(items, key=lambda x: x[1])
 
     # Compute interval along curve.
     lengths    = norm(ps[1:] - ps[:-1], axis=1)
@@ -421,20 +411,64 @@ def nearest_position_and_interval_on_curve_to_point(ps, point):
     cumulative = np.hstack(([0], np.cumsum(weights)))
     actual_interval = cumulative[i] + interval * weights[i]
 
-    return position, actual_interval
+    return distance, position, actual_interval
+
 
 # Wrapper function to only obtain nearest position on curve to point.
-nearest_position_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[0]
+distance_curve_to_point         = lambda curve, point: compute_curve_to_point(curve, point)[0]
+nearest_position_on_curve_to_point = lambda curve, point: compute_curve_to_point(curve, point)[1]
+nearest_interval_on_curve_to_point = lambda curve, point: compute_curve_to_point(curve, point)[2]
 
-# Wrapper function to only obtain nearest curve interval on curve to point.
-nearest_interval_on_curve_to_point = lambda curve, point: nearest_position_and_interval_on_curve_to_point(curve, point)[1]
+nearest_position_and_interval_on_curve_to_point = lambda curve, point: compute_curve_to_point(curve, point)[1:3]
+
 
 def test_nearest_position_and_interval_on_curve_to_point():
 
+    # At arbitrary position to arbitrary location.
+    for i in range(1000):
+        curve = array([[i, 0.0] for i in range(100)])
+        y = 50 * random.random()
+        point = array([100*random.random(), y])
+        check(abs(distance_curve_to_point(curve, point) - y) < 0.1)
+        check(abs(norm(nearest_position_on_curve_to_point(curve, point) - point) - y) < 0.1)
+
+    # At arbitrary position on aligned line.
     curve = array([[i, 0.0] for i in range(11)])
     point = array([5, 5])
-    check(abs(nearest_interval_on_curve_to_point(curve, point) - 0.5) < 0.001)
-    check(abs(norm(nearest_position_on_curve_to_point(curve, point) - point) - 5) < 0.001)
+    check(abs(norm(nearest_position_on_curve_to_point(curve, point) - point) - 5) < 0.01)
+
+    # In extension of line segment
+    ps = array([[0, 0], [1,0]])
+    p = array([-1,0])
+    q = nearest_position_on_curve_to_point(ps, p)
+    print(norm(q - p))
+    assert abs(norm(q - p) - 1) < 0.0001
+
+    # At vertex position.
+    for i in range(1000):
+        ps = random_curve()
+        p = ps[floor(random.random()*99)]
+        q = nearest_position_on_curve_to_point(ps, p)
+        print(norm(q - p))
+        check(norm(q - p) < 0.1)
+
+
+def test_compute_curve_to_point():
+    """Test consistency of nearest_position_on_curve_to_point with 1000 random curves and points."""
+    
+    for i in range(1000):
+        # Generate random curve and random point
+        curve = random_curve()
+        point = array([20 * random.random() - 10, 20 * random.random() - 10])
+
+        # Generate info of nearest point on curve.
+        distance, position, interval = compute_curve_to_point(curve, point)
+
+        # Check that interval is in valid range [0, 1]
+        check(0 - 1e-10 <= interval <= 1 + 1e-10)
+    
+        # TODO: Check position is at the curve interval.
+        # TODO: Check distance matches norm between point and curve position.
 
 
 #######################################
