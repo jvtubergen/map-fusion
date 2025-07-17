@@ -162,7 +162,7 @@ def nearest_edge_for_position(G, p, edge_tree=None):
     eid, distance = nearest_edge_and_position_for_position(G, p, edge_tree=edge_tree)
     return eid
 
-
+from graph.utilities.attributes import graphedge_curvature
 # Compute distance between node of G and an edge of G.
 @info()
 def graph_distance_node_edge(G, nid, eid):
@@ -246,3 +246,73 @@ def graphedges_to_rtree(G):
         tree.insert(eid, (miny, minx, maxy, maxx))
 
     return tree
+
+
+#######################################
+### Sampling distances.
+#######################################
+
+from graph.utilities.attributes import get_edge_attributes
+
+def random_position_on_graph(G, random_edge_picker=None):
+    """Obtain a random position on graph G alongside related eid and (curvature) distance from eid[0] endpoint."""
+    G_eid = random_edge_picker() if random_edge_picker != None else pick_random_edge_weighted(G)
+    attrs  = get_edge_attributes(G, G_eid)
+    length = attrs["length"]
+    interval = random.random()
+    G_distance = interval * length
+    G_position = position_at_curve_interval(attrs["curvature"], interval)
+    return {
+        "eid": G_eid,
+        "position": G_position,
+        "distance": G_distance
+    }
+
+from graph.utilities.attributes import graphedge_length
+
+def get_nearest_graph_point_for_position(H, p, H_edge_rtree):
+    """Obtain nearest point on H for a point p on G."""
+    H_eid   = nearest_edge_for_position(H, p, edge_tree=H_edge_rtree)
+    H_curve = graphedge_curvature(H, H_eid)
+    H_position, H_interval = nearest_position_and_interval_on_curve_to_point(H_curve, p)
+    H_distance = graphedge_length(H, H_eid) * H_interval
+    return {
+        "eid": H_eid,
+        "position": H_position,
+        "distance": H_distance
+    }
+
+
+def get_sample_positions(G, H, H_edge_rtree, random_edge_picker=None):
+    """Pick random position on G and seek nearest position on H."""
+    G_position = random_position_on_graph(G, random_edge_picker=random_edge_picker)
+    H_position = get_nearest_graph_point_for_position(H, G_position["position"], H_edge_rtree)
+    return G_position, H_position
+
+
+def generate_random_edge_picker(G):
+    """Generates function to pick an arbitrary point on graph G."""
+    eids    = get_eids(G)
+    lengths = array([attrs["length"] for eid, attrs in iterate_edges(G)])
+    total   = sum(lengths)
+    weights = lengths / total
+    _eid_indices = [i for i in range(len(eids))]
+
+    def random_edge_picker():
+        """Define a local random edge picker to save significant computation costs (in computing weights)."""
+        _index = np.random.choice(_eid_indices, 1, list(weights))[0]
+        return eids[_index]
+    
+    return random_edge_picker
+
+
+def generate_sample_pairs(T, S, amount):
+    """Generate sample pairs of randomly selected positions on G with their nearest position on H."""
+    T_edge_tree = graphedges_to_rtree(T)
+    random_edge_picker = generate_random_edge_picker(S)
+    return [get_sample_positions(S, T, T_edge_tree, random_edge_picker=random_edge_picker) for _ in range(amount)]
+
+
+def sample_pair_distance(sample):
+    """Compute distance between sampled positions of a sample pair."""
+    return float(norm(sample[0]["position"] - sample[1]["position"]))

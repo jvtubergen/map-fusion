@@ -416,6 +416,66 @@ def experiment_zero_edge_coverage_base_graphs():
     return df
 
 
+def experiment_zero_graph_distances(sample_size = 10000):
+    """
+    For every pair of base graph generate kernel density on sample distance.
+    It acts as additional information on top of APLS/TOPO.
+    """
+    logger("Reading prepared maps.")
+    maps = {}
+    for place in places: 
+        maps[place] = {}
+        for variant in base_variants:
+            print(f"* {place}-{variant}")
+            location = experiment_location(place, variant)["prepared_graph"]
+            maps[place][variant] = read_graph(location)
+    
+    logger("Generate distance samples.")
+    data = {}
+    for place in places: 
+        data[place] = {}
+        for target in base_variants:
+            data[place][target] = {}
+            T = maps[place][target]
+            for source in base_variants:
+                print(f"* {place}-{target}-{source}")
+                S = maps[place][source]
+                distances = []
+                while len(distances) < sample_size:
+                    print(f"* {len(distances)}")
+                    samples    = generate_sample_pairs(T, S, 100)
+                    distances += [sample_pair_distance(sample) for sample in samples]
+                data[place][target][source] = distances
+    
+    # Construct dataframe.
+    rows = []
+    for place in places:
+        for target in base_variants:
+            for source in base_variants:
+                for distance in data[place][target][source]:
+                    rows.append({
+                        "place" : place,
+                        "target": target,
+                        "source": source,
+                        "distance": distance,
+                    })
+    df = pd.DataFrame(rows)
+        
+    # Plot data.
+    for place in places:
+
+        subset = df[(df["place"] == place)] 
+
+        # Generate Facetgrid.
+        plt.figure(figsize=(30, 30))
+        sns.set_theme(style="whitegrid")
+        g = sns.displot(data=subset, x="distance", col="target", kind="kde", row="source", facet_kws={"margin_titles": True, "sharey": False, "sharex": False})
+        
+        plt.show()
+    
+    return df
+    
+
 ##################
 ### Experiments 1
 ##################

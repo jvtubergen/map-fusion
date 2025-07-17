@@ -1,7 +1,6 @@
 from external import *
 from utilities import *
 from graph.utilities.general import *
-from graph.utilities.distance import graphnode_position
 
 #######################################
 ### Attribute retrieval general
@@ -179,6 +178,8 @@ def graph_annotate_edge_curvature(G):
         check("curvature" in attrs)
         check(type(attrs["curvature"]) == type(array([])))
 
+
+from graph.utilities.distance import graphnode_position
 
 # Annotate edge with basic attribute information (curvature, geometry and length).
 def graph_annotate_edge(G, eid):
