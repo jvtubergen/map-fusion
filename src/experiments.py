@@ -483,198 +483,19 @@ def experiment_zero_graph_distances(sample_size = 10000):
 ##################
 ### Experiments 1
 ##################
+def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000):
+    """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
 
-# Experiment one.
-# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
-@info()
-def experiment_one_base_table(threshold = 30, sample_count = 10000, prime_sample_count = 2000):
-
-    # Read in TOPO and APLS samples and compute metric scores.
-    def compute_metric_scores():
-        table_results = {}
-        for place in places: 
-            table_results[place] = {}
-            for variant in set(variants) - set(["osm"]):
-                print(f"{place}-{variant}")
-
-                # Asymmetric APLS results.
-                metric_threshold = 5
-                metric_interval = None
-                location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                samples = read_pickle(location)
-
-                assert len(samples) >= sample_count
-                assert len(prime_apls_samples(samples)) >= prime_sample_count
-
-                apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
-                apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
-
-                # Asymmetric TOPO results.
-                metric_threshold = 5.5
-                metric_interval = 5
-                location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                samples = read_pickle(location)
-
-                assert len(samples) >= sample_count
-                assert len(prime_topo_samples(samples)) >= prime_sample_count
-
-                topo_results       = asymmetric_topo_from_samples(samples[:sample_count], False)
-                topo_prime_results = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
-
-                table_results[place][variant] = {
-                    "apls": apls,
-                    "apls_prime": apls_prime,
-                    "topo": {
-                        "recall": topo_results["recall"],
-                        "precision": topo_results["precision"],
-                        "f1": topo_results["f1"],
-                    },
-                    "topo_prime": {
-                        "recall": topo_prime_results["recall"],
-                        "precision": topo_prime_results["precision"],
-                        "f1": topo_prime_results["f1"],
-                    },
-                }
-        return table_results
-
-    @info()
-    def measurements_to_table(measurements):
-        """Construct typst table out of measurements data."""
-        
-        before = """
-        #show table.cell.where(y: 0): strong
-        #set table(
-        stroke: (x, y) => 
-            if y == 0 {
-            if x == 5 { ( bottom: 0.7pt + black, right: 0.7pt + black) }
-            else if x == 6 { ( bottom: 0.7pt + black, left: 0.7pt + black) }
-            else { ( bottom: 0.7pt + black)}
-            } else if x == 5 {
-            ( right: 0.7pt + black)
-            } else if x == 6 {
-            ( left: 0.7pt + black)
-            },
-        align: (x, y) => (
-            if x > 0 { center }
-            else { left }
-        ),
-        column-gutter: (auto, auto, auto, auto, auto, 2.2pt, auto)
-        )
-
-        #let pat = pattern(size: (30pt, 30pt))[
-        #place(line(start: (0%, 0%), end: (100%, 100%)))
-        #place(line(start: (0%, 100%), end: (100%, 0%)))
-        ]
-
-        #figure(
-        rect(table(
-        columns: 10,
-        table.header(
-            [],
-            [],
-            [Rec],
-            [Prec],
-            [TOPO],
-            [APLS],
-            [Rec#super[$star$]],
-            [Prec#super[$star$]],
-            [TOPO#super[$star$]],
-            [APLS#super[$star$]],
-        ),
-        table.cell(
-            rowspan: 5,
-            align: horizon,
-            [*Berlin*]
-        ),
-        """
-
-        between = """
-        table.hline(
-            stroke: (
-            paint: luma(100),
-            dash: "dashed"
-            ),
-            start: 1,
-            end: 6
-        ),
-        table.hline(
-            stroke: (
-            paint: luma(100),
-            dash: "dashed"
-            ),
-            start: 6,
-            end:10 
-        ),
-        table.cell(
-            rowspan: 5,
-            align: horizon,
-            [*Chicago*]
-        ),
-        """
-
-        after = """
-        )),
-        caption: [Experiment 1 - Base results.],
-        ) <table:experiment-1>
-        """
-
-        data = {}
-        for place in places: 
-
-            rows = []
-            for variant in ["sat", "gps", "A", "B", "C"]:
-
-                row = []
-                row.append(measurements[place][variant]["topo"]["recall"])
-                row.append(measurements[place][variant]["topo"]["precision"])
-                row.append(measurements[place][variant]["topo"]["f1"])
-                row.append(measurements[place][variant]["apls"])
-
-                row.append(measurements[place][variant]["topo_prime"]["recall"])
-                row.append(measurements[place][variant]["topo_prime"]["precision"])
-                row.append(measurements[place][variant]["topo_prime"]["f1"])
-                row.append(measurements[place][variant]["apls_prime"])
-            
-                rows.append((variant, row))
-        
-            data[place] = rows
-
-        print(before)
-
-        # Print berlin results.
-        for rows in data["berlin"]:
-            print(f"[*{rows[0].upper()}*], ", end="")
-            for row in rows[1]:
-                print(f"[{row:.3f}], ", end="")
-            print()
-
-        print(between)
-        
-        # Print chicago results.
-        for rows in data["chicago"]:
-            print(f"[*{rows[0].upper()}*], ", end="")
-            for row in rows[1]:
-                print(f"[{row:.3f}], ", end="")
-            print()
-
-        print(after)
- 
     obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
     obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
     obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
     obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
-
+                                                        
     obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
     obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
     obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
     obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
 
-    table_results = compute_metric_scores()
-    measurements_to_table(table_results)
-
-
-def experiments_one_base_table_versus_inverse(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000):
-    """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
     # Read in TOPO and APLS samples and compute metric scores.
     table_results = {}
     for variant in set(variants) - set(["osm"]):
@@ -799,34 +620,42 @@ def experiments_one_base_table_versus_inverse(place, threshold = 30, sample_coun
         """
 
         data = []
-        for variant in ["sat", "gps", "A", "B", "C"]:
+        for variant, inverse in [
+            ("sat", False),
+            ("gps", False),
+            ("A", False),
+            ("B", False),
+            ("C", False),
+            ("A", True),
+            ("B", True),
+            ("C", True),
+            ]:
 
-            for inverse in [False, True]:
-                if inverse and variant in base_variants:
-                    continue
+            if inverse and variant in base_variants:
+                continue
 
-                row = []
-                row.append(measurements[place][variant][inverse]["topo"]["recall"])
-                row.append(measurements[place][variant][inverse]["topo"]["precision"])
-                row.append(measurements[place][variant][inverse]["topo"]["f1"])
-                row.append(measurements[place][variant][inverse]["apls"])
+            row = []
+            row.append(measurements[variant][inverse]["topo"]["recall"])
+            row.append(measurements[variant][inverse]["topo"]["precision"])
+            row.append(measurements[variant][inverse]["topo"]["f1"])
+            row.append(measurements[variant][inverse]["apls"])
 
-                row.append(measurements[place][variant][inverse]["topo_prime"]["recall"])
-                row.append(measurements[place][variant][inverse]["topo_prime"]["precision"])
-                row.append(measurements[place][variant][inverse]["topo_prime"]["f1"])
-                row.append(measurements[place][variant][inverse]["apls_prime"])
-            
-                variant_name = f'$bold("{variant}")$'
-                if inverse:
-                    variant_name = f'$bold("{variant}")^(-1)$'
+            row.append(measurements[variant][inverse]["topo_prime"]["recall"])
+            row.append(measurements[variant][inverse]["topo_prime"]["precision"])
+            row.append(measurements[variant][inverse]["topo_prime"]["f1"])
+            row.append(measurements[variant][inverse]["apls_prime"])
+        
+            variant_name = f'$bold("{variant}")$'
+            if inverse:
+                variant_name = f'$bold("{variant}")^(-1)$'
 
-                data.append((variant_name, row))
+            data.append((variant_name, row))
     
         print(before)
 
-        # Print berlin results.
-        for rows in data:
-            print(f"[{rows[0]}], ", end="")
+        # Print results.
+        for i, rows in enumerate(data):
+            print(f"[{rows[0].upper()}], ", end="")
             for row in rows[1]:
                 print(f"[{row:.3f}], ", end="")
             if i == 1 or i == 4:
@@ -834,7 +663,7 @@ def experiments_one_base_table_versus_inverse(place, threshold = 30, sample_coun
             print()
 
         print(after)
-    
+
     measurements_to_table(table_results)
 
 
