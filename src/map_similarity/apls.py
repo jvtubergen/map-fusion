@@ -81,10 +81,7 @@ def gen_position_by_nearest_point(H, p, H_edge_rtree):
 
 def random_position_on_graph(G, random_edge_picker=None):
     """Obtain a random position on graph G alongside related eid and (curvature) distance from eid[0] endpoint."""
-    if random_edge_picker != None:
-        return random_edge_picker()
-
-    G_eid = pick_random_edge_weighted(G)
+    G_eid = random_edge_picker() if random_edge_picker != None else pick_random_edge_weighted(G)
     attrs  = get_edge_attributes(G, G_eid)
     length = attrs["length"]
     interval = random.random()
@@ -100,8 +97,8 @@ def random_position_on_graph(G, random_edge_picker=None):
 def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=None):
     """Obtain a random position on G and its nearest position on H."""
     # Start and end position in G.
-    G_start = random_position_on_graph(G)
-    G_end   = random_position_on_graph(G)
+    G_start = random_position_on_graph(G, random_edge_picker=random_edge_picker)
+    G_end   = random_position_on_graph(G, random_edge_picker=random_edge_picker)
 
     a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
     if b not in G_paths[a]:
@@ -170,7 +167,7 @@ def apls_sampling(G, H, G_paths, H_paths, n=1000, max_distance=5, prime=False):
     def _random_edge_picker():
         """Define a local random edge picker to save significant computation costs (in computing weights)."""
         _eid_index = np.random.choice(_eid_indices, 1, list(weights))[0]
-        return _eid_indices[_eid_index]
+        return eids[_eid_index]
 
     H_edge_rtree = graphedges_to_rtree(H)
 
