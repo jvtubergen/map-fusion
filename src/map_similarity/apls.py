@@ -176,9 +176,12 @@ def apls_sampling(G, H, G_paths, H_paths, n=1000, max_distance=5, prime=False):
 
     samples = []
     primal_count = 0
-    while primal_count < n:
+    while (primal_count < n if prime else len(samples) < n):
         if random.random() < 0.001:
-            print(f"Number of samples generated: {primal_count}/{n}. (Total attemps: {len(samples)})")
+            if prime:
+                print(f"Number of samples generated: {primal_count}/{n}. (Total attemps: {len(samples)})")
+            else:
+                print(f"Number of samples generated: {len(samples)}/{n}.")
 
         sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
         
@@ -274,3 +277,8 @@ def extend_apls_metadata(samples, old_samples):
     """Extend metadata. Useful to fill up with more precomputed samples at a later moment in time."""
     samples += old_samples
     return samples
+
+
+def prime_apls_samples(samples):
+    """Extract APLS prime samples from a list of APLS samples."""
+    return [sample for sample in samples if not sample["A"]]

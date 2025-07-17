@@ -133,9 +133,12 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, i
             write_pickle(experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"], shortest_paths)
 
 
-def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, apls_threshold = 5, sample_count = 500): # APLS
+def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, apls_threshold = 5, sample_count = 500, prime = False, extend = False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
+    if inverse:
+        fusion_only = True
+        
     _variants = variants
     if fusion_only:
         _variants = set(fusion_variants).union(["osm"])
@@ -169,15 +172,19 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
             source_paths = shortest_paths[place][variant]
 
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            print(f"* {location}")
             if extend:
                 samples = read_pickle(location)
-                sample_count = sample_count - len(samples)
-                if sample_count <= 0:
+                remaining = sample_count - len(samples)
+                if prime:
+                    remaining = sample_count - len(prime_apls_samples(samples))
+                print(f"* {remaining}")
+                if remaining <= 0:
                     continue
-                new_samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining)
+                new_samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining, prime=prime)
                 samples += new_samples
             else:
-                samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining)
+                samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=sample_count, prime=prime)
 
             write_pickle(location, samples)
     
@@ -186,7 +193,10 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
 ### TOPO
 ##################
 
-def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, n = 500, hole_size = 5.5, interval = 5):
+def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, sample_count = 500, hole_size = 5.5, interval = 5, prime = False, extend = False):
+
+    if inverse:
+        fusion_only = True
 
     _variants = variants
     if fusion_only:
@@ -204,12 +214,23 @@ def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, n 
     logger("Computing samples.")
     for place in places: 
         for variant in set(_variants) - set(["osm"]):
-            logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
 
-            samples = topo_sampling(target_graph, source_graph, n_measurement_nodes=n, interval=interval, hole_size=hole_size)
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
+            print(f"* {location}")
+            if extend:
+                samples = read_pickle(location)
+                remaining = sample_count - len(samples)
+                if prime:
+                    remaining = sample_count - len(prime_topo_samples(samples))
+                print(f"* {remaining}")
+                if remaining <= 0:
+                    continue
+                new_samples = topo_sampling(target_graph, source_graph,  interval=interval, hole_size=hole_size, n_measurement_nodes=remaining, prime=prime)
+                samples += new_samples
+            else:
+                samples = topo_sampling(target_graph, source_graph,  interval=interval, hole_size=hole_size, n_measurement_nodes=sample_count, prime=prime)
 
             write_pickle(location, samples)
 
@@ -402,45 +423,55 @@ def experiment_zero_edge_coverage_base_graphs():
 # Experiment one.
 # Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for all maps (OSM, SAT, GPS, A, B, C).
 @info()
-def experiment_one_base_table(threshold = 30):
+def experiment_one_base_table(threshold = 30, sample_count = 10000, prime_sample_count = 2000):
 
     # Read in TOPO and APLS samples and compute metric scores.
-    table_results = {}
-    for place in places: 
-        table_results[place] = {}
-        for variant in set(variants) - set(["osm"]):
-            print(f"{place}-{variant}")
+    def compute_metric_scores():
+        table_results = {}
+        for place in places: 
+            table_results[place] = {}
+            for variant in set(variants) - set(["osm"]):
+                print(f"{place}-{variant}")
 
-            # Asymmetric APLS results.
-            metric_threshold = 5
-            metric_interval = None
-            location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-            samples = read_pickle(location)
-            apls       = asymmetric_apls_from_samples(samples, prime=False)
-            apls_prime = asymmetric_apls_from_samples(samples, prime=True)
+                # Asymmetric APLS results.
+                metric_threshold = 5
+                metric_interval = None
+                location = experiment_location(place, variant, threshold=threshold, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
 
-            # Asymmetric TOPO results.
-            metric_threshold = 5.5
-            metric_interval = 5
-            location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-            samples = read_pickle(location)
-            topo_results       = asymmetric_topo_from_samples(samples, False)
-            topo_prime_results = asymmetric_topo_from_samples(samples, True)
+                assert len(samples) >= sample_count
+                assert len(prime_apls_samples(samples)) >= prime_sample_count
 
-            table_results[place][variant] = {
-                "apls": apls,
-                "apls_prime": apls_prime,
-                "topo": {
-                    "recall": topo_results["recall"],
-                    "precision": topo_results["precision"],
-                    "f1": topo_results["f1"],
-                },
-                "topo_prime": {
-                    "recall": topo_prime_results["recall"],
-                    "precision": topo_prime_results["precision"],
-                    "f1": topo_prime_results["f1"],
-                },
-            }
+                apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
+                apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
+
+                # Asymmetric TOPO results.
+                metric_threshold = 5.5
+                metric_interval = 5
+                location = experiment_location(place, variant, threshold=threshold, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
+
+                assert len(samples) >= sample_count
+                assert len(prime_topo_samples(samples)) >= prime_sample_count
+
+                topo_results       = asymmetric_topo_from_samples(samples[:sample_count], False)
+                topo_prime_results = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
+
+                table_results[place][variant] = {
+                    "apls": apls,
+                    "apls_prime": apls_prime,
+                    "topo": {
+                        "recall": topo_results["recall"],
+                        "precision": topo_results["precision"],
+                        "f1": topo_results["f1"],
+                    },
+                    "topo_prime": {
+                        "recall": topo_prime_results["recall"],
+                        "precision": topo_prime_results["precision"],
+                        "f1": topo_prime_results["f1"],
+                    },
+                }
+        return table_results
 
     @info()
     def measurements_to_table(measurements):
@@ -563,52 +594,67 @@ def experiment_one_base_table(threshold = 30):
             print()
 
         print(after)
+ 
+    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
+    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
+    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
+    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
 
+    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
+    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
+    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
+    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
+
+    table_results = compute_metric_scores()
     measurements_to_table(table_results)
 
 
-def experiments_one_base_table_versus_inverse(threshold = 30):
-    """Compare A, B, and C to A^-1, B^-1, C^-1 in a table."""
+def experiments_one_base_table_versus_inverse(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000):
+    """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
     # Read in TOPO and APLS samples and compute metric scores.
     table_results = {}
-    for place in places: 
-        table_results[place] = {}
-        for variant in fusion_variants:
-            table_results[place][variant] = {}
-            for inverse in [False,True]:
-                table_results[place][variant][inverse] = {}
-                print(f"{place}-{variant}-{inverse}")
-                
-                # Asymmetric APLS results.
-                metric_threshold = 5
-                metric_interval = None
-                location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                samples = read_pickle(location)
-                apls       = asymmetric_apls_from_samples(samples, prime=False)
-                apls_prime = asymmetric_apls_from_samples(samples, prime=True)
+    for variant in set(variants) - set(["osm"]):
+        table_results[variant] = {}
+        for inverse in [False,True]:
+            if inverse and variant in base_variants:
+                continue
+            table_results[variant][inverse] = {}
+            print(f"{place}-{variant}-{inverse}")
+            
+            # Asymmetric APLS results.
+            metric_threshold = 5
+            metric_interval = None
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            assert len(samples) >= sample_count
+            assert len(prime_apls_samples(samples)) >= prime_sample_count
+            apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
+            apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
 
-                # Asymmetric TOPO results.
-                metric_threshold = 5.5
-                metric_interval = 5
-                location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                samples = read_pickle(location)
-                topo_results       = asymmetric_topo_from_samples(samples, prime=False)
-                topo_prime_results = asymmetric_topo_from_samples(samples, prime=True)
+            # Asymmetric TOPO results.
+            metric_threshold = 5.5
+            metric_interval = 5
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            assert len(samples) >= sample_count
+            assert len(prime_topo_samples(samples)) >= prime_sample_count
+            topo_results       = asymmetric_topo_from_samples(samples[:sample_count], False)
+            topo_prime_results = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
 
-                table_results[place][variant][inverse] = {
-                    "apls": apls,
-                    "apls_prime": apls_prime,
-                    "topo": {
-                        "recall": topo_results["recall"],
-                        "precision": topo_results["precision"],
-                        "f1": topo_results["f1"],
-                    },
-                    "topo_prime": {
-                        "recall": topo_prime_results["recall"],
-                        "precision": topo_prime_results["precision"],
-                        "f1": topo_prime_results["f1"],
-                    },
-                }
+            table_results[variant][inverse] = {
+                "apls": apls,
+                "apls_prime": apls_prime,
+                "topo": {
+                    "recall": topo_results["recall"],
+                    "precision": topo_results["precision"],
+                    "f1": topo_results["f1"],
+                },
+                "topo_prime": {
+                    "recall": topo_prime_results["recall"],
+                    "precision": topo_prime_results["precision"],
+                    "f1": topo_prime_results["f1"],
+                },
+            }
 
     @info()
     def measurements_to_table(measurements):
@@ -640,7 +686,9 @@ def experiments_one_base_table_versus_inverse(threshold = 30):
         ]
 
         #figure(
-        rect(table(
+        rect(
+        width: 375pt,
+        table(
         columns: 10,
         table.header(
             [],
@@ -655,9 +703,9 @@ def experiments_one_base_table_versus_inverse(threshold = 30):
             [APLS#super[$star$]],
         ),
         table.cell(
-            rowspan: 6,
+            rowspan: 8,
             align: horizon,
-            [*Berlin*]
+            [*"""+place+"""*]
         ),
         """
 
@@ -665,7 +713,7 @@ def experiments_one_base_table_versus_inverse(threshold = 30):
         table.hline(
             stroke: (
             paint: luma(100),
-            dash: "dashed"
+            dash: "dotted"
             ),
             start: 1,
             end: 6
@@ -673,67 +721,52 @@ def experiments_one_base_table_versus_inverse(threshold = 30):
         table.hline(
             stroke: (
             paint: luma(100),
-            dash: "dashed"
+            dash: "dotted"
             ),
             start: 6,
             end:10 
-        ),
-        table.cell(
-            rowspan: 6,
-            align: horizon,
-            [*Chicago*]
         ),
         """
 
         after = """
         )),
-        caption: [Experiment 1 - Base results comparing to inverse.],
-        ) <table:experiment-1-inverse>
+        caption: [Experiment 1 - Base table.],
+        ) <table:experiment-1-base-table-"""+place+""">
         """
 
-        data = {}
-        for place in places: 
+        data = []
+        for variant in ["sat", "gps", "A", "B", "C"]:
 
-            rows = []
-            for variant in ["A", "B", "C"]:
+            for inverse in [False, True]:
+                if inverse and variant in base_variants:
+                    continue
 
-                for inverse in [False, True]:
+                row = []
+                row.append(measurements[place][variant][inverse]["topo"]["recall"])
+                row.append(measurements[place][variant][inverse]["topo"]["precision"])
+                row.append(measurements[place][variant][inverse]["topo"]["f1"])
+                row.append(measurements[place][variant][inverse]["apls"])
 
-                    row = []
-                    row.append(measurements[place][variant][inverse]["topo"]["recall"])
-                    row.append(measurements[place][variant][inverse]["topo"]["precision"])
-                    row.append(measurements[place][variant][inverse]["topo"]["f1"])
-                    row.append(measurements[place][variant][inverse]["apls"])
+                row.append(measurements[place][variant][inverse]["topo_prime"]["recall"])
+                row.append(measurements[place][variant][inverse]["topo_prime"]["precision"])
+                row.append(measurements[place][variant][inverse]["topo_prime"]["f1"])
+                row.append(measurements[place][variant][inverse]["apls_prime"])
+            
+                variant_name = f'$bold("{variant}")$'
+                if inverse:
+                    variant_name = f'$bold("{variant}")^(-1)$'
 
-                    row.append(measurements[place][variant][inverse]["topo_prime"]["recall"])
-                    row.append(measurements[place][variant][inverse]["topo_prime"]["precision"])
-                    row.append(measurements[place][variant][inverse]["topo_prime"]["f1"])
-                    row.append(measurements[place][variant][inverse]["apls_prime"])
-                
-                    variant_name = f"$bold({variant})$"
-                    if inverse:
-                        variant_name = f"$bold({variant})^(-1)$"
-
-                    rows.append((variant_name, row))
-        
-            data[place] = rows
-
+                data.append((variant_name, row))
+    
         print(before)
 
         # Print berlin results.
-        for rows in data["berlin"]:
+        for rows in data:
             print(f"[{rows[0]}], ", end="")
             for row in rows[1]:
                 print(f"[{row:.3f}], ", end="")
-            print()
-
-        print(between)
-        
-        # Print chicago results.
-        for rows in data["chicago"]:
-            print(f"[{rows[0]}], ", end="")
-            for row in rows[1]:
-                print(f"[{row:.3f}], ", end="")
+            if i == 1 or i == 4:
+                print(between)
             print()
 
         print(after)

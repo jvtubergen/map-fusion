@@ -656,7 +656,7 @@ def sample(G_sub_gt_, G_sub_p_,
 def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
                  n_measurement_nodes=10000, x_coord='x', y_coord='y',
                  allow_multi_hole=False,
-                 make_plots=False, verbose=False):
+                 make_plots=False, verbose=False, prime=False):
     '''Obtain samples.
      * subgraph_radius: radius at sample point to extract subgraph from for performing sample.
      * interval: spacing of inserting marbles/holes.
@@ -677,9 +677,12 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
 
     # TODO: Pick at arbitrary position on graph.
     prime_samples = 0
-    while prime_samples < n_measurement_nodes:
-        # if random.random() < 0.01:
-        print(f"Number of primal samples generated: {prime_samples}/{n_measurement_nodes}. (Total attempts: {len(samples)})")
+    while (prime_samples < n_measurement_nodes if prime else len(samples) < n_measurement_nodes):
+        if random.random() < 0.01:
+            if prime:
+                print(f"Number of primal samples generated: {prime_samples}/{n_measurement_nodes}. (Total attempts: {len(samples)})")
+            else:
+                print(f"Number of samples generated: {len(samples)}/{n_measurement_nodes}.")
 
         origin_node = np.random.choice(origin_nodes, 1)[0]
         n_props = G_gt_.nodes[origin_node]
@@ -830,3 +833,7 @@ def asymmetric_topo_from_samples(samples, prime=False, sample_count=None):
         "f1"       : f1,
     }
 
+
+def prime_topo_samples(samples):
+    """Extract TOPO prime samples from a list of TOPO samples."""
+    return [sample for sample in samples if not (sample["tp"] == 0 and sample["fp"] == 0)]
