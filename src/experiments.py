@@ -42,10 +42,12 @@ def read_all_maps(threshold = 30):
 
 
 @info()
-def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False):
+def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_use = True):
     """Obtain fusion maps and write them to disk."""
 
     for place in places: 
+        if re_use and path_exists(data_location(place, "A", threshold=threshold, inverse=inverse)["graph_file"]):
+            continue
 
         logger(f"Apply map fusion to {place}.")
         osm = read_osm_graph(place)
@@ -93,7 +95,7 @@ def remove_deleted(G):
     return G
 
 
-def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False): # APLS + TOPO
+def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS + TOPO
     """
     Prepare graphs (identical for APLS and TOPO):  Remove edges and nodes with the {"render": "delete"} attribute.
     Basically only necessary for "B" and "C" (because other graphs nowhere annotate this specific "render" attribute value),
@@ -108,17 +110,20 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = F
 
     for place in places: 
         for variant in _variants:
+            location = experiment_location(place, variant, threshold=threshold, inverse = inverse)["prepared_graph"]
+            if re_use and path_exists(location):
+                continue
             G = read_graph(data_location(place, variant, threshold = threshold, inverse = inverse)["graph_file"])
             G = remove_deleted(G)
             sanity_check_graph(G)
-            write_graph(experiment_location(place, variant, threshold=threshold, inverse = inverse)["prepared_graph"], G)
+            write_graph(location, G)
 
 
 ##################
 ### APLS
 ##################
 
-def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False): # APLS
+def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS
     """
     Obtain shortest distance on a graph and write to disk.
     """
@@ -132,6 +137,8 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, i
     for place in places: 
         for variant in _variants:
             print(f"{place}-{variant}")
+            if re_use and path_exists(experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"]):
+                continue
             G = read_graph(experiment_location(place, variant, threshold=threshold, inverse=inverse)["prepared_graph"])
             shortest_paths = precompute_shortest_path_data(G)
             write_pickle(experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"], shortest_paths)
