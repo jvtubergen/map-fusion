@@ -46,7 +46,9 @@ def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_us
     """Obtain fusion maps and write them to disk."""
 
     for place in places: 
-        if re_use and path_exists(data_location(place, "A", threshold=threshold, inverse=inverse)["graph_file"]):
+        if re_use and path_exists(data_location(place, "A", threshold=threshold, inverse=inverse)["graph_file"]) \
+            and path_exists(data_location(place, "B", threshold=threshold, inverse=inverse)["graph_file"])  \
+            and path_exists(data_location(place, "C", threshold=threshold, inverse=inverse)["graph_file"]):
             continue
 
         logger(f"Apply map fusion to {place}.")
@@ -65,10 +67,14 @@ def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_us
         if inverse:
             logger(f"Apply map fusion inverse.")
             sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=threshold)
+            sanity_check_graph_curvature(gps)
+            sanity_check_graph_curvature(sat_vs_gps)
             graphs     = map_fusion(C=gps, A=sat_vs_gps, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
         else:
             logger(f"Apply map fusion.")
             gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
+            sanity_check_graph_curvature(sat)
+            sanity_check_graph_curvature(gps_vs_sat)
             graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
 
         A = graphs["a"]
