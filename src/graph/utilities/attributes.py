@@ -114,138 +114,14 @@ def annotate_edges(G, new_attrs, eids=None):
 ### Graph edge attribute annotation.
 #######################################
 
-# Add path length data element.
-# Optionally delete glitchy nodes (that somehow ended up in the input graphs).
-@info()
-def graph_annotate_edge_length(G):
-
-    edge_attrs = {}
-    edges_to_remove = []
-    for eid, attrs in iterate_edges(G):
-        ps = attrs["curvature"]
-        length = curve_length(ps)
-        if eid[0] == eid[1] and length == 0:
-            edges_to_remove.append(eid)
-        else:
-            assert length > 0 # Assert non-zero length.
-            edge_attrs[eid] = {**attrs, "length": length}
-    
-    nx.set_edge_attributes(G, edge_attrs)
-    G.remove_edges_from(edges_to_remove)
-
-
-# Add geometry attribute to every edge.
-@info()
-def graph_annotate_edge_geometry(G):
-
-    edge_attrs = {}
-    for eid, attrs in iterate_edges(G):
-
-        ps = attrs["curvature"]
-        geometry = to_linestring(ps)
-        edge_attrs[eid] = {**attrs, "geometry": geometry}
-    
-    nx.set_edge_attributes(G, edge_attrs)
-
-
-# Annotate each edge with curvature (if not already the case).
-# * Try to derive from the geometry.
-# * Otherwise extract from 
-@info()
-def graph_annotate_edge_curvature(G):
-
-    for eid, attrs in iterate_edges(G):
-
-        if "curvature" in attrs:
-            if type(attrs["curvature"]) != type(array([])):
-                attrs["curvature"] = array(attrs["curvature"])
-
-        elif "geometry" in attrs:
-
-            ps = from_linestring(attrs["geometry"])
-
-            attrs["curvature"] = ps
-
-        else:
-
-            u, v = eid[0:2]
-
-            p1 = G.nodes()[u]
-            p2 = G.nodes()[v]
-            ps = array([[p1["y"], p1["x"]], [p2["y"], p2["x"]]])
-
-            attrs["curvature"] = ps
-
-    # Sanity check all curves got annotated.
-    for eid, attrs in iterate_edges(G):
-        check("curvature" in attrs)
-        check(type(attrs["curvature"]) == type(array([])))
-
-
 from graph.utilities.distance import graphnode_position
 
-# Annotate edge with basic attribute information (curvature, geometry and length).
-def graph_annotate_edge(G, eid):
-    
-    attrs = get_edge_attributes(G, eid)
-
-    if "curvature" in attrs:
-        curvature = attrs["curvature"]
-    else:
-        p = graphnode_position(G, eid[0])
-        q = graphnode_position(G, eid[1])
-        curvature = array([p, q])
-
-    geometry = to_linestring(curvature)
-    length = curve_length(curvature)
-
-    set_edge_attributes(G, eid, {"curvature": curvature, "geometry": geometry, "length": length})
-
-
-# Correct potentially incorect node curvature (may be moving in opposing direction in comparison to start-node and end-node of edge).
-def graph_correctify_edge_curvature_single(G, eid):
-
-    # We expect to have curvature in the edge, obtain it..
-    u, v = eid[0:2]
-    check(u <= v)
-
-    attrs = get_edge_attributes(G, eid)  
-    ps = attrs["curvature"]
-
-    is_correct_direction = np.all(array(ps[0]) == array(graphnode_position(G, u))) and np.all(array(ps[-1]) == array(graphnode_position(G, v)))
-    is_inverted_direction = np.all(array(ps[0]) == array(graphnode_position(G, v))) and np.all(array(ps[-1]) == array(graphnode_position(G, u)))
-
-    check(is_correct_direction or is_inverted_direction, expect="Expect curvature of all connected edges starts/end at node position.")
-
-    # In case the direction of the curvature is inverted.
-    if u != v and is_inverted_direction: 
-
-        k = 0 if len(eid) == 2 else eid[2]
-
-        # Then invert the direction back.
-        logger("Invert curvature of edge ", (u, v, k))
-        ps = ps[::-1]
-        geometry = to_linestring(ps)
-        nx.set_edge_attributes(G, {eid: {**attrs, "geometry": geometry, "curvature": ps}}) # Update geometry.
-
-
-@info()
-def graph_correctify_edge_curvature(G, eid=None):
-
-    for eid, attrs in iterate_edges(G):
-        graph_correctify_edge_curvature_single(G, eid)
-
-#######################################
-### New edge annotation logic
-#######################################
-
-@info()
 def graph_annotate_edges(G):
     """ Annotate each edge with (corrected) curvature, geometry, length and delete if zero-length edge length."""
 
     eids_to_delete = []
     for eid, attrs in iterate_edges(G):
-        graph_annotate_edge2(G, eid, attrs)
+        graph_annotate_edge(G, eid, attrs=attrs)
         if eid[0] == eid[1] and attrs["length"] <= 0.0001:
             eids_to_delete.append(eid)
 
@@ -254,7 +130,9 @@ def graph_annotate_edges(G):
     return G
 
 
-def graph_annotate_edge2(G, eid, attrs, from_geometry=False):
+def graph_annotate_edge(G, eid, attrs = None, from_geometry = False):
+    if attrs == None:
+        attrs = get_edge_attributes(G, eid)
     # Retrieve curvature from (curvature or geometry) attribute or construct straight line segment.
     if "curvature" in attrs:
         if type(attrs["curvature"]) != type(array([])):

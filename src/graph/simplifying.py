@@ -91,10 +91,8 @@ def graph_paths_to_simplify(G):
 def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length", "curvature", "geometry", "threshold", "covered_by", "vectorized_from"]): 
 
     # Sanity check node position starts/ends at all edge curves.
-    sanity_check_graph_curvature(G)
-
-    graph_annotate_edge_curvature(G)
-    graph_correctify_edge_curvature(G)
+    graph_annotate_edges(G)
+    sanity_check_graph(G)
 
     G = G.copy()
 
@@ -204,8 +202,7 @@ def simplify_graph(G, retain_attributes=False, attributes_to_ignore = ["length",
     G.graph["simplified"] = True
 
     # Annotate geometry and length on the simplified edges.
-    graph_annotate_edge_geometry(G)
-    graph_annotate_edge_length(G)
+    graph_annotate_edges(G)
 
     return G
 

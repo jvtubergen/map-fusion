@@ -167,7 +167,7 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
             excluded_eids.add(old_eid)
 
     # Correctify edge curvature.
-    graph_correctify_edge_curvature(C)
+    graph_annotate_edges(C)
     graphs["a"] = C.copy()
 
     #TODO: solve all edges have render attribute, some edge with key > 0 is unannotated.
@@ -326,7 +326,7 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
                 edge_tree = injection_data["edge_tree"]
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
-        graph_correctify_edge_curvature(C)
+        graph_annotate_edges(C)
         sanity_check_graph_curvature(C)
     
         graphs["c"] = C.copy()

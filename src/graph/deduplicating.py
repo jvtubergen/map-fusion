@@ -90,7 +90,7 @@ def deduplicate_graph(G, eps=0.001):
     G.add_edges_from(new_edges)
 
     # Sanity check that total graph edge length remains the same after removing duplicated nodes.
-    graph_annotate_edge_curvature(G)
+    graph_annotate_edges(G)
     new_length = graph_length(G)
     check(abs(length - new_length) <= len(nids_to_delete) * eps, expect="Expect total graph edge length remains the same after removing duplicated nodes.")
 

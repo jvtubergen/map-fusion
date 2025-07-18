@@ -71,8 +71,8 @@ def edge_graph_coverage(S, T, max_threshold=None):
         curves[eid] = curve
     
     ## Performance: Construct graph per edge (subgraph with nodes in `threshold` meter radius to edge curvature).
-    graph_annotate_edge_curvature(T)
-    graph_annotate_edge_curvature(S)
+    graph_annotate_edges(T)
+    graph_annotate_edges(S)
     edge_tree = graphedges_to_rtree(T)
     edge_bboxs = graphedges_to_bboxs(S, padding=max_threshold)
     subgraphs = {}
