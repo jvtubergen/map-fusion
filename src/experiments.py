@@ -160,6 +160,31 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
     if fusion_only:
         _variants = set(fusion_variants).union(["osm"])
 
+    # First check what we even have to compute.
+    do_we_have_to_compute = False
+    for place in places: 
+        for variant in set(_variants) - set(["osm"]):
+            if do_we_have_to_compute:
+                continue
+
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            if not extend or not path_exists(location):
+                # what_to_compute_for[variant] = sample_count
+                do_we_have_to_compute = True
+                continue
+            
+            # Compute remaining samples.
+            samples = read_pickle(location)
+            remaining = sample_count - len(prime_apls_samples(samples)) if prime else sample_count - len(samples)
+                
+            if remaining > 0:
+                # what_to_compute_for[variant] = remaining
+                do_we_have_to_compute = True
+
+    # if len(what_to_compute_for) == 0:
+    if not do_we_have_to_compute:
+        return 
+
     logger("Reading prepared maps.")
     maps = {}
     for place in places: 
@@ -214,10 +239,35 @@ def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, sa
 
     if inverse:
         fusion_only = True
-
+        
     _variants = variants
     if fusion_only:
         _variants = set(fusion_variants).union(["osm"])
+
+    # First check what we even have to compute.
+    do_we_have_to_compute = False
+    for place in places: 
+        for variant in set(_variants) - set(["osm"]):
+            if not do_we_have_to_compute:
+                continue
+
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            if not extend or not path_exists(location):
+                # what_to_compute_for[variant] = sample_count
+                do_we_have_to_compute = True
+                continue
+            
+            # Compute remaining samples.
+            samples = read_pickle(location)
+            remaining = sample_count - len(prime_apls_samples(samples)) if prime else sample_count - len(samples)
+                
+            if remaining > 0:
+                # what_to_compute_for[variant] = remaining
+                do_we_have_to_compute = True
+
+    # if len(what_to_compute_for) == 0:
+    if not do_we_have_to_compute:
+        return 
 
     logger("Reading prepared maps.")
     maps = {}
@@ -680,253 +730,95 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
     measurements_to_table(table_results)
 
 
-# Experiment two - A.
-# Measure TOPO, TOPO*, APLS, APLS* on Berlin and Chicago for different threshold values.
-def experiment_two_measure_threshold_values(lowest = 1, highest = 51, step = 1):
+##################
+### Experiments 2
+##################
 
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 365*24*60*60, # Keep it for a year.
-    }
+def obtain_threshold_data(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
+    """Construct fusion maps on different thresholds and compute samples."""
+    for i in range(lowest, highest + step, step):
+        for inverse in [False, True] if include_inverse else [False]:
+            obtain_fusion_maps(threshold=i, inverse=inverse)
+            obtain_prepared_metric_maps(threshold=i, fusion_only=True, inverse=inverse)
+            obtain_shortest_distance_dictionaries(threshold=i, fusion_only=True, inverse=inverse)
+            for prime in [False, True]:
+                count = prime_sample_count if prime else sample_count
+                obtain_apls_samples(threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
+                obtain_topo_samples(threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
 
-    # Generate threshold_maps for thresholds.
-    def compute_threshold_maps():
-        threshold_maps = {}
-        for threshold in range(lowest, highest, step):
-            print(f"Generating map with threshold {threshold}.")
-            maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
-            threshold_maps[threshold] = {}
-            threshold_maps[threshold]["berlin"]  = maps["berlin"]["c"]
-            threshold_maps[threshold]["chicago"] = maps["chicago"]["c"]
-        return threshold_maps
-    
-
-    # Prepare graphs for TOPO and APLS.
-    def precompute_graphs_for_metrics(threshold_maps):
-
-        # Prepare map for TOPO and APLS computation.
-        def precompute_measurement_map(graph):
-            # Drop deleted edges before continuing.
-            def remove_deleted(G):
-
-                G = G.copy()
-
-                edges_to_be_deleted = filter_eids_by_attribute(G, filter_attributes={"render": "deleted"})
-                nodes_to_be_deleted = filter_nids_by_attribute(G, filter_attributes={"render": "deleted"})
-
-                G.remove_edges_from(edges_to_be_deleted)
-                G.remove_nodes_from(nodes_to_be_deleted)
-
-                return G
         
-            graph = remove_deleted(graph)
-            return {
-                "topo": prepare_graph_for_topo(graph),
-                "apls": prepare_graph_for_apls(graph),
-            }
+def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
+    """Measure TOPO/TOPO* and APLS/APLS* on Berlin and Chicago for different map fusion threshold values."""
 
-        precomputed_graphs = {}
-        for threshold in range(lowest, highest, step):
-            print(f"Preparing graph for topo and apls ({threshold}).")
-            precomputed_graphs[threshold] = {}
-            precomputed_graphs[threshold]["berlin"]  = precompute_measurement_map(threshold_maps[threshold]["berlin"])
-            precomputed_graphs[threshold]["chicago"] = precompute_measurement_map(threshold_maps[threshold]["chicago"])
-        return precomputed_graphs
-
-
-    # Compute TOPO and APLS on graphs.
-    def compute_metrics(precomputed_graphs):
-
-        # We need prepared APLS and TOPO on Berlin and Chicago.
-        # (Read out truth on Berlin and Chicago and preprocess.)
-        simp = simplify_graph
-        dedup = graph_deduplicate
-        to_utm = graph_transform_latlon_to_utm
-        osm_berlin = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="berlin")))))
-        osm_chicago = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="chicago")))))
-        truth = {}
-        truth["berlin"] = {}
-        truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)
-        truth["berlin"]["topo"]  = prepare_graph_for_topo(osm_berlin)
-        truth["chicago"] = {}
-        truth["chicago"]["apls"] = prepare_graph_for_apls(osm_chicago)
-        truth["chicago"]["topo"] = prepare_graph_for_topo(osm_chicago)
-
-        result = {}
-        result["berlin"] = {}
-        result["chicago"] = {}
-        # Compute similarity for every map.
-        for threshold in range(lowest, highest, step):
-            print(f"Computing metric for threshold {threshold}.")
-
-            def compute_metric(threshold):
-                metric_result = {}
-                for place in ["berlin", "chicago"]:
+    # Read in TOPO and APLS samples and compute metric scores.
+    rows = []
+    for place in places:
+        for variant in set(fusion_variants):
+            for inverse in [False, True] if include_inverse else [False]:
+                for prime in [False, True]:
+                    for threshold in range(lowest, highest + step, step):
+                        print(f"{place}-{variant}-{inverse}-{prime}-{threshold}")
             
-                    # Compute apls 
-                    truth_apls = truth[place]["apls"]
-                    truth_topo = truth[place]["topo"]
+                        # Asymmetric APLS results.
+                        metric_threshold = 5
+                        metric_interval = None
+                        location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                        samples = read_pickle(location)
+                        assert len(samples) >= sample_count
+                        assert len(prime_apls_samples(samples)) >= prime_sample_count
+                        apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
+                        apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
 
-                    proposed_apls = precomputed_graphs[threshold][place]["apls"]
-                    proposed_topo = precomputed_graphs[threshold][place]["topo"]
+                        # Asymmetric TOPO results.
+                        metric_threshold = 5.5
+                        metric_interval = 5
+                        location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                        samples = read_pickle(location)
+                        assert len(samples) >= sample_count
+                        assert len(prime_topo_samples(samples)) >= prime_sample_count
+                        topo       = asymmetric_topo_from_samples(samples[:sample_count], False)
+                        topo_prime = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
 
-                    apls, apls_prime = compute_apls(truth_apls, proposed_apls)
-                    topo, topo_prime = compute_topo(truth_topo, proposed_topo)
+                        data = [
+                            { "metric": "apls", "prime" : False, "score" : apls },
+                            { "metric": "apls", "prime" : True , "score" : apls_prime },
+                            { "metric": "topo", "prime" : False, "score" : topo["f1"] },
+                            { "metric": "topo", "prime" : True , "score" : topo_prime["f1"] },
+                        ]
 
-                    metric_result[place] = {
-                        "apls": apls,
-                        "apls_prime": apls_prime,
-                        "topo": topo,
-                        "topo_prime": topo_prime,
-                    }
-                return metric_result
-            
-            result[threshold] = read_and_or_write(f"data/pickled/metric_result-{threshold}", lambda: compute_metric(threshold), **reading_props)
-            
-        
-        return result
-    
+                        for element in data:
+                            rows.append({
+                                "place"    : place,
+                                "variant"  : variant,
+                                "inverse"  : inverse,
+                                "threshold": threshold,
+                                "metric"   : element["metric"],
+                                "prime"    : element["prime"],
+                                "score"    : element["score"],
+                            })
 
-    # Plot threshold values on Berlin and Chicago.
-    def render_thresholds(measure_results):
+    # Convert into dataframe.
+    df = pd.DataFrame(rows)
+    df['hue'] = df[['metric', 'prime']].apply(lambda row: f"{row.metric} - {row.prime}", axis=1)
 
-        # Data format: `data[threshold][place][apls/topo]`
-        # 
-        # We want `threshold` on the x-axis, place and metric as different coloring/line style, value on the y-axis.
+    if not include_inverse:
+        df = df[(df["inverse"] == False)]
 
-        plt.figure(figsize=(14, 8))
+    for place in places:
+
+        subset = df[(df["place"] == place)]
+
+        # Construct a FacetGrid lineplot on every (place, variant) combination
+        plt.figure(figsize=(30, 30))
         sns.set_style("whitegrid")
-        
-        data = {}
-        for i in range(1, 50):
-            data[i] = {}
-            for place in ["berlin", "chicago"]:
-                data[i][place] = {
-                    "apls"      : float(measure_results[i][place]["apls"]),
-                    "apls_prime": float(measure_results[i][place]["apls_prime"]),
-                    "topo"      : float(measure_results[i][place]["topo"][0]),
-                    "topo_prime": float(measure_results[i][place]["topo_prime"][0]),
-                }
-        
-        # Convert to DataFrame
-        rows = []
-        for i in data:
-            for place in data[i]:
-                for metric_type, value in data[i][place].items():
-                    rows.append({
-                        "threshold": i,
-                        "place": place,
-                        "metric_type": metric_type,
-                        "value": value
-                    })
-        
-        df = pd.DataFrame(rows)
+        sns.set_theme(style="ticks")
+        g = sns.FacetGrid(subset, col = "metric", row = "variant", hue="hue", margin_titles=True)
+        g.map(sns.lineplot, "threshold", "score")
+        g.set_axis_labels("Threshold (m)", "Score")
+        g.add_legend()
+        plt.show()
+        breakpoint()
 
-
-        # Define colors for better differentiation
-        base_colors = {
-            "berlin": "#1f77b4", 
-            "chicago": "#d62728", 
-        }
-
-        # Define color variations for each metric type
-        metric_variations = {
-            "apls": 0,        # Base color (no adjustment)
-            "topo": 0.15,     # Slightly darker
-            "apls_prime": -0.15,  # Slightly lighter
-            "topo_prime": -0.3    # Even lighter
-        }
-
-        # Create combined category for legend
-        df['place_metric'] = df['place'] + "_" + df['metric_type']
-
-        # Function to adjust color (make it lighter or darker)
-        def adjust_color(hex_color, amount):
-            """
-            Adjust hex color by making it lighter or darker
-            - amount < 0: lighter
-            - amount > 0: darker
-            """
-            import colorsys
-            import matplotlib.colors as mc
-            
-            # Convert hex to RGB
-            rgb = mc.to_rgb(hex_color)
-            # Convert RGB to HSV
-            h, s, v = colorsys.rgb_to_hsv(*rgb)
-            
-            # Adjust brightness (value)
-            if amount < 0:
-                v = min(1, v * (1 - amount))  # Lighter
-            else:
-                v = max(0, v * (1 - amount))  # Darker
-                
-            # Convert back to RGB
-            rgb = colorsys.hsv_to_rgb(h, s, v)
-            # Convert back to hex
-            return mc.rgb2hex(rgb)
-
-        # Plot each place-metric combination
-        for place in ["berlin", "chicago"]:
-            for metric in ["apls", "apls_prime", "topo", "topo_prime"]:
-
-                # Set line style based on metric
-                if metric == 'apls':
-                    linestyle = '-'  # solid
-                elif metric == 'topo':
-                    linestyle = '--'  # dashed
-                elif metric == 'apls_prime':  # reconnection
-                    linestyle = ':'  # dotted
-                else:  # perhaps for another metric
-                    linestyle = '-.'  # dash-dot
-
-                if place == "berlin":
-                    marker = "o"
-                else:
-                    marker = "x"
-                
-                # Adjust color based on metric type
-                base_color = base_colors[place]
-                variation = metric_variations[metric]
-                adjusted_color = adjust_color(base_color, variation)
-
-                subset = df[(df["place"] == place) & (df["metric_type"] == metric)]
-                place_metric = f"{place}_{metric}"
-                
-                # Sort by threshold to ensure correct line drawing
-                subset = subset.sort_values("threshold")
-                
-                plt.plot(
-                    subset["threshold"], 
-                    subset["value"], 
-                    marker=marker, 
-                    linestyle=linestyle,
-                    color=adjusted_color,
-                    label=f"{place.capitalize()} - {metric}", 
-                    alpha=0.9, 
-                    markersize=5
-                )
-
-        # plt.title("Performance Metrics Across Thresholds", fontsize=16)
-        plt.xlabel("Threshold", fontsize=14)
-        plt.ylabel("Value", fontsize=14)
-        plt.ylim(0, 1)
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(loc="best", frameon=True, fancybox=True, shadow=True)
-
-        # Add a horizontal line at y=0.5 for reference
-        plt.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5)
-
-        plt.tight_layout()
-        # plt.show()
-        plt.savefig("results/Experiment 2 - Thresholds metric results.svg")
-
-
-    threshold_maps     = compute_threshold_maps()
-    precomputed_graphs = read_and_or_write(f"data/pickled/precomputed_graphs", lambda: precompute_graphs_for_metrics(threshold_maps), **reading_props)
-    measure_results    = read_and_or_write(f"data/pickled/measure_results", lambda: compute_metrics(precomputed_graphs), **reading_props)
-    render_thresholds(measure_results)
 
 
 # Experiment two - B.

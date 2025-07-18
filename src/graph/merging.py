@@ -235,7 +235,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         # Mark edges for deletion.
         annotate_edges(C, {"render": "deleted"}, eids=list(set(edges_to_be_deleted) - set(edges_to_ignore)))
 
-
         # Delete nodes (Mark nodes for deletion).
         annotate_nodes(C, {"render": "deleted"}, nids=list(nodes_to_be_deleted))
     
@@ -309,8 +308,8 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         excluded_nids = set(get_nids(C)) - set(filter_nids_by_attribute(C, filter_attributes={"origin": "B"}))
 
         logger("Reconnecting nids.")
+        sanity_check_graph_curvature(C)
         for nid in nids_to_reconnect:
-            sanity_check_graph_curvature(C)
             new_eid, injection_data = reconnect_node(C, nid, edge_tree=edge_tree, node_tree=node_tree, excluded_eids=excluded_eids, excluded_nids=excluded_nids, update_trees=True)
 
             # Updat new eid with rendering.
@@ -320,13 +319,15 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 
                 # Update render attributes on injected elements.
                 new_nid, new_eids, old_eid = injection_data["new_nid"], injection_data["new_eids"], injection_data["old_eid"]
-                set_node_attributes(C, new_nid    , {"render": "connection", "origin": "B"})
+                set_node_attributes(C, new_nid, {"render": "connection", "origin": "B"})
                 # (Note: No need to set render attribute of injected edges, those already have been copied over from the deleted edge in the `reconnect_node` function.)
 
                 # Performance: Update reconnection data.
                 edge_tree = injection_data["edge_tree"]
                 node_tree = injection_data["node_tree"]
                 excluded_eids = injection_data["excluded_eids"]
+        graph_correctify_edge_curvature(C)
+        sanity_check_graph_curvature(C)
     
         graphs["c"] = C.copy()
     
@@ -337,7 +338,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 # * Returns inject eid.
 # * Optionally allow only to reconnect to a subselection of nodes and/or edges.
 # * Pass forward node_tree and edge_tree to significantly improve performance.
-@info()
 def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excluded_nids=set(), excluded_eids=set(), update_trees=False):
 
     # Injection data (Set if we cut edge).

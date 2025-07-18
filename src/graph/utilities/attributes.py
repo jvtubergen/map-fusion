@@ -91,8 +91,9 @@ def set_edge_attributes(G, eid, attrs):
 # Annotate nodes by appending new attributes (optionally to a subselection of node identifiers.
 def annotate_nodes(G, new_attrs, nids=None):
     if nids != None:
-        if len(nids) > 0:
-            check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
+        if len(nids) == 0: # Don't act on an empty list.
+            return
+        check(type(nids[0]) == type(1) , expect="Expect to receive node identifiers (it probably has received edge identifiers).")
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G) if nid in nids}) 
     else:
         nx.set_node_attributes(G, {nid: {**attrs, **new_attrs} for nid, attrs in iterate_nodes(G)}) 
@@ -101,6 +102,8 @@ def annotate_nodes(G, new_attrs, nids=None):
 # Annotate edges by appending new attributes (optionally to a subselection of edge identifiers.
 def annotate_edges(G, new_attrs, eids=None):
     if eids != None:
+        if len(eids) == 0: # Don't act on an empty list.
+            return
         check(len(eids[0]) == 2 or len(eids[0]) == 3, expect="Expect to receive edge identifiers (it probably has received node identifiers).")
         nx.set_edge_attributes(G, {eid: {**attrs, **new_attrs} for eid, attrs in iterate_edges(G) if eid in eids}) 
     else:
@@ -278,7 +281,7 @@ def graph_annotate_edge2(G, eid, attrs, from_geometry=False):
     if u != v and is_inverted_direction: 
         k = 0 if len(eid) == 2 else eid[2]
         # Then invert the direction back.
-        logger("Invert curvature of edge ", (u, v, k))
+        # logger("Invert curvature of edge ", (u, v, k))
         ps = ps[::-1]
 
     geometry = to_linestring(ps)

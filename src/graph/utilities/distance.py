@@ -55,7 +55,6 @@ def nearest_point(G, p):
     return (ires, qres)
 
 
-@info()
 def graph_distance_node_node(G, u, v):
     p = graphnode_position(G, u)
     q = graphnode_position(G, v)
@@ -63,7 +62,6 @@ def graph_distance_node_node(G, u, v):
 
 
 # Obtain nearest node for nid in a graph.
-@info()
 def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 
     if node_tree == None:
@@ -89,7 +87,6 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
 #######################################
 
 # Obtain nearest edge for nid.
-@info()
 def nearest_edge(G, nid, edge_tree=None, excluded_eids=set()):
 
     if edge_tree == None:
@@ -164,7 +161,6 @@ def nearest_edge_for_position(G, p, edge_tree=None):
 
 from graph.utilities.attributes import graphedge_curvature
 # Compute distance between node of G and an edge of G.
-@info()
 def graph_distance_node_edge(G, nid, eid):
     point = graphnode_position(G, nid)
     curve = attributes.graphedge_curvature(G, eid)
