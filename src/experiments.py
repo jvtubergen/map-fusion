@@ -410,7 +410,7 @@ def experiment_zero_edge_coverage_base_graphs():
         sns.set_theme(style="whitegrid")
         # ylim_dict = {(source, target): sum(subset[(subset["source"] == source) & (subset["target"] == target)]["amount"]) for source in base_variants for target in base_variants}
         ylim_dict = {source: sum(subset[(subset["source"] == source) & (subset["target"] == target)]["amount"]) for source in base_variants for target in base_variants}
-        g = sns.displot(data=subset, x="threshold", weights="amount", col="target", kind="ecdf", row="source",stat="count", facet_kws={"margin_titles": True, "sharey":False})
+        g = sns.displot(data=subset, x="threshold", weights="amount", col="target", kind="ecdf", row="source", log_scale=(10, None), stat="count", facet_kws={"margin_titles": True, "sharey":False})
         g.set(xticks=[1, 5, 10, 50, 100, 500])
         g.set_xticklabels([1, 5, 10, 50, 100, 500])
         
