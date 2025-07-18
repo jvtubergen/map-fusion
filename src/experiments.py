@@ -150,8 +150,26 @@ def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, i
             write_pickle(experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"], shortest_paths)
 
 
-def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, apls_threshold = 5, sample_count = 500, prime = False, extend = False): # APLS
+def obtain_apls_samples(**props):
+    obtain_metric_samples("apls", **props)
+
+def obtain_topo_samples(**props):
+    obtain_metric_samples("topo", **props)
+
+def obtain_metric_samples(metric, threshold = 30, fusion_only = False, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
+
+    assert metric in metrics
+
+    if metric_threshold == None:
+        if metric == "apls":
+            metric_threshold = 5
+        else:
+            metric_threshold = 5.5
+
+    if metric_interval == None:
+        if metric == "topo":
+            metric_interval = 5
 
     if inverse:
         fusion_only = True
@@ -160,6 +178,8 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
     if fusion_only:
         _variants = set(fusion_variants).union(["osm"])
 
+    prime_metric_samples = prime_apls_samples if metric == "apls" else prime_topo_samples
+
     # First check what we even have to compute.
     do_we_have_to_compute = False
     for place in places: 
@@ -167,15 +187,14 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
             if do_we_have_to_compute:
                 continue
 
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             if not extend or not path_exists(location):
-                # what_to_compute_for[variant] = sample_count
                 do_we_have_to_compute = True
                 continue
             
             # Compute remaining samples.
             samples = read_pickle(location)
-            remaining = sample_count - len(prime_apls_samples(samples)) if prime else sample_count - len(samples)
+            remaining = sample_count - len(prime_metric_samples(samples)) if prime else sample_count - len(samples)
                 
             if remaining > 0:
                 # what_to_compute_for[variant] = remaining
@@ -194,14 +213,15 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["prepared_graph"]
             maps[place][variant] = read_graph(location)
     
-    logger("Reading shortest paths maps.")
-    shortest_paths = {}
-    for place in places: 
-        shortest_paths[place] = {}
-        for variant in _variants:
-            print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"]
-            shortest_paths[place][variant] = read_pickle(location)
+    if metric == "apls":
+        logger("Reading shortest paths maps.")
+        shortest_paths = {}
+        for place in places: 
+            shortest_paths[place] = {}
+            for variant in _variants:
+                print(f"{place}-{variant}")
+                location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"]
+                shortest_paths[place][variant] = read_pickle(location)
 
     logger("Computing samples.")
     for place in places: 
@@ -210,97 +230,36 @@ def obtain_apls_samples(threshold = 30, fusion_only = False, inverse = False, ap
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
 
-            target_paths = shortest_paths[place]["osm"]
-            source_paths = shortest_paths[place][variant]
+            if metric == "apls":
+                target_paths = shortest_paths[place]["osm"]
+                source_paths = shortest_paths[place][variant]
 
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+
             print(f"* {location}")
             if extend and path_exists(location):
                 samples = read_pickle(location)
                 remaining = sample_count - len(samples)
                 if prime:
-                    remaining = sample_count - len(prime_apls_samples(samples))
+                    remaining = sample_count - len(prime_metric_samples(samples))
                 print(f"* {remaining}")
                 if remaining <= 0:
                     continue
-                new_samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=remaining, prime=prime)
+
+                if metric == "apls":
+                    new_samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=metric_threshold, n=remaining, prime=prime)
+                else:
+                    new_samples = topo_sampling(target_graph, source_graph,  interval=metric_interval, hole_size=metric_threshold, n_measurement_nodes=remaining, prime=prime)
+
                 samples += new_samples
             else:
-                samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=apls_threshold, n=sample_count, prime=prime)
+                if metric == "apls":
+                    samples = apls_sampling(target_graph, source_graph, target_paths, source_paths, max_distance=metric_threshold, n=sample_count, prime=prime)
+                else:
+                    samples = topo_sampling(target_graph, source_graph,  interval=metric_interval, hole_size=metric_threshold, n_measurement_nodes=sample_count, prime=prime)
 
             write_pickle(location, samples)
     
-
-##################
-### TOPO
-##################
-
-def obtain_topo_samples(threshold = 30, fusion_only = False, inverse = False, sample_count = 500, hole_size = 5.5, interval = 5, prime = False, extend = False):
-
-    if inverse:
-        fusion_only = True
-        
-    _variants = variants
-    if fusion_only:
-        _variants = set(fusion_variants).union(["osm"])
-
-    # First check what we even have to compute.
-    do_we_have_to_compute = False
-    for place in places: 
-        for variant in set(_variants) - set(["osm"]):
-            if not do_we_have_to_compute:
-                continue
-
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=apls_threshold)["metrics_samples"]
-            if not extend or not path_exists(location):
-                # what_to_compute_for[variant] = sample_count
-                do_we_have_to_compute = True
-                continue
-            
-            # Compute remaining samples.
-            samples = read_pickle(location)
-            remaining = sample_count - len(prime_apls_samples(samples)) if prime else sample_count - len(samples)
-                
-            if remaining > 0:
-                # what_to_compute_for[variant] = remaining
-                do_we_have_to_compute = True
-
-    # if len(what_to_compute_for) == 0:
-    if not do_we_have_to_compute:
-        return 
-
-    logger("Reading prepared maps.")
-    maps = {}
-    for place in places: 
-        maps[place] = {}
-        for variant in _variants:
-            print(f"{place}-{variant}")
-            location = experiment_location(place, variant, threshold=threshold)["prepared_graph"]
-            maps[place][variant] = read_graph(location)
-
-    logger("Computing samples.")
-    for place in places: 
-        for variant in set(_variants) - set(["osm"]):
-            target_graph = maps[place]["osm"]
-            source_graph = maps[place][variant]
-
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=hole_size, metric_interval=interval)["metrics_samples"]
-            print(f"* {location}")
-            if extend and path_exists(location):
-                samples = read_pickle(location)
-                remaining = sample_count - len(samples)
-                if prime:
-                    remaining = sample_count - len(prime_topo_samples(samples))
-                print(f"* {remaining}")
-                if remaining <= 0:
-                    continue
-                new_samples = topo_sampling(target_graph, source_graph,  interval=interval, hole_size=hole_size, n_measurement_nodes=remaining, prime=prime)
-                samples += new_samples
-            else:
-                samples = topo_sampling(target_graph, source_graph,  interval=interval, hole_size=hole_size, n_measurement_nodes=sample_count, prime=prime)
-
-            write_pickle(location, samples)
-
 
 ##################
 ### Experiments 0
@@ -737,14 +696,14 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
 def obtain_threshold_data(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
     """Construct fusion maps on different thresholds and compute samples."""
     for i in range(lowest, highest + step, step):
-        for inverse in [False, True] if include_inverse else [False]:
-            obtain_fusion_maps(threshold=i, inverse=inverse)
-            obtain_prepared_metric_maps(threshold=i, fusion_only=True, inverse=inverse)
-            obtain_shortest_distance_dictionaries(threshold=i, fusion_only=True, inverse=inverse)
-            for prime in [False, True]:
-                count = prime_sample_count if prime else sample_count
-                obtain_apls_samples(threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
-                obtain_topo_samples(threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
+        for metric in metrics:
+            for inverse in [False, True] if include_inverse else [False]:
+                obtain_fusion_maps(threshold=i, inverse=inverse)
+                obtain_prepared_metric_maps(threshold=i, fusion_only=True, inverse=inverse)
+                obtain_shortest_distance_dictionaries(threshold=i, fusion_only=True, inverse=inverse)
+                for prime in [False, True]:
+                    count = prime_sample_count if prime else sample_count
+                    obtain_metric_samples(metric, threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
 
         
 def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
