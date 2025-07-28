@@ -777,7 +777,8 @@ def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, s
     g.set_titles(col_template="{col_name}", row_template="{row_name}");
     g.map(sns.lineplot, "threshold", "score")
     g.set_axis_labels("Threshold (m)", "Score")
-    g.add_legend()
+    g.add_legend(title="")
+
     plt.show()
 
 
@@ -843,7 +844,8 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     g.set_titles(col_template="{col_name}", row_template="{row_name}");
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
-    g.add_legend()
+    g.add_legend(title="")
+
     plt.show()
 
 
@@ -883,7 +885,8 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
     g.set_titles(col_template="{col_name}", row_template="{row_name}");
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
-    g.add_legend()
+    g.add_legend(title="")
+
     plt.show()
 
 
