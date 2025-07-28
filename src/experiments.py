@@ -764,6 +764,8 @@ def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, s
 
     if not include_inverse:
         df = df[(df["inverse"] == False)]
+    else:
+        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
 
     # for place in places:
     # subset = df[(df["place"] == place)]
@@ -826,6 +828,8 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
 
     if not include_inverse:
         df = df[(df["inverse"] == False)]
+    else:
+        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
 
     df['place'] = df['place'].apply(lambda row: row.title())
     df['action'] = df['action'].apply(lambda row: row.title())
@@ -837,7 +841,6 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
     if include_inverse:
-        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
         g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True, row = "inverse")
     else:
         g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True)
@@ -870,6 +873,8 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
     df = pd.DataFrame(rows)
     if not include_inverse:
         df = df[(df["inverse"] == False)]
+    else:
+        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
     df['place'] = df['place'].apply(lambda row: row.title())
     df['item'] = df['item'].apply(lambda row: row.title())
     subset = df
