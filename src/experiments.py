@@ -843,6 +843,50 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     plt.show()
 
 
+def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include_inverse = True):
+    """Number of nodes, edges, total length."""
+
+    # Obtain base
+    rows = []
+    for place in places:
+        for threshold in range(lowest, highest + step, step):
+            for inverse in [False, True] if include_inverse else [False]:
+                logger(f"Computing basic information on {place}-{threshold}-{inverse}.")
+                G = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
+                nodes = len(G.nodes)
+                edges = len(G.edges)
+                length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / edges
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "nodes" , "value": nodes  })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "edges" , "value": edges  })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "length", "value": length })
+
+    # Convert into dataframe.
+    df = pd.DataFrame(rows)
+    if not include_inverse:
+        df = df[(df["inverse"] == False)]
+    df['place'] = df['place'].apply(lambda row: row.title())
+    df['item'] = df['item'].apply(lambda row: row.title())
+    subset = df
+
+    # Construct a FacetGrid lineplot on every (place, variant) combination
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    if include_inverse:
+        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Length"], margin_titles=True, row = "inverse")
+    else:
+        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Length"], margin_titles=True)
+    g.set_titles(col_template="{col_name}", row_template="{row_name}");
+    g.map(sns.lineplot, "threshold", "value")
+    g.set_axis_labels("Threshold (m)", "Amount")
+    g.add_legend()
+    plt.show()
+
+
+##################
+### Experiments 3
+##################
+
 # Experiment three.
 # Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
 def experiment_three_sample_histogram():
