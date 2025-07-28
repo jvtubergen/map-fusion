@@ -758,25 +758,27 @@ def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, s
 
     # Convert into dataframe.
     df = pd.DataFrame(rows)
-    df['hue'] = df[['metric', 'prime']].apply(lambda row: f"{row.metric} - {row.prime}", axis=1)
+    df['column'] = df[['metric', 'prime']].apply(lambda row: f"{f"{row.metric}*".upper()}" if row.prime else f"{row.metric}".upper(), axis=1)
+    df['variant'] = df['variant'].map({"A": "I", "B": "ID", "C": "IDR"})
+    df['place'] = df['place'].map({"berlin": "Berlin", "chicago": "Chicago"})
 
     if not include_inverse:
         df = df[(df["inverse"] == False)]
 
-    for place in places:
+    # for place in places:
+    # subset = df[(df["place"] == place)]
+    subset = df
 
-        subset = df[(df["place"] == place)]
-
-        # Construct a FacetGrid lineplot on every (place, variant) combination
-        plt.figure(figsize=(30, 30))
-        sns.set_style("whitegrid")
-        sns.set_theme(style="ticks")
-        g = sns.FacetGrid(subset, col = "metric", row = "variant", hue="hue", margin_titles=True)
-        g.map(sns.lineplot, "threshold", "score")
-        g.set_axis_labels("Threshold (m)", "Score")
-        g.add_legend()
-        plt.show()
-        breakpoint()
+    # Construct a FacetGrid lineplot on every (place, variant) combination
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    g = sns.FacetGrid(subset, col = "column", row = "place", hue = "variant", hue_order = ["I", "ID", "IDR"], margin_titles=True)
+    g.set_titles(col_template="{col_name}", row_template="{row_name}");
+    g.map(sns.lineplot, "threshold", "score")
+    g.set_axis_labels("Threshold (m)", "Score")
+    g.add_legend()
+    plt.show()
 
 
 
