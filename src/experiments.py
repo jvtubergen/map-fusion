@@ -781,7 +781,6 @@ def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, s
     plt.show()
 
 
-
 # Experiment two - B.
 # Render three thresholds to see impact of different threshold values.
 def experiment_two_render_minimal_and_maximal_thresholds():
@@ -800,115 +799,48 @@ def experiment_two_render_minimal_and_maximal_thresholds():
         render_graph_as_svg(fusion_map, f"results/Experiment 2 - fusion map threshold {threshold}m.svg")
 
 
-# Experiment two - C.
-# Compute metadata (injected, deleted, reconnected) on thresholds.
-@info()
-def experiment_two_fusion_metadata():
+def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step = 1, include_inverse = True):
+    """Show injection, deletion, reconnection behavior on Berlin and Chicago for different map fusion threshold values."""
 
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 365*24*60*60, # Keep it for a year.
-    }
-
-    # Obtain metadata.
-    data = {}
-    for threshold in range(1, 51):
-        data[threshold] = {}
-        maps = pickle.load(open(f"data/pickled/threshold_maps-{threshold}.pkl", "rb"))
-        for place in ["berlin", "chicago"]:
+    # Read metadata from graphs.
+    rows = []
+    for place in places:
+        for threshold in range(lowest, highest + step, step):
             logger(f"Computing fusion metadata on {place}-{threshold}.")
-            # Compute metadata on map differences.        
-            start = maps[place]["sat"]
-            a = maps[place]["a"]
-            b = maps[place]["b"]
-            c = maps[place]["c"]
+            for inverse in [False, True] if include_inverse else [False]:
+                a = read_graph(data_location(place, "A", threshold = threshold, inverse = inverse)["graph_file"])
+                # b = read_graph(data_location(place, "B", threshold = threshold, inverse = inverse)["graph_file"])
+                c = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
 
-            injection     = len(filter_eids_by_attribute(c, filter_attributes={"render": "injected"}))
-            deletion      = len(filter_eids_by_attribute(c, filter_attributes={"render": "deleted"}))
-            reconnection = len(filter_eids_by_attribute(c, filter_attributes={"render": "connection"})) - len(filter_eids_by_attribute(a, filter_attributes={"render": "connection"})) # Note: Injection of step 1 also creates connection edges, ignore those from this metadata.
+                injection     = len(filter_eids_by_attribute(c, filter_attributes={"render": "injected"}))
+                deletion      = len(filter_eids_by_attribute(c, filter_attributes={"render": "deleted"}))
+                reconnection = len(filter_eids_by_attribute(c, filter_attributes={"render": "connection"})) - len(filter_eids_by_attribute(a, filter_attributes={"render": "connection"})) # Note: Injection of step 1 also creates connection edges, ignore those from this metadata.
 
-            metadata = {
-                "injection": injection,
-                "deletion": deletion,
-                "reconnection": reconnection,
-            }
-            data[threshold][place] = metadata
-    
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "injection", "value": injection })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "deletion", "value": deletion })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "reconnection", "value": reconnection })
 
-    # Plot metadata.
-    def render_metadata(data):
+    # Convert into dataframe.
+    df = pd.DataFrame(rows)
 
-        # Convert the nested dictionary to a pandas DataFrame
-        rows = []
-        for threshold, places in data.items():
-            for place, metrics in places.items():
-                for metric, value in metrics.items():
-                    rows.append({
-                        "threshold": threshold,
-                        "place": place,
-                        "metric": metric,
-                        "value": value
-                    })
+    if not include_inverse:
+        df = df[(df["inverse"] == False)]
 
-        df = pd.DataFrame(rows)
+    df['place'] = df['place'].apply(lambda row: row.title())
+    df['action'] = df['action'].apply(lambda row: row.title())
 
-        # Set up the plot
-        plt.figure(figsize=(14, 8))
-        sns.set_style("whitegrid")
+    subset = df
 
-        # Define custom colors for better distinction between metrics
-        custom_palette = {"injection": "#1f77b4", "deletion": "#d62728", "reconnection": "#2ca02c"}
-
-        # Loop through each metric and place combination to plot with correct styling
-        for metric in df['metric'].unique():
-            for place in df['place'].unique():
-                # Filter data for this metric and place
-                subset = df[(df['metric'] == metric) & (df['place'] == place)]
-                
-                # Set line style based on metric
-                if metric == 'injection':
-                    linestyle = '-'  # solid
-                elif metric == 'deletion':
-                    linestyle = '--'  # dashed
-                else:  # reconnection
-                    linestyle = ':'  # dotted
-                
-                # Set marker based on place
-                marker = 'o' if place == 'berlin' else 'x'
-                
-                # Plot this subset
-                plt.plot(
-                    subset['threshold'], 
-                    subset['value'],
-                    linestyle=linestyle,
-                    marker=marker,
-                    color=custom_palette[metric],
-                    label=f"{place} - {metric}"
-                )
-
-        # Customize the plot
-        # plt.title("Fusion metadata by threshold", fontsize=16)
-        plt.xlabel("Threshold", fontsize=12)
-        plt.ylabel("Value", fontsize=12)
-        plt.legend(title="", loc="best", frameon=True)
-        plt.grid(True, linestyle="--", alpha=0.7)
-
-        # Add annotations for clarity
-        # plt.annotate("Berlin: circles (o)\nChicago: crosses (x)\n\nInjection: Solid line\nDeletion: Dashed line\nReconnection: Dotted line", 
-        #             xy=(0.02, 0.02), 
-        #             xycoords="figure fraction",
-        #             bbox=dict(boxstyle="round,pad=0.5", fc="white", alpha=0.8))
-
-        # Set x-axis to show more tick marks
-        plt.xticks(np.arange(0, 51, 5))
-
-        # Show the plot
-        plt.tight_layout()
-        # plt.show()
-        plt.savefig("results/Experiment 2 - Thresholds metadata.svg")
-    
-    render_metadata(data)
+    # Construct a FacetGrid lineplot on every (place, variant) combination
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True)
+    g.set_titles(col_template="{col_name}", row_template="{row_name}");
+    g.map(sns.lineplot, "threshold", "value")
+    g.set_axis_labels("Threshold (m)", "Amount")
+    g.add_legend()
+    plt.show()
 
 
 # Experiment three.
