@@ -835,7 +835,11 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     plt.figure(figsize=(30, 30))
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
-    g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True)
+    if include_inverse:
+        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
+        g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True, row = "inverse")
+    else:
+        g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True)
     g.set_titles(col_template="{col_name}", row_template="{row_name}");
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
