@@ -706,66 +706,65 @@ def obtain_threshold_data(lowest = 1, highest = 50, step = 1, sample_count = 500
                     obtain_metric_samples(metric, threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
 
         
-def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
-    """Measure TOPO/TOPO* and APLS/APLS* on Berlin and Chicago for different map fusion threshold values."""
+def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, inverse = False):
+    """
+    Measure TOPO/TOPO* and APLS/APLS* on Berlin and Chicago for different map fusion threshold values.
+
+    Renders plot for default (SAT base graph) or inverse (GPS base graph), but not both.
+    """
 
     # Read in TOPO and APLS samples and compute metric scores.
     rows = []
     for place in places:
         for variant in set(fusion_variants):
-            for inverse in [False, True] if include_inverse else [False]:
-                for prime in [False, True]:
-                    for threshold in range(lowest, highest + step, step):
-                        print(f"{place}-{variant}-{inverse}-{prime}-{threshold}")
-            
-                        # Asymmetric APLS results.
-                        metric_threshold = 5
-                        metric_interval = None
-                        location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                        samples = read_pickle(location)
-                        assert len(samples) >= sample_count
-                        assert len(prime_apls_samples(samples)) >= prime_sample_count
-                        apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
-                        apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
+            for prime in [False, True]:
+                for threshold in range(lowest, highest + step, step):
+                    print(f"{place}-{variant}-{inverse}-{prime}-{threshold}")
+        
+                    # Asymmetric APLS results.
+                    metric_threshold = 5
+                    metric_interval = None
+                    location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                    samples = read_pickle(location)
+                    assert len(samples) >= sample_count
+                    assert len(prime_apls_samples(samples)) >= prime_sample_count
+                    apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
+                    apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
 
-                        # Asymmetric TOPO results.
-                        metric_threshold = 5.5
-                        metric_interval = 5
-                        location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
-                        samples = read_pickle(location)
-                        assert len(samples) >= sample_count
-                        assert len(prime_topo_samples(samples)) >= prime_sample_count
-                        topo       = asymmetric_topo_from_samples(samples[:sample_count], False)
-                        topo_prime = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
+                    # Asymmetric TOPO results.
+                    metric_threshold = 5.5
+                    metric_interval = 5
+                    location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                    samples = read_pickle(location)
+                    assert len(samples) >= sample_count
+                    assert len(prime_topo_samples(samples)) >= prime_sample_count
+                    topo       = asymmetric_topo_from_samples(samples[:sample_count], False)
+                    topo_prime = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
 
-                        data = [
-                            { "metric": "apls", "prime" : False, "score" : apls },
-                            { "metric": "apls", "prime" : True , "score" : apls_prime },
-                            { "metric": "topo", "prime" : False, "score" : topo["f1"] },
-                            { "metric": "topo", "prime" : True , "score" : topo_prime["f1"] },
-                        ]
+                    data = [
+                        { "metric": "apls", "prime" : False, "score" : apls },
+                        { "metric": "apls", "prime" : True , "score" : apls_prime },
+                        { "metric": "topo", "prime" : False, "score" : topo["f1"] },
+                        { "metric": "topo", "prime" : True , "score" : topo_prime["f1"] },
+                    ]
 
-                        for element in data:
-                            rows.append({
-                                "place"    : place,
-                                "variant"  : variant,
-                                "inverse"  : inverse,
-                                "threshold": threshold,
-                                "metric"   : element["metric"],
-                                "prime"    : element["prime"],
-                                "score"    : element["score"],
-                            })
+                    for element in data:
+                        rows.append({
+                            "place"    : place,
+                            "variant"  : variant,
+                            "inverse"  : inverse,
+                            "threshold": threshold,
+                            "metric"   : element["metric"],
+                            "prime"    : element["prime"],
+                            "score"    : element["score"],
+                        })
 
     # Convert into dataframe.
     df = pd.DataFrame(rows)
     df['column'] = df[['metric', 'prime']].apply(lambda row: f"{f"{row.metric}*".upper()}" if row.prime else f"{row.metric}".upper(), axis=1)
     df['variant'] = df['variant'].map({"A": "I", "B": "ID", "C": "IDR"})
     df['place'] = df['place'].map({"berlin": "Berlin", "chicago": "Chicago"})
-
-    if not include_inverse:
-        df = df[(df["inverse"] == False)]
-    else:
-        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
+    df = df[(df["inverse"] == inverse)]
 
     # for place in places:
     # subset = df[(df["place"] == place)]
@@ -775,8 +774,8 @@ def experiment_two_threshold_values_impact(lowest = 1, highest = 50, step = 1, s
     plt.figure(figsize=(30, 30))
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
-    g = sns.FacetGrid(subset, col = "column", row = "place", hue = "variant", hue_order = ["I", "ID", "IDR"], margin_titles=True)
-    g.set_titles(col_template="{col_name}", row_template="{row_name}");
+    g = sns.FacetGrid(subset, col="place", hue="variant", hue_order=["I", "ID", "IDR"], margin_titles=True, palette="tab10")
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.map(sns.lineplot, "threshold", "score")
     g.set_axis_labels("Threshold (m)", "Score")
     g.add_legend(title="")
