@@ -760,9 +760,12 @@ def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, sam
                         })
 
     # Convert into dataframe.
+    variant_mapping = {"A": "$I_{GPS}$", "B": "$ID_{GPS}$", "C": "$IDR_{GPS}$"} if inverse else {"A": "$I_{SAT}$", "B": "$ID_{SAT}$", "C": "$IDR_{SAT}$"}
+    hue_order       = ["$I_{GPS}$", "$ID_{GPS}$", "$IDR_{GPS}$"] if inverse else ["$I_{SAT}$", "$ID_{SAT}$", "$IDR_{SAT}$"]
+
     df = pd.DataFrame(rows)
     df['column'] = df[['metric', 'prime']].apply(lambda row: f"{f"{row.metric}*".upper()}" if row.prime else f"{row.metric}".upper(), axis=1)
-    df['variant'] = df['variant'].map({"A": "I", "B": "ID", "C": "IDR"})
+    df['variant'] = df['variant'].map(variant_mapping)
     df['place'] = df['place'].map({"berlin": "Berlin", "chicago": "Chicago"})
     df = df[(df["inverse"] == inverse)]
 
@@ -774,7 +777,7 @@ def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, sam
     plt.figure(figsize=(30, 30))
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
-    g = sns.FacetGrid(subset, col="place", hue="variant", hue_order=["I", "ID", "IDR"], margin_titles=True, palette="tab10")
+    g = sns.FacetGrid(subset, col="column", row="place", hue="variant", hue_order=hue_order, margin_titles=True, palette="tab10")
     g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.map(sns.lineplot, "threshold", "score")
     g.set_axis_labels("Threshold (m)", "Score")
@@ -828,7 +831,7 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     if not include_inverse:
         df = df[(df["inverse"] == False)]
     else:
-        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
+        df['inverse'] = df['inverse'].map({False: "$IDR_{SAT}$", True: "$IDR_{GPS}$"})
 
     df['place'] = df['place'].apply(lambda row: row.title())
     df['action'] = df['action'].apply(lambda row: row.title())
@@ -863,7 +866,7 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
                 G = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
                 nodes = len(G.nodes)
                 edges = len(G.edges)
-                length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / edges
+                length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / 1000
                 rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "nodes" , "value": nodes  })
                 rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "edges" , "value": edges  })
                 rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "length", "value": length })
@@ -873,20 +876,22 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
     if not include_inverse:
         df = df[(df["inverse"] == False)]
     else:
-        df['inverse'] = df['inverse'].map({False: "SAT base", True: "GPS base"})
+        df['inverse'] = df['inverse'].map({False: "$IDR_{SAT}$", True: "$IDR_{GPS}$"})
+
     df['place'] = df['place'].apply(lambda row: row.title())
-    df['item'] = df['item'].apply(lambda row: row.title())
+    df['item'] = df['item'].map({"nodes": "Nodes", "edges": "Edges", "length": "Graph Length (km)"})
     subset = df
 
     # Construct a FacetGrid lineplot on every (place, variant) combination
     plt.figure(figsize=(30, 30))
+
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
     if include_inverse:
-        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Length"], margin_titles=True, row = "inverse")
+        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True, row = "inverse")
     else:
-        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Length"], margin_titles=True)
-    g.set_titles(col_template="{col_name}", row_template="{row_name}");
+        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True)
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
     g.add_legend(title="")
