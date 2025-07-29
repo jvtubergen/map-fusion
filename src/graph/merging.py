@@ -361,7 +361,7 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
         attrs = get_edge_attributes(G, eid)
         curve = attrs["curvature"]
         interval = nearest_interval_on_curve_to_point(curve, point)
-        # check(interval > 0.001 and interval < 0.999, expect="Expect to have interval not nearby edge endpoints, ")
+        check(interval > 0.001 and interval < 0.999, expect="Expect to have interval not nearby edge endpoints, ")
 
         # Cut at interval.
         G, data = graph_cut_edge_intervals(G, eid, [interval])
@@ -370,8 +370,8 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
 
         # Annotate both subedges with original edge attributes (`graph_cut_edge_intervals` has already annotated curvature, geometry, length).
         nx.set_edge_attributes(G, {new_eid: {**attrs, **get_edge_attributes(G, new_eid)} for new_eid in new_eids})
-        graph_correctify_edge_curvature_single(G, new_eids[0])
-        graph_correctify_edge_curvature_single(G, new_eids[1])
+        graph_annotate_edge(G, new_eids[0])
+        graph_annotate_edge(G, new_eids[1])
 
         hit = new_nid
 
