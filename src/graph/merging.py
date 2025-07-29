@@ -83,7 +83,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
     nodes_below = set([nid for el in below for nid in el[0:2]]) 
 
-
     ## Annotating render attribute on B and C.
     # Obtain what nodes of B to connect with C (those nodes of A which are connected to both a covered and uncovered edge).
     # + Render nodes of B as either injected or connection points.
@@ -133,6 +132,12 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     excluded_eids = set(get_eids(B))
     excluded_nids = set(get_nids(B))
 
+    # Nodes can only be excluded if all of their edge connection are excluded.
+    for nid in get_nids(C):
+        if nid in excluded_nids and np.any([connected_eid not in excluded_eids for connected_eid in get_connected_eids(C, nid)]):
+            logger(f"Discard excluded nid {nid}")
+            excluded_nids.discard(nid)
+
     # Iterate all nids which have to be connected (from B to C).
     connections = []
     logger("Connecting nodes.")
@@ -140,31 +145,20 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 
         # TODO: Make reconnection done in batch.        
         # Add new edge connection from nid (potentially cuts an edge in half).
-        new_eid, injection_data = reconnect_node(C, nid, node_tree=node_tree, edge_tree=edge_tree, excluded_nids=excluded_nids, excluded_eids=excluded_eids.union(connections)) 
+        new_eid, injection_data = reconnect_node(C, nid, node_tree=node_tree, edge_tree=edge_tree, excluded_nids=excluded_nids, excluded_eids=excluded_eids.union(connections), update_trees=True) 
         set_edge_attributes(C, new_eid, {"render": "connection", "origin": "B"})
         connections.append(new_eid)
 
-        # If we had to inject a node (to C) for a connection.
+        # Update attributes of injected node if we had to inject a node (to C) for a connection.
+        # Node and edge trees already updated by reconnect_node function.
         if injection_data != None:
-
-            # Then update the node-tree and edge-tree.
             new_nid, new_eids, old_eid = injection_data["new_nid"], injection_data["new_eids"], injection_data["old_eid"]
-
-            # Update attributes of injected node as well.
             set_node_attributes(C, new_nid, {"render": "connection", "origin": "C"})
-            # (Note: No need to set render attribute of injected edges, those already have been copied over from the deleted edge in the `reconnect_node` function.)
-
-            # (Updating node tree.)
-            bbox = graphnode_to_bbox(C, new_nid)
-            add_rtree_bbox(node_tree, bbox, new_nid)
-
-            # (Insert new subedges to edge tree.)
-            add_rtree_bbox(edge_tree, graphedge_to_bbox(C, new_eids[0]), new_eids[0])
-            add_rtree_bbox(edge_tree, graphedge_to_bbox(C, new_eids[1]), new_eids[1])
-
-            # Exclude removed eid from intersection set.
-            # (Don't remove old edge from edge tree: Bug in rtree software causing error on subsequent hits.)
-            excluded_eids.add(old_eid)
+            # (Note: No need to set render attribute of injected edges, this is already set in the code above and are then copied over from the deleted edge in the `reconnect_node` function.)
+            edge_tree     = injection_data["edge_tree"]    
+            node_tree     = injection_data["node_tree"]    
+            excluded_eids = injection_data["excluded_eids"]
+            check(new_nid in list(node_tree.intersection(node_tree.bounds)))
 
     # Correctify edge curvature.
     graph_annotate_edges(C)
@@ -306,6 +300,12 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 
         excluded_eids = set(get_eids(C)) - set(filter_eids_by_attribute(C, filter_attributes={"origin": "B"}))
         excluded_nids = set(get_nids(C)) - set(filter_nids_by_attribute(C, filter_attributes={"origin": "B"}))
+
+        # Nodes can only be excluded if all of their edge connection are excluded.
+        for nid in get_nids(C):
+            if nid in excluded_nids and np.any([connected_eid not in excluded_eids for connected_eid in get_connected_eids(C, nid)]):
+                logger(f"Discard excluded nid {nid}")
+                excluded_nids.discard(nid)
 
         logger("Reconnecting nids.")
         sanity_check_graph_curvature(C)
