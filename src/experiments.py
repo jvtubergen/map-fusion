@@ -903,7 +903,72 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
 ### Experiments 3
 ##################
 
-# Experiment three.
+
+def experiment_three_TOPO_hole_size(sample_count = 10000, prime_sample_count = 2000):
+    """
+    Plot TOPO score based on different hole sizes. 
+    
+    Show against IDR_SAT-10 IDR_SAT-30 IDR_SAT-50.
+    Use 10000 TOPO samples, 2000 TOPO* samples.
+
+    Experiment aims to show impact of different TOPO hole sizes on TOPO score.
+    It therefore suffices to only compute this on the default.
+    """
+    metric_interval = 5
+    rows = []
+    for place in places:
+        for threshold in [10, 30, 50]:
+            for metric_threshold in [1, 3, 5.5, 10, 15, 20, 30, 40, 50, 65, 80, 100]:
+                logger(f"Computing TOPO with hole size {metric_threshold} on {place}-{threshold}.")
+                G = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+
+                # Asymmetric TOPO results.
+                obtain_metric_samples("topo", threshold=threshold, _variants=["C"], sample_count=sample_count      , metric_threshold=metric_threshold, metric_interval=metric_interval, prime=False, extend=True)
+                obtain_metric_samples("topo", threshold=threshold, _variants=["C"], sample_count=prime_sample_count, metric_threshold=metric_threshold, metric_interval=metric_interval, prime=True, extend=True)
+                location = experiment_location(place, "C", threshold=threshold, inverse=False, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+                samples = read_pickle(location)
+                check(len(samples) >= sample_count)
+                check(len(prime_topo_samples(samples)) >= prime_sample_count)
+                topo       = asymmetric_topo_from_samples(samples[:sample_count], False)["f1"]
+                topo_prime = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)["f1"]
+
+                rows.append({
+                    "place": place,
+                    "threshold": threshold,
+                    "hole size": metric_threshold,
+                    "prime": False,
+                    "score": topo
+                })
+
+                rows.append({
+                    "place": place,
+                    "threshold": threshold,
+                    "hole size": metric_threshold,
+                    "prime": True,
+                    "score": topo_prime
+                })
+    
+    # Convert into dataframe.
+    df = pd.DataFrame(rows)
+    df['place'] = df['place'].apply(lambda row: row.title())
+    df['prime']  = df['prime'].map({False: "TOPO", True: "TOPO*"})
+    df['threshold']  = df['threshold'].map({10: "$IDR_{SAT}-10$", 30: "$IDR_{SAT}-30$", 50: "$IDR_{SAT}-50$"})
+    subset = df
+
+    # Construct a FacetGrid lineplot.
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    
+    g = sns.FacetGrid(subset, col="prime", row="place", hue="threshold", hue_order=["$IDR_{SAT}-10$", "$IDR_{SAT}-30$", "$IDR_{SAT}-50$"], margin_titles=True)
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
+    g.map(sns.lineplot, "hole size", "score")
+    g.set_axis_labels("Hole Size (m)", "Score")
+    g.add_legend(title="")
+
+    plt.show()
+
+
 # Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
 def experiment_three_sample_histogram():
 
