@@ -156,7 +156,7 @@ def obtain_apls_samples(**props):
 def obtain_topo_samples(**props):
     obtain_metric_samples("topo", **props)
 
-def obtain_metric_samples(metric, threshold = 30, fusion_only = False, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = False): # APLS
+def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants = None, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = True): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
     assert metric in metrics
@@ -174,16 +174,19 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, inverse =
     if inverse:
         fusion_only = True
         
-    _variants = variants
-    if fusion_only:
-        _variants = set(fusion_variants).union(["osm"])
+    if _variants == None:
+        _variants = variants
+        if fusion_only:
+            _variants = set(fusion_variants)
+    else:
+        _variants = set(_variants)
 
     prime_metric_samples = prime_apls_samples if metric == "apls" else prime_topo_samples
 
     # First check what we even have to compute.
     do_we_have_to_compute = False
     for place in places: 
-        for variant in set(_variants) - set(["osm"]):
+        for variant in set(_variants):
             if do_we_have_to_compute:
                 continue
 
@@ -208,7 +211,7 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, inverse =
     maps = {}
     for place in places: 
         maps[place] = {}
-        for variant in _variants:
+        for variant in _variants.union(["osm"]):
             print(f"{place}-{variant}")
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["prepared_graph"]
             maps[place][variant] = read_graph(location)
@@ -218,14 +221,14 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, inverse =
         shortest_paths = {}
         for place in places: 
             shortest_paths[place] = {}
-            for variant in _variants:
+            for variant in _variants.union(["osm"]):
                 print(f"{place}-{variant}")
                 location = experiment_location(place, variant, threshold=threshold, inverse=inverse)["apls_shortest_paths"]
                 shortest_paths[place][variant] = read_pickle(location)
 
     logger("Computing samples.")
     for place in places: 
-        for variant in set(_variants) - set(["osm"]):
+        for variant in set(_variants):
             logger(f"{place} - {variant}.")
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
@@ -969,404 +972,73 @@ def experiment_three_TOPO_hole_size(sample_count = 10000, prime_sample_count = 2
     plt.show()
 
 
-# Render TOPO and APLS samples on Berlin/Chicago on GPS/SAT/fused.
-def experiment_three_sample_histogram():
+def experiment_three_sample_distribution(sample_count = 10000):
+    """
+    Sample distributions of TOPO and APLS of the variants SAT, GPS, IDR_SAT and IDR_GPS at the places Berlin and Chicago
+    """
+    #TODO: Inverse?
+    threshold = 30
+    inverse = False
+    rows = []
+    for place in places:
+        for (variant, inverse) in [("gps", False), ("sat", False), ("C", False), ("C", True)]:
+            print(f"{place}-{variant}-{inverse}-{threshold}")
 
-    reading_props = {
-        "is_graph": False,
-        "overwrite_if_old": True,
-        "reset_time": 365*24*60*60, # Keep it for a year.
-        # "reset_time": 60, # Keep it for a minute.
-    }
-
-    # Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, fused. 
-    def compute_data_apls_topo():
-
-        logger("Compute APLS and TOPO samples on Berlin and Chicago for sat, gps, fused.")
-        threshold = 30
-
-        simp = simplify_graph
-        dedup = graph_deduplicate
-        to_utm = graph_transform_latlon_to_utm
-        osm_berlin = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="berlin")))))
-        osm_chicago = simp(dedup(to_utm(read_graph(get_graph_path(graphset=links["osm"], place="chicago")))))
-        truth = {}
-        truth["berlin"] = {}
-        truth["berlin"]["apls"]  = prepare_graph_for_apls(osm_berlin)
-        truth["berlin"]["topo"]  = prepare_graph_for_topo(osm_berlin)
-        truth["chicago"] = {}
-        truth["chicago"]["apls"] = prepare_graph_for_apls(osm_chicago)
-        truth["chicago"]["topo"] = prepare_graph_for_topo(osm_chicago)
-
-        # Load Sat, GPS, merged.
-        maps = read_and_or_write(f"data/pickled/threshold_maps-{threshold}", lambda: generate_maps(threshold = threshold, **reading_props), **reading_props)
-
-        # Compute TOPO and APLS.
-        result = {}
-        for place in ["berlin", "chicago"]:
-            result[place] = {}
-            for maptype in ["sat", "gps", "a", "b", "c"]:
-                logger(f"Computing TOPO and APLS on {place}-{maptype}.")
-                result[place][maptype] = {}
-
-                # Samples APLS (bins 0 to 100).
-                apls_samples = apls(maps[place][maptype], maps[place]["osm"])[1]
-                result[place][maptype]["apls"] = {i: 0 for i in range(101)}
-                #. samples["A"] # No control point in the proposed graph.
-                #. samples["B"] # Control nodes exist and a path exists in the ground truth, but not in the proposed graph.
-                #. samples["C"] # Both graphs have control points and a path between them.
-                #. A and B both move to zero.
-                #. C moves to path_scores `[float(v) for v in data["left"]["path_scores"]]`
-                result[place][maptype]["apls"][0] = len(apls_samples["left"]["samples"]["A"]) + len(apls_samples["left"]["samples"]["B"]) \
-                                                    + len(apls_samples["right"]["samples"]["A"]) + len(apls_samples["right"]["samples"]["B"])
-                for v in [floor(float(v) * 100) for v in apls_samples["left"]["path_scores"]]:
-                    result[place][maptype]["apls"][v] += 1
-                for v in [floor(float(v) * 100) for v in apls_samples["right"]["path_scores"]]:
-                    result[place][maptype]["apls"][v] += 1
-
-                # Samples TOPO (bins 0 to 100).
-                truth = maps[place]["osm"]
-                proposed = maps[place][maptype]
-                truth, proposal = prepare_graph_for_topo(truth), prepare_graph_for_topo(proposed)
-                topo_samples = compute_topo_on_prepared_graph(truth, proposed)[1]["samples"]
-                result[place][maptype]["topo"] = {i: 0 for i in range(101)}
-                for v in topo_samples:
-                    result[place][maptype]["topo"][floor(100* v)] += 1
-        
-        return result
-    
-    result = read_and_or_write(f"data/pickled/experiment 3 - topo and apls bins", lambda: compute_data_apls_topo(), **reading_props)
-    
-    # Convert the nested dictionaries to a DataFrame for easier plotting
-    def convert_to_dataframe():
-        logger("Convert the nested dictionaries to a DataFrame for easier plotting")
-        data_rows = []
-        for place in result:
-            for maptype in result[place]:
-                for metric in result[place][maptype]:
-                    for score, count in result[place][maptype][metric].items():
-                        if count > 0:  # Only include non-zero counts
-                            data_rows.append({
-                                'place': place,
-                                'maptype': maptype,
-                                'metric': metric,
-                                'score': score,
-                                'count': count
-                            })
-        df = pd.DataFrame(data_rows)
-        return df
-
-    df = read_and_or_write(f"data/pickled/experiment 3 - topo and apls bins dataframe", lambda: convert_to_dataframe(), **reading_props)
-
-    # Render dataframe as a KDE.
-    def render_dataframe_KDE(df):
-        # Create a single figure for the histogram
-        plt.figure(figsize=(14, 10))
-        sns.set_style("whitegrid")
-        sns.set_context("notebook", font_scale=1.2)
-
-        # Create a new column combining place and metric for better visualization
-        df['place_metric'] = df['place'] + '_' + df['metric']
-    
-        # Create a mapping for display names (change 'c' to 'fused' for display)
-        maptype_display = {
-            'sat': 'sat',
-            'gps': 'gps',
-            'c': 'fused'
-        }
-
-        # Create a display column with the renamed values
-        df['maptype_display'] = df['maptype'].map(maptype_display)
-
-        # Create a color palette that distinguishes between different combinations
-        # We'll use different color families for different maptypes
-        maptype_colors = {
-            'sat': 'Blues',
-            'gps': 'Greens',
-            'c': 'Reds'
-        }
-
-        # Define distinct styles for each place-metric combination
-        place_metric_styles = {
-            'berlin_apls': {'linestyle': '-', 'alpha': 0.9, 'linewidth': 3.5},
-            'berlin_topo': {'linestyle': '-.', 'alpha': 0.9, 'linewidth': 3.0},
-            'chicago_apls': {'linestyle': '--', 'alpha': 0.9, 'linewidth': 2.5},
-            'chicago_topo': {'linestyle': ':', 'alpha': 0.9, 'linewidth': 3.0}
-        }
-
-        # Flatten the data - we need scores repeated by their count
-        flat_data = []
-        for _, row in df.iterrows():
-            for _ in range(int(row['count'])):
-                flat_data.append({
-                    'place': row['place'],
-                    'metric': row['metric'],
-                    'maptype': row['maptype'],
-                    'maptype_display': row['maptype_display'],  # Display maptype (for labels)
-                    'place_metric': row['place_metric'],
-                    'score': row['score'] / 100.0 # Normalize scores to 0-1 range.
+            # Asymmetric APLS samples.
+            metric_threshold = 5
+            metric_interval = None
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)[:sample_count]
+            for sample in samples:
+                rows.append({
+                    "place": place,
+                    "metric": "apls",
+                    "variant": variant if not inverse else f"{variant}-1",
+                    "inverse": inverse,
+                    "score": sample["score"]
                 })
 
-        flat_df = pd.DataFrame(flat_data)
+            # Asymmetric TOPO results.
+            metric_threshold = 5.5
+            metric_interval = 5
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)[:sample_count]
+            for sample in samples:
+                sample = compute_topo_sample(sample)
+                rows.append({
+                    "place": place,
+                    "metric": "topo",
+                    "variant": variant if not inverse else f"{variant}-1",
+                    "inverse": inverse,
+                    "score": sample["f1"]
+                })
+    
+    df = pd.DataFrame(rows)
+    df['place'] = df['place'].apply(lambda row: row.title())
+    df['metric'] = df['metric'].apply(lambda row: row.upper())
+    df['variant'] = df['variant'].map({"gps": "GPS", "sat": "SAT", "C": "$IDR_{SAT}$", "C-1": "$IDR_{GPS}$"})
+    subset = df
 
-        # Calculate sample counts for each category
-        sample_counts = {}
-        for maptype in flat_df['maptype'].unique():
-            sample_counts[maptype] = {}
-            for place in flat_df['place'].unique():
-                sample_counts[maptype][place] = {}
-                for metric in flat_df['metric'].unique():
-                    count = len(flat_df[(flat_df['maptype'] == maptype) & 
-                                    (flat_df['place'] == place) & 
-                                    (flat_df['metric'] == metric)])
-                    sample_counts[maptype][place][metric] = count
+    # Construct a FacetGrid density plot.
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    
+    g = sns.displot(data=subset, x="score",  col="metric", kind="kde", row="place", hue="variant", hue_order=["GPS", "SAT", "$IDR_{SAT}$", "$IDR_{GPS}$"], facet_kws={"margin_titles": True, "sharey":False})
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
+    g.set_axis_labels("Score", "Density")
+    g.add_legend(title="")
 
-        # Get unique combinations
-        unique_place_metrics = sorted(flat_df['place_metric'].unique())
-        unique_maptypes = sorted(["gps", "sat", "c"])
-
-        # Create the figure
-        plt.figure(figsize=(16, 10))
-        sns.set_style("whitegrid")
-        sns.set_context("notebook", font_scale=1.2)
-
-        # Pre-calculate all KDE curves to find the maximum density value for normalization
-        max_density = 0
-        kde_curves = {}
-
-        for maptype in unique_maptypes:
-            kde_curves[maptype] = {}
-            for place_metric in unique_place_metrics:
-                place, metric = place_metric.split('_')
-                
-                # Filter data for this combination
-                combo_data = flat_df[(flat_df['maptype'] == maptype) & 
-                                (flat_df['place'] == place) & 
-                                (flat_df['metric'] == metric)]
-                
-                if len(combo_data) > 0:
-                    # Calculate KDE manually
-                    x = np.linspace(0, 1, 1000)
-                    kde = stats.gaussian_kde(combo_data['score'])
-                    y = kde(x)
-                    
-                    # Store the curve data
-                    kde_curves[maptype][place_metric] = {'x': x, 'y': y}
-                    
-                    # Update the maximum density value
-                    max_density = max(max_density, np.max(y))
-
-        # Now plot the normalized KDE curves
-        for maptype in unique_maptypes:
-            # Get display name for this maptype
-            maptype_disp = maptype_display[maptype]
-            
-            # Get base color map for this maptype
-            cmap_name = maptype_colors.get(maptype, 'Greys')
-            cmap = plt.cm.get_cmap(cmap_name)
-            
-            # For each maptype, use a specific base color from its colormap
-            base_color_position = 0.7  # Position in the colormap (0-1)
-            base_color = cmap(base_color_position)
-            
-            for place_metric in unique_place_metrics:
-                # Extract place and metric
-                place, metric = place_metric.split('_')
-                
-                if place_metric in kde_curves[maptype]:
-                    # Get the pre-calculated curve data
-                    x = kde_curves[maptype][place_metric]['x']
-                    y = kde_curves[maptype][place_metric]['y'] / max_density  # Normalize to 0-1
-                    
-                    # Get style parameters for this place-metric combination
-                    style = place_metric_styles[place_metric]
-                    
-                    # Plot the normalized KDE curve
-                    plt.plot(
-                        x, y,
-                        color=base_color,
-                        alpha=style['alpha'],
-                        linestyle=style['linestyle'],
-                        linewidth=style['linewidth'],
-                        label=f"{maptype_disp} - {place} ({metric})"
-                    )
-
-        # Set titles and labels
-        # plt.title('Score Distribution for Map Types: sat, gps, fused', fontsize=18)
-        plt.xlabel('Metric Score (0-1)', fontsize=16)
-        plt.ylabel('Normalized Density (0-1)', fontsize=16)  # Updated to indicate normalized density
-
-        # Adjust axes to show full ranges
-        plt.xlim(0, 1)
-        plt.ylim(0, 1.05)  # Add a little space at the top
-
-        # Set ticks to display in proper 0-1 format
-        plt.xticks(np.arange(0, 1.1, 0.1))
-        plt.yticks(np.arange(0, 1.1, 0.1))
-
-        # Add grid for better readability
-        plt.grid(axis='both', alpha=0.3)
-
-        # Create a custom legend with better organization
-        handles, labels = plt.gca().get_legend_handles_labels()
-
-        # Group the legend items by maptype
-        by_maptype = {}
-        for handle, label in zip(handles, labels):
-            maptype = label.split(' - ')[0]
-            if maptype not in by_maptype:
-                by_maptype[maptype] = []
-            by_maptype[maptype].append((handle, label))
-
-        # Create a custom ordered legend
-        legend_handles = []
-        legend_labels = []
-        for maptype in sorted(by_maptype.keys()):
-            for handle, label in by_maptype[maptype]:
-                legend_handles.append(handle)
-                legend_labels.append(label)
-
-        # Add an additional legend to explain place-metric line styles
-        # First create custom line objects for the styles legend
-        style_handles = []
-        style_labels = []
-
-        for place_metric, style in place_metric_styles.items():
-            place, metric = place_metric.split('_')
-            line = Line2D([0], [0], color='black', 
-                        linestyle=style['linestyle'], 
-                        linewidth=style['linewidth'],
-                        alpha=0.8)
-            style_handles.append(line)
-            style_labels.append(f"{place} ({metric})")
-
-        # Main legend for maptype combinations
-        plt.legend(
-            legend_handles,
-            legend_labels,
-            title="Map Type - Place (Metric)",
-            loc="upper right",
-            fontsize=10,
-            ncol=1,
-            framealpha=0.9
-        )
-
-        # Add a second legend for line styles (outside the plot area)
-        # plt.figlegend(
-        #     style_handles,
-        #     style_labels,
-        #     title="Line Styles",
-        #     loc="lower center",
-        #     ncol=4,
-        #     fontsize=10,
-        #     framealpha=0.9,
-        #     bbox_to_anchor=(0.5, 0.02)
-        # )
-
-        # Add statistics table as text with normalized values (0-1 range)
-        stats_text = "Statistics (Mean ± Std):\n"
-        stats_rows = []
-
-        for maptype in unique_maptypes:
-            # Get display name for this maptype
-            maptype_disp = maptype_display[maptype]
-            
-            for place in ["berlin", "chicago"]:
-                for metric in ["apls", "topo"]:
-                    combo_data = flat_df[(flat_df['maptype'] == maptype) & 
-                                        (flat_df['place'] == place) & 
-                                        (flat_df['metric'] == metric)]
-                    
-                    if len(combo_data) > 0:
-                        mean = combo_data['score'].mean()
-                        std = combo_data['score'].std()
-                        stats_rows.append(f"{maptype_disp} - {place} ({metric}): {mean:.2f} ± {std:.2f}")
-
-        # Sort stats for better readability
-        stats_rows.sort()
-        stats_text += "\n".join(stats_rows)
-
-        # Add statistics text box for means and standard deviations
-        plt.annotate(
-            stats_text,
-            xy=(0.01, 0.99),
-            xycoords='axes fraction',
-            fontsize=10,
-            ha='left',
-            va='top',
-            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.9)
-        )
-
-        # Create a second statistics box for sample counts
-        sample_counts_text = "Sample Counts:\n"
-        sample_rows = []
-
-        for maptype in unique_maptypes:
-            # Get display name for this maptype
-            maptype_disp = maptype_display[maptype]
-            
-            for place in ["berlin", "chicago"]:
-                for metric in ["apls", "topo"]:
-                    count = sample_counts[maptype][place][metric]
-                    sample_rows.append(f"{maptype_disp} - {place} ({metric}): {count:,d} samples")
-
-        # Sort sample count rows for better readability
-        sample_rows.sort()
-        sample_counts_text += "\n".join(sample_rows)
-
-        # Add sample counts text box
-        plt.annotate(
-            sample_counts_text,
-            xy=(0.01, 0.60),  # Position below the first statistics box
-            xycoords='axes fraction',
-            fontsize=10,
-            ha='left',
-            va='top',
-            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.9)
-        )
-
-        # Add markers for mean values to make them stand out
-        for maptype in unique_maptypes:
-            # Get display name for stats label (not used in this loop but useful for consistency)
-            maptype_disp = maptype_display[maptype]
-            
-            # Get base color for this maptype
-            cmap_name = maptype_colors.get(maptype, 'Greys')
-            cmap = plt.cm.get_cmap(cmap_name)
-            base_color = cmap(0.7)
-            
-            for place in ["berlin", "chicago"]:
-                for metric in ["apls", "topo"]:
-                    combo_data = flat_df[(flat_df['maptype'] == maptype) & 
-                                    (flat_df['place'] == place) & 
-                                    (flat_df['metric'] == metric)]
-                    
-                    if len(combo_data) > 0:
-                        mean = combo_data['score'].mean()
-                        place_metric = f"{place}_{metric}"
-                        style = place_metric_styles[place_metric]
-                        
-                        # Plot a vertical line at the mean
-                        plt.axvline(
-                            x=mean,
-                            color=base_color,
-                            linestyle=style['linestyle'],
-                            alpha=0.5,
-                            linewidth=style['linewidth'] * 0.8
-                        )
-
-        plt.tight_layout()
-        plt.subplots_adjust(bottom=0.15)  # Make room for the line style legend at the bottom
-        # plt.show()
-        plt.savefig("results/Experiment 3 - TOPO and APLS samples.svg")
+    plt.show()
 
 
-    render_dataframe_KDE(df)
-
-
-# Render each map as a high-quality image, so we can zoom in to sufficient detailed graph curvature.
+##################
+### Qualitative
+##################
+    
 @info()
 def render_maps_to_images():
+    """Render each map as a high-quality image, so we can zoom in to sufficient detailed graph curvature."""
 
     for quality in ["low", "high"]:
         for place in maps.keys():
