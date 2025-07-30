@@ -1056,3 +1056,19 @@ def plot_base_maps():
             print(location)
             G = read_graph(data_location(place, variant)["graph_file"])
             plot_graph_presentation(G, location)
+
+
+def plot_IDR_maps(threshold = 30):
+    """
+    Plot IDR maps in presentation style.
+    
+    Note: Has annotated edges of deleted removed from graph.
+    """
+    for place in places:
+        for inverse in [False, True]:
+            variant_name = "IDR_SAT" if not inverse else "IDR_GPS"
+            filename = f"Experiments Qualitative - {place.title()} {variant_name}.png"
+            location = f"images/{filename}"
+            print(location)
+            G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
+            plot_graph_presentation(G, location)
