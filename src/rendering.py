@@ -178,23 +178,35 @@ def render_duplicates_highlighted(G):
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
-# Render a graph that meets the styling for presentation.
-def plot_graph_presentation(G):
+def plot_graph_presentation(G, location = None):
+    """Render a graph that meets the styling for presentation."""
     # Coloring of edges and nodes per gid.
     G = G.copy()
-    G.graph['crs'] = "EPSG:4326"
+    # G.graph['crs'] = "EPSG:4326" # WSG
+    G.graph['crs'] = "EPSG:3857" # Web Mercator
+    # G.graph['crs'] = "EPSG:32708" # UTM has many (one EPSG per region...)
     G = nx.MultiDiGraph(G)
     white = "#fafafa"
     black = "#040404"
+
+    props = {
+        "bgcolor"        : white, 
+        "edge_color"     : black,
+        "edge_linewidth" : 1,
+        "node_color"     : white,
+        "node_edgecolor" : black,
+        "node_size"      : 10,
+    }
+
+    if location != None:
+        props.update({
+            "save": True,
+            "filepath": location
+        })
+
     ox.plot_graph(
         G, 
-        bgcolor=white, 
-        edge_color=black,
-        edge_linewidth=1,
-        node_color=white,
-        node_edgecolor=black,
-        node_size=10,
-        save=True,
+        **props
         # dpi=500,
         # figsize=(1024,1024)
     )

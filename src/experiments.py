@@ -1047,3 +1047,13 @@ def render_maps_to_images():
                 graph = maps[place][map_variant]
                 graph = apply_coloring(graph)
                 render_graph(graph, f"results/{place}-{map_variant}-{quality}.png", quality=quality, title=f"{quality}-{place}-{map_variant}")
+
+def plot_base_maps():
+    """Plot base maps in presentation style."""
+    for place in places:
+        for variant in base_variants:
+            filename = f"Experiments Qualitative - {place.title()} {variant.upper()}.png"
+            location = f"images/{filename}"
+            print(location)
+            G = read_graph(data_location(place, variant)["graph_file"])
+            plot_graph_presentation(G, location)
