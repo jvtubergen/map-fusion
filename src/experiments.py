@@ -817,7 +817,6 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
             logger(f"Computing fusion metadata on {place}-{threshold}.")
             for inverse in [False, True] if include_inverse else [False]:
                 a = read_graph(data_location(place, "A", threshold = threshold, inverse = inverse)["graph_file"])
-                # b = read_graph(data_location(place, "B", threshold = threshold, inverse = inverse)["graph_file"])
                 c = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
 
                 injection     = len(filter_eids_by_attribute(c, filter_attributes={"render": "injected"}))
@@ -866,7 +865,7 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
         for threshold in range(lowest, highest + step, step):
             for inverse in [False, True] if include_inverse else [False]:
                 logger(f"Computing basic information on {place}-{threshold}-{inverse}.")
-                G = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
+                G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
                 nodes = len(G.nodes)
                 edges = len(G.edges)
                 length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / 1000
@@ -923,7 +922,7 @@ def experiment_three_TOPO_hole_size(sample_count = 10000, prime_sample_count = 2
         for threshold in [10, 30, 50]:
             for metric_threshold in [1, 3, 5.5, 10, 15, 20, 30, 40, 50, 65, 80, 100]:
                 logger(f"Computing TOPO with hole size {metric_threshold} on {place}-{threshold}.")
-                G = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+                G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=False)["prepared_graph"])
 
                 # Asymmetric TOPO results.
                 obtain_metric_samples("topo", threshold=threshold, _variants=["C"], sample_count=sample_count      , metric_threshold=metric_threshold, metric_interval=metric_interval, prime=False, extend=True)
