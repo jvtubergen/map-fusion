@@ -72,6 +72,18 @@ add_rtree_bbox       = lambda tree, bbox, value: tree.insert(value, flatten_bbox
 intersect_rtree_bbox = lambda tree, bbox: list(tree.intersection(flatten_bbox(bbox)))
 nearest_rtree_bbox   = lambda tree, bbox: list(tree.nearest(flatten_bbox(bbox), num_results=len(tree)))
 
+rtree_identifiers    = lambda tree: list(tree.intersection(tree.bounds))
+rtree_ids_bboxs      = lambda tree: list(tree.intersection(tree.bounds, objects=True))
+
+def rtree_id_bbox(tree, id):
+    for item in rtree_ids_bboxs(tree):
+        if item.id == id:
+            bounds = item.bounds  # Non-interleaved: [xmin, xmax, ymin, ymax, ...]
+            bbox = item.bbox      # Interleaved: [xmin, ymin, xmax, ymax, ...]
+            return bbox
+
+
+
 
 #######################################
 ## Curves

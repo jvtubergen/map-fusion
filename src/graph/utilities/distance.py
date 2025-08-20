@@ -72,6 +72,12 @@ def nearest_node(G, nid, node_tree=None, excluded_nids=set()):
     # Exclude target nid from hitting.
     to_exclude = excluded_nids.union([nid])
 
+    lowest = 0
+    for found in nearest_rtree_bbox(node_tree, bbox):
+        distance = graph_distance_node_node(G, nid, found)
+        check(distance >= lowest)
+        lowest = distance
+
     # Iterate node tree till we find a nid not excluded.
     for found in nearest_rtree_bbox(node_tree, bbox):
         check(found != None, expect="Expect non-null node identifier found on seeking nearest element in rtree.")
