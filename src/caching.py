@@ -134,7 +134,9 @@ def experiment_location(place, variant, threshold = None, inverse = False, metri
         "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{filename}.pkl"),
         "metrics"            : get_data_file(f"experiments/metrics/{filename}.pkl"),
         "metrics_samples"    : get_data_file(f"experiments/metrics_samples/{filename}.pkl"),
-        "plots"              : get_data_file(f"experiments/plots/{filename}.svg")
+        "plots"              : get_data_file(f"experiments/plots/{filename}.svg"),
+        # "distance_samples"   : get_data_file(f"experiments/distance_samples/{filename}.pkl"),
+        # "threshold_maps"     : get_data_file(f"experiments/threshold_maps/{filename}.pkl"),
     }
 
 
