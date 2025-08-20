@@ -340,6 +340,26 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
 # * Pass forward node_tree and edge_tree to significantly improve performance.
 def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excluded_nids=set(), excluded_eids=set(), update_trees=False):
 
+    # Allow dangling exclusion nodes? No, include it.
+    # for nid in get_nids(G):
+    #     if nid in excluded_nids and np.all([connected_eid in excluded_eids for connected_eid in get_connected_eids(G, nid)]):
+    #         excluded_nids.discard(nid)
+    #    # check(not (nid not in excluded_nids and np.all([connected_eid in excluded_eids for connected_eid in get_connected_eids(G, nid)])))
+    
+    # # Allow dangling exclusion edges? Yes.
+    # for eid in get_eids(G):
+    #     if (eid not in excluded_eids and eid[0] in excluded_nids and eid[1] in excluded_nids):
+    #         excluded_eids.add(eid)
+    #     check(not (eid not in excluded_eids and (eid[0] not in excluded_nids and eid[1] not in excluded_nids)))
+    
+    # # Do we accept a single edge endpoint dangling? No, then undo the nid exclusion.
+    # for eid in get_eids(G):
+    #     if (eid not in excluded_eids and eid[0] in excluded_nids):
+    #         excluded_nids.discard(eid[0])
+    #     if (eid not in excluded_eids and eid[1] in excluded_nids):
+    #         excluded_nids.discard(eid[1])
+    #     check(not (eid not in excluded_eids and (eid[0] not in excluded_nids or eid[1] not in excluded_nids)))
+
     # Injection data (Set if we cut edge).
     injection_data = None
 
@@ -388,7 +408,6 @@ def reconnect_node(G, nid, node_tree=None, edge_tree=None, nid_distance=10, excl
     # Ensure injected edge has curvature etcetera set.
     G.add_edge(*eid)
     graph_annotate_edge(G, eid)
-    graph_correctify_edge_curvature_single(G, eid)
 
     # Optionally update tree and node exclusion information if a node is injected to nearest edge.
     if update_trees and injection_data != None:
