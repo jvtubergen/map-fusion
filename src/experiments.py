@@ -499,6 +499,7 @@ def experiment_zero_graph_distances(sample_size = 10000):
         plt.figure(figsize=(30, 30))
         sns.set_theme(style="whitegrid")
         g = sns.displot(data=subset, x="distance", col="target", kind="kde", row="source", facet_kws={"margin_titles": True, "sharey": False, "sharex": False})
+        g.set(xscale='log')
         
         plt.show()
     
