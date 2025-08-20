@@ -101,6 +101,7 @@ def remove_deleted(G):
     return G
 
 
+@info()
 def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS + TOPO
     """
     Prepare graphs (identical for APLS and TOPO):  Remove edges and nodes with the {"render": "delete"} attribute.
@@ -129,6 +130,8 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = F
 ### APLS
 ##################
 
+
+@info()
 def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS
     """
     Obtain shortest distance on a graph and write to disk.
@@ -509,6 +512,8 @@ def experiment_zero_graph_distances(sample_size = 10000):
 ##################
 ### Experiments 1
 ##################
+
+
 def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000):
     """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
 
@@ -697,9 +702,12 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
 ### Experiments 2
 ##################
 
-def obtain_threshold_data(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
+
+def obtain_threshold_data(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
     """Construct fusion maps on different thresholds and compute samples."""
-    for i in range(lowest, highest + step, step):
+    elements = values if values != None else range(lowest, highest + step, step)
+    for i in elements:
+        print("OMG MADE IT TO THE NEXT LEVEL: ", i)
         for metric in metrics:
             for inverse in [False, True] if include_inverse else [False]:
                 obtain_fusion_maps(threshold=i, inverse=inverse)
@@ -710,19 +718,20 @@ def obtain_threshold_data(lowest = 1, highest = 50, step = 1, sample_count = 500
                     obtain_metric_samples(metric, threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
 
         
-def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, sample_count = 5000, prime_sample_count = 1000, inverse = False):
+def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, inverse = False):
     """
     Measure TOPO/TOPO* and APLS/APLS* on Berlin and Chicago for different map fusion threshold values.
 
     Renders plot for default (SAT base graph) or inverse (GPS base graph), but not both.
     """
+    elements = values if values != None else range(lowest, highest + step, step)
 
     # Read in TOPO and APLS samples and compute metric scores.
     rows = []
     for place in places:
         for variant in set(fusion_variants):
             for prime in [False, True]:
-                for threshold in range(lowest, highest + step, step):
+                for threshold in elements:
                     print(f"{place}-{variant}-{inverse}-{prime}-{threshold}")
         
                     # Asymmetric APLS results.
@@ -869,19 +878,24 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
     df['item'] = df['item'].map({"nodes": "Nodes", "edges": "Edges", "length": "Graph Length (km)"})
     subset = df
 
+
+    # Add dotted lines on nodes, edges, and length of GPS and SAT.
+    gps = read_graph
+
     # Construct a FacetGrid lineplot on every (place, variant) combination
     plt.figure(figsize=(30, 30))
 
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
     if include_inverse:
-        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True, row = "inverse")
+        g = sns.FacetGrid(subset, row = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True, col = "inverse")
     else:
         g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True)
     g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
     g.add_legend(title="")
+    g.set(xticks=[0, 10, 20, 30, 40, 50])
 
     plt.show()
 
@@ -1012,7 +1026,7 @@ def experiment_three_sample_distribution(sample_count = 10000):
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
     
-    g = sns.displot(data=subset, x="score",  col="metric", kind="kde", row="place", hue="variant", hue_order=["GPS", "SAT", "$IDR_{SAT}$", "$IDR_{GPS}$"], facet_kws={"margin_titles": True, "sharey":False})
+    g = sns.displot(data=subset, x="score",  col="metric", kind="kde", common_norm=True, row="place", hue="variant", hue_order=["GPS", "SAT", "$IDR_{SAT}$", "$IDR_{GPS}$"], facet_kws={"margin_titles": True, "sharey":False})
     g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.set_axis_labels("Score", "Density")
     g.add_legend(title="")
