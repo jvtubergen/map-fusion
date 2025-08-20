@@ -834,6 +834,34 @@ def asymmetric_topo_from_samples(samples, prime=False, sample_count=None):
     }
 
 
+def compute_topo_sample(sample, prime = False):
+    tp_tot = sample["tp"]
+    fp_tot = sample["fp"]
+    fn_tot = sample["fn"]
+
+    try:
+        precision = float(tp_tot) / float(tp_tot + fp_tot)
+    except:
+        precision = 0
+
+    try:
+        recall = float(tp_tot) / float(tp_tot + fn_tot)
+    except:
+        recall = 0
+
+    try:
+        f1 = 2. * precision * recall / (precision + recall)
+    except:
+        f1 = 0
+
+    return {
+        "recall"   : recall,
+        "precision": precision,
+        "f1"       : f1,
+    }
+
+
+
 def prime_topo_samples(samples):
     """Extract TOPO prime samples from a list of TOPO samples."""
     return [sample for sample in samples if not (sample["tp"] == 0 and sample["fp"] == 0)]
