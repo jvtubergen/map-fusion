@@ -1121,3 +1121,34 @@ def plot_IDR_maps(threshold = 30):
             print(location)
             G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
             plot_graph_presentation(G, location=location)
+
+def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False):
+    """
+    Plot IDR maps in presentation style alongside actions (insertion, deletion, reconnection).
+    """
+    for place in places:
+        for inverse in [False, True]:
+            variant_name = "IDR_SAT" if not inverse else "IDR_GPS"
+            filename = f"Experiments Qualitative - {place.title()} {variant_name} with actions.png"
+            location = f"images/{filename}"
+            print(location)
+            G = read_graph(data_location(place, "C", threshold=threshold, inverse=inverse)["graph_file"])
+            plot_graph_presentation(G, location=location, with_actions=True, for_zoomed=for_zoomed)
+
+def plot_IDR_maps_with_actions_at_extremes(place = "berlin", low_threshold = 5, high_threshold = 50):
+    """
+    Plot IDR maps in presentation style alongside actions (insertion, deletion, reconnection).
+    """
+    for threshold in [low_threshold, high_threshold]:
+        for inverse in [False, True]:
+            variant_name = "IDR_SAT" if not inverse else "IDR_GPS"
+            filename = f"Experiments Qualitative - extremes {place.title()} {variant_name} with actions at threshold {threshold}.png"
+            location = f"images/{filename}"
+            print(location)
+            G = read_graph(data_location(place, "C", threshold=threshold, inverse=inverse)["graph_file"])
+            plot_graph_presentation(G, location=location, with_actions=True)
+
+
+def render_map(place = "berlin", variant = "gps", threshold = 30):
+    """Render specific map. Use it to zoom in and export region of interest as an SVG."""
+    return
