@@ -21,11 +21,20 @@ color_name_index = {
 }
 color_names = list(color_name_index.keys())
 
-def my_colors(name, dark = True): # :)
-    colors = mpl.color_sequences["tab20"]
-    index = color_name_index[name]
-    actual_index = index + 1 if not dark else index
-    return colors[actual_index]
+def my_colors(name, dark = True, superdark = False):
+    if name == "black":
+        return "#040404"
+    elif name == "white":
+        return "#fafafa"
+    # if superdark:
+    #     index = 4 * ["blue", "green", "orange", "red", "purple"].index(name)
+    #     colors = mpl.color_sequences["tab20b"]
+    #     return colors[index]
+    else:
+        index = color_name_index[name]
+        index = index + 1 if not dark else index
+        colors = mpl.color_sequences["tab20"]
+        return colors[index]
 
 
 # Convert a collection of paths into gid-annotated nodes and edges to thereby render with different colors.
@@ -178,24 +187,26 @@ def render_duplicates_highlighted(G):
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
-def plot_graph_presentation(G, location = None):
-    """Render a graph that meets the styling for presentation."""
+def plot_graph_presentation(G, location = None, with_actions = False, for_zoomed = False):
+    """
+    Render a graph that meets the styling for presentation.
+    
+    If `location` is given, write plotted graph as a PNG to disk.
+    If `with_actions` is True, expect a fusion map and color the actions (insertion, deletion, reconnection).
+    """
     # Coloring of edges and nodes per gid.
     G = G.copy()
     # G.graph['crs'] = "EPSG:4326" # WSG
     G.graph['crs'] = "EPSG:3857" # Web Mercator
     # G.graph['crs'] = "EPSG:32708" # UTM has many (one EPSG per region...)
     G = nx.MultiDiGraph(G)
-    white = "#fafafa"
-    black = "#040404"
 
     props = {
-        "bgcolor"        : white, 
-        "edge_color"     : black,
-        "edge_linewidth" : 1,
-        "node_color"     : white,
-        "node_edgecolor" : black,
-        "node_size"      : 10,
+        "bgcolor"        : my_colors("white"), 
+        "edge_color"     : my_colors("black"),
+        "node_color"     : my_colors("white"),
+        "node_edgecolor" : my_colors("black"),
+        # "node_size"      : 10 if not for_zoomed else 80,
     }
 
     if location != None:
@@ -203,6 +214,10 @@ def plot_graph_presentation(G, location = None):
             "save": True,
             "filepath": location
         })
+    
+    if with_actions:
+        # Color nodes and edges.
+        G = apply_coloring(G, for_zoomed=for_zoomed)
 
     ox.plot_graph(
         G, 
@@ -270,27 +285,10 @@ def plot_graph_and_curves(G, ps, qs):
 
 
 # Preplot a graph. Can be performed multiple times to render graphs together.
-# * Optional to have general node and/or edge rendering properties (thus rendering all nodes/edges the same).
+# * Optional to have general node and/or edge rendering properties (thus rendering all nodes/edges in the same way).
 # * Otherwise each edge and node is checked for rendering properties in its attributes (thus each node and edge is considered uniquely).
 def preplot_graph(G, ax, node_properties=None, edge_properties=None): 
 
-    print("Plotting nodes.")
-    # Nodes.
-    uv, data = zip(*G.nodes(data=True))
-    gdf_nodes = gpd.GeoDataFrame(data, index=uv)
-
-    if node_properties != None:
-        # Render all nodes with same render properties.
-        render_attributes = node_properties
-    else:
-        # Render nodes with their specific render properties (stored under its attributes).
-        render_attributes = {}
-        for prop in ["color"]: 
-            if prop in gdf_nodes.keys():
-                render_attributes["color"] = gdf_nodes["color"]
-
-    plotted_nodes = ax.scatter(**render_attributes, x=gdf_nodes["x"], y=gdf_nodes["y"])
-    
     print("Plotting edges.")
     # Edges.
     x_lookup = nx.get_node_attributes(G, "x")
@@ -317,35 +315,54 @@ def preplot_graph(G, ax, node_properties=None, edge_properties=None):
         gdf_edges["k"] = k
         gdf_edges = gdf_edges.set_index(["u", "v", "k"])
 
-    if edge_properties != None: 
-        # Render all edges with same render properties.
-        render_attributes = edge_properties
-    else:
-        # Render edges with their specific render properties (stored under its attributes).
-        render_attributes = {}
-        for prop in ["color", "linestyle", "linewidth"]: 
-            if prop in gdf_edges.keys():
-                render_attributes[prop] = gdf_edges[prop]
-        
-        # # If edges don't have color but nodes do, inherit node colors for edges
-        # if "color" not in render_attributes and "color" in gdf_nodes.keys():
-        #     # Map edge colors to their source node colors
-        #     edge_colors = []
-        #     for idx in gdf_edges.index:
-        #         if isinstance(idx, tuple) and len(idx) >= 2:
-        #             source_node = idx[0]  # u node
-        #             if source_node in gdf_nodes.index:
-        #                 edge_colors.append(gdf_nodes.loc[source_node, "color"])
-        #             else:
-        #                 edge_colors.append("blue")  # fallback
-        #         else:
-        #             edge_colors.append("blue")  # fallback
-        #     render_attributes["color"] = edge_colors
+    edge_render_mapper = {
+        "edge_color": "color",
+        "edge_linewidth": "lw",
+        "edge_alpha": "alpha",
+        "edge_zorder": "zorder"
+    }
+
+    if edge_properties != None:
+        for key, val in edge_properties.items():
+            render_attributes[edge_render_mapper[key]] = val
+    # Render edges with their specific render properties (stored under its attributes).
+    for prop in edge_render_mapper.keys(): 
+        if prop in gdf_edges.keys():
+            render_attributes[edge_render_mapper[prop]] = gdf_edges[prop]
+    render_attributes["zorder"] = 1
 
     plotted_edges = gdf_edges.plot(ax=ax, **render_attributes).collections[-1]
+    
 
-    return plotted_nodes, plotted_edges
+    print("Plotting nodes.")
+    # Nodes.
+    uv, data = zip(*G.nodes(data=True))
+    gdf_nodes = gpd.GeoDataFrame(data, index=uv)
 
+    node_render_mapper = {
+        "size": "s",
+        "color": "c",
+        "alpha": "alpha",
+        "edgecolor": "edgecolor",
+        "zorder": "zorder"
+    }
+
+    # Render all nodes with same render properties.
+    render_attributes = {}
+    if node_properties != None:
+        for key, val in node_properties.items():
+            render_attributes[node_render_mapper[key]] = val
+    # Render nodes with their specific render properties (stored under its attributes).
+    for prop in node_render_mapper.keys(): 
+        if prop in gdf_nodes.keys():
+            render_attributes[node_render_mapper[prop]] = gdf_nodes[prop]
+    render_attributes[c] = my_colors("white")
+    render_attributes["zorder"] = 1
+
+    plotted_nodes = ax.scatter(**render_attributes, x=gdf_nodes["x"], y=gdf_nodes["y"])
+    
+    return plotted_edges, plotted_nodes
+    
 
 def preplot_curve(ps, ax, **properties):
     # Construct GeoDataFrame .
@@ -451,36 +468,36 @@ def annotate_duplicated_nodes(G):
 def color_mapper(render):
     match render:
         case "injected":
-            return (0.3, 1, 0.3, 1) # green
+            return my_colors("green", superdark=True)
         case "deleted":
-            return (1, 0.3, 0.3, 1) # red
+            return my_colors("red", superdark=True)
         case "connection":
-            return (0.3, 0.3, 1, 1) # blue
+            return my_colors("purple", superdark=True)
         case "original":
-            return (0, 0, 0, 1) # black
+            return my_colors("black", superdark=True)
 def linestyle_mapper(render):
     match render:
         case "injected":
             return "-" 
         case "deleted":
-            return "-" 
+            return "--" 
         case "connection":
             return ":"
         case "original":
             return "-"
-def linewidth_mapper(render):
+def nodesize_mapper(render):
     match render:
         case "injected":
-            return 2 
+            return 20 
         case "deleted":
-            return 2
+            return 20
         case "connection":
-            return 2 
+            return 20 
         case "original":
-            return 1
+            return 10
 
 # Apply coloring and styling to nodes and edges by their "render" attribute.
-def apply_coloring(G):
+def apply_coloring(G, for_zoomed = False):
 
     # Fill in "render" attribute for those nodes/edges missing it.
     for _, attributes in iterate_nodes(G):
@@ -492,11 +509,12 @@ def apply_coloring(G):
 
     # Map render type to render styling.
     for _, attributes in iterate_nodes(G):
-        attributes["color"] = color_mapper(attributes["render"])
+        attributes["edgecolor"] = color_mapper(attributes["render"])
+        attributes["size"] = 10 if not for_zoomed else 20
     for _, attributes in iterate_edges(G):
         attributes["color"] = color_mapper(attributes["render"])
         attributes["linestyle"] = linestyle_mapper(attributes["render"])
-        attributes["linewidth"] = linewidth_mapper(attributes["render"])
+        attributes["linewidth"] = 1 if not for_zoomed else 2
     
     return G
 

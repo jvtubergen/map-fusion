@@ -1120,4 +1120,4 @@ def plot_IDR_maps(threshold = 30):
             location = f"images/{filename}"
             print(location)
             G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
-            plot_graph_presentation(G, location)
+            plot_graph_presentation(G, location=location)
