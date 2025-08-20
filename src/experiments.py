@@ -952,6 +952,10 @@ def experiment_three_TOPO_hole_size(sample_count = 10000, prime_sample_count = 2
     g.map(sns.lineplot, "hole size", "score")
     g.set_axis_labels("Hole Size (m)", "Score")
     g.add_legend(title="")
+    # use logarithmic on hole size with x-ticks at 1, 5, 10, 20, 50 similarly to edge coverage empirical cumulative distribution matrix.
+    g.set(xscale='log')
+    g.set(xticks=[1, 5, 10, 20, 50, 100])
+    g.set_xticklabels([1, 5, 10, 20, 50, 100])
 
     plt.show()
 
