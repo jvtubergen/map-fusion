@@ -29,7 +29,7 @@ from workflow import *
 
 
 # Experiment 3:
-experiment_three_TOPO_hole_size(sample_count=2000, prime_sample_count=1000)
+# experiment_three_TOPO_hole_size(sample_count=2000, prime_sample_count=1000)
 # experiment_three_sample_distribution(sample_count=2000)
 # experiment_three_prime_sample_distribution(prime_sample_count=2000)
 
