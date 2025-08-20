@@ -1019,6 +1019,66 @@ def experiment_three_sample_distribution(sample_count = 10000):
 
     plt.show()
 
+def experiment_three_prime_sample_distribution(prime_sample_count = 2000):
+    """
+    Sample distributions of TOPO and APLS of the variants SAT, GPS, IDR_SAT and IDR_GPS at the places Berlin and Chicago
+    """
+    #TODO: Inverse?
+    threshold = 30
+    inverse = False
+    rows = []
+    for place in places:
+        for (variant, inverse) in [("gps", False), ("sat", False), ("C", False), ("C", True)]:
+            print(f"{place}-{variant}-{inverse}-{threshold}")
+
+            # Asymmetric APLS samples.
+            metric_threshold = 5
+            metric_interval = None
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            prime_samples = prime_apls_samples(samples)[:prime_sample_count]
+            for sample in prime_samples:
+                rows.append({
+                    "place": place,
+                    "metric": "apls",
+                    "variant": variant if not inverse else f"{variant}-1",
+                    "inverse": inverse,
+                    "score": sample["score"]
+                })
+
+            # Asymmetric TOPO results.
+            metric_threshold = 5.5
+            metric_interval = 5
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            prime_samples = prime_topo_samples(samples)[:prime_sample_count]
+            for sample in prime_samples:
+                sample = compute_topo_sample(sample)
+                rows.append({
+                    "place": place,
+                    "metric": "topo",
+                    "variant": variant if not inverse else f"{variant}-1",
+                    "inverse": inverse,
+                    "score": sample["f1"]
+                })
+    
+    df = pd.DataFrame(rows)
+    df['place'] = df['place'].apply(lambda row: row.title())
+    df['metric'] = df['metric'].apply(lambda row: f"{row.upper()}*")
+    df['variant'] = df['variant'].map({"gps": "GPS", "sat": "SAT", "C": "$IDR_{SAT}$", "C-1": "$IDR_{GPS}$"})
+    subset = df
+
+    # Construct a FacetGrid density plot.
+    plt.figure(figsize=(30, 30))
+    sns.set_theme(style="ticks")
+    sns.set_style("whitegrid")
+    
+    g = sns.displot(data=subset, x="score",  col="metric", kind="kde", common_norm=True, row="place", hue="variant", hue_order=["GPS", "SAT", "$IDR_{SAT}$", "$IDR_{GPS}$"], facet_kws={"margin_titles": True, "sharey":False})
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
+    g.set_axis_labels("Score", "Density")
+    g.add_legend(title="")
+
+    plt.show()
 
 ##################
 ### Qualitative
