@@ -6,6 +6,15 @@ from graph.sanitizing import sanity_check_graph_curvature
 from graph.edge_cutting import graph_cut_edge_intervals
 
 
+# Reset coverage threshold information on a graph.
+def clear_coverage_threshold_information(G):
+    if "max_threshold" in G.graph:
+        G.graph.pop("max_threshold") 
+    for eid, attrs in iterate_edges(G):
+        if "threshold" in attrs:
+            attrs.pop("threshold")
+
+
 # Obtain edges covered by specific node.
 def edges_covered_by_nid(G, nid, threshold, edge_tree=None):
     if edge_tree == None:
@@ -35,7 +44,7 @@ def edges_covered_by_nid(G, nid, threshold, edge_tree=None):
 # * Extension 1: Removal of duplicates.
 # * Extension 2: Reconnecting C edges to injected A edges.
 @info()
-def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False):
+def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reconnect_after=False, covered_injection_only=False):
 
     # Result object where the merge variants are stored under.
     graphs = {
@@ -77,7 +86,39 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
     assert len(set(above) ^ set(below)) == len(list(iterate_edges(A)))
 
     # Retain edges above the coverage threshold (thus those edges of A not being covered by C).
-    B = A.edge_subgraph(above)
+    if covered_injection_only:
+        # Filter patch edges to only those that cover base map edges (would cause deletions)
+        logger("Filtering injection set: only edges that cover base map")
+        
+        # Create temporary subgraph of potential injection edges
+        B_temp = A.edge_subgraph(above)
+        
+        # Analyze which base map C edges are covered by potential injection edges
+        C_temp = C.copy()
+        clear_coverage_threshold_information(C_temp)
+        C_covered_by_B = edge_graph_coverage(C_temp, B_temp, max_threshold=prune_threshold)
+        
+        # Find which injection edges actually cover base edges (would cause deletions)
+        covered_base_edges = [eid for eid, attrs in iterate_edges(C_covered_by_B) if attrs["threshold"] <= prune_threshold]
+        
+        if len(covered_base_edges) > 0:
+            # Get all patch edges that contribute to covering base edges
+            covering_patch_edges = set()
+            for eid in covered_base_edges:
+                covering_patch_edges.update(get_edge_attributes(C_covered_by_B, eid)["covered_by"])
+            
+            # Filter above edges to only those that cover base edges
+            above_filtered = [eid for eid in above if eid in covering_patch_edges]
+            logger(f"Filtered injection set: {len(above_filtered)}/{len(above)} edges")
+        else:
+            # No base edges would be covered, inject nothing
+            above_filtered = []
+            logger("No patch edges cover base edges - empty injection set")
+            
+        B = A.edge_subgraph(above_filtered)
+        above = above_filtered  # Update above list for subsequent logic
+    else:
+        B = A.edge_subgraph(above)
 
     # Extract nids which are connected to an edge above and below threshold.
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
@@ -196,14 +237,6 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         C_original = C.edge_subgraph(set([eid for eid, _ in iterate_edges(C)]) - set(B_eids))
 
         ## Find edges of C which are covered by the injected B edges (which are all of them in B) and then remove them.
-
-        # Reset coverage threshold information on a graph.
-        def clear_coverage_threshold_information(G):
-            if "max_threshold" in G.graph:
-                G.graph.pop("max_threshold") 
-            for eid, attrs in iterate_edges(G):
-                if "threshold" in attrs:
-                    attrs.pop("threshold")
 
         # Reset coverage threshold information on C.
         clear_coverage_threshold_information(C_original)
