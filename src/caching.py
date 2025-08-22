@@ -3,8 +3,13 @@ import os
 places = ["berlin", "chicago"]
 base_variants = ["osm", "sat", "gps"]
 fusion_variants = ["A", "B", "C"]
-variants = base_variants + fusion_variants
+fusion_variants_covered = ["A2", "B2", "C2"]
+variants = base_variants + fusion_variants + fusion_variants_covered
 metrics = ["apls", "topo"]
+
+def get_fusion_variants(covered_injection_only=False):
+    """Return the appropriate fusion variants based on covered_injection_only parameter."""
+    return fusion_variants_covered if covered_injection_only else fusion_variants
 
 # This file provides functions to cache your computation results so they can be re-used.
 
@@ -95,7 +100,7 @@ def data_location(place, variant, threshold = None, inverse = False):
         })
         
         return base
-    elif variant in ["A", "B", "C"]:
+    elif variant in ["A", "B", "C"] or variant in ["A2", "B2", "C2"]:
         assert threshold != None
         if inverse:
             return {
@@ -111,9 +116,9 @@ def data_location(place, variant, threshold = None, inverse = False):
 def experiment_location(place, variant, threshold = None, inverse = False, metric = None, metric_threshold = None, metric_interval = None, plot_name = None):
 
     filename = f"{variant}-{place}"
-    if variant in fusion_variants and threshold != None:
+    if (variant in fusion_variants or variant in fusion_variants_covered) and threshold != None:
         filename = f"{filename}-{threshold}"
-    if variant in fusion_variants and inverse:
+    if (variant in fusion_variants or variant in fusion_variants_covered) and inverse:
         filename = f"{filename}-inverse"
     if metric != None:
         filename = f"{filename}-{metric}"
@@ -126,7 +131,7 @@ def experiment_location(place, variant, threshold = None, inverse = False, metri
 
     assert variant in variants
     assert place in places
-    if variant in fusion_variants:
+    if variant in fusion_variants or variant in fusion_variants_covered:
         assert threshold != None # Expect a threshold is given if its a fuse variant.
 
     return  {
@@ -134,7 +139,7 @@ def experiment_location(place, variant, threshold = None, inverse = False, metri
         "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{filename}.pkl"),
         "metrics"            : get_data_file(f"experiments/metrics/{filename}.pkl"),
         "metrics_samples"    : get_data_file(f"experiments/metrics_samples/{filename}.pkl"),
-        "plots"              : get_data_file(f"experiments/plots/{filename}.svg"),
+        # "plots"              : get_data_file(f"experiments/plots/{filename}.svg"),
         # "distance_samples"   : get_data_file(f"experiments/distance_samples/{filename}.pkl"),
         # "threshold_maps"     : get_data_file(f"experiments/threshold_maps/{filename}.pkl"),
     }

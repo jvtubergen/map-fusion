@@ -16,39 +16,40 @@ def read_base_maps():
     return maps
 
 
-def read_fusion_maps(threshold = 30):
+def read_fusion_maps(threshold = 30, covered_injection_only = False):
     """Read fusion maps of a specific threshold from disk."""
     maps = {}
+    fusion_vars = get_fusion_variants(covered_injection_only)
     for place in places:
         maps[place] = {}
-        maps[place]["A"]   = read_graph(data_location(place, "A", threshold = threshold)["graph_file"])
-        maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
-        maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+        for variant in fusion_vars:
+            maps[place][variant] = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
     return maps
 
 
-def read_all_maps(threshold = 30):
+def read_all_maps(threshold = 30, covered_injection_only = False):
     """Read fusion maps of a specific threshold alongside the ground truth and two base maps from disk."""
     maps = {}
+    fusion_vars = get_fusion_variants(covered_injection_only)
     for place in places:
         maps[place] = {}
         maps[place]["osm"] = read_osm_graph(place)
         maps[place]["gps"] = read_gps_graph(place)
         maps[place]["sat"] = read_sat_graph(place)
-        maps[place]["A"]   = read_graph(data_location(place, "A", threshold = threshold)["graph_file"])
-        maps[place]["B"]   = read_graph(data_location(place, "B", threshold = threshold)["graph_file"])
-        maps[place]["C"]   = read_graph(data_location(place, "C", threshold = threshold)["graph_file"])
+        for variant in fusion_vars:
+            maps[place][variant] = read_graph(data_location(place, variant, threshold = threshold)["graph_file"])
     return maps
 
 
 @info()
-def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_use = True):
+def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_use = True, covered_injection_only = False):
     """Obtain fusion maps and write them to disk."""
 
+    fusion_vars = get_fusion_variants(covered_injection_only)
+    
     for place in places: 
-        if re_use and path_exists(data_location(place, "A", threshold=threshold, inverse=inverse)["graph_file"]) \
-            and path_exists(data_location(place, "B", threshold=threshold, inverse=inverse)["graph_file"])  \
-            and path_exists(data_location(place, "C", threshold=threshold, inverse=inverse)["graph_file"]):
+        if re_use and all(path_exists(data_location(place, variant, threshold=threshold, inverse=inverse)["graph_file"]) 
+                         for variant in fusion_vars):
             continue
 
         logger(f"Apply map fusion to {place}.")
@@ -65,25 +66,26 @@ def obtain_fusion_maps(threshold = 30, debugging = False, inverse = False, re_us
             sat = intersection # (Update sat so we can continue further logic.)
         
         if inverse:
-            logger(f"Apply map fusion inverse.")
+            logger(f"Apply map fusion inverse{' with covered injection only' if covered_injection_only else ''}.")
             sat_vs_gps = edge_graph_coverage(sat, gps, max_threshold=threshold)
             sanity_check_graph(gps)
             sanity_check_graph(sat_vs_gps)
-            graphs     = map_fusion(C=gps, A=sat_vs_gps, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
+            graphs = map_fusion(C=gps, A=sat_vs_gps, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True, covered_injection_only=covered_injection_only)
         else:
-            logger(f"Apply map fusion.")
+            logger(f"Apply map fusion{' with covered injection only' if covered_injection_only else ''}.")
             gps_vs_sat = edge_graph_coverage(gps, sat, max_threshold=threshold)
             sanity_check_graph(sat)
             sanity_check_graph(gps_vs_sat)
-            graphs     = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True)
+            graphs = map_fusion(C=sat, A=gps_vs_sat, prune_threshold=threshold, remove_duplicates=True, reconnect_after=True, covered_injection_only=covered_injection_only)
 
         A = graphs["a"]
         B = graphs["b"]
         C = graphs["c"]
 
-        write_graph(data_location(place, "A", threshold = threshold, inverse=inverse)["graph_file"], A)
-        write_graph(data_location(place, "B", threshold = threshold, inverse=inverse)["graph_file"], B)
-        write_graph(data_location(place, "C", threshold = threshold, inverse=inverse)["graph_file"], C)
+        # Write using the appropriate variant names (A/B/C or A2/B2/C2)
+        for i, variant in enumerate(fusion_vars):
+            graph_data = [A, B, C][i]
+            write_graph(data_location(place, variant, threshold=threshold, inverse=inverse)["graph_file"], graph_data)
 
 
 ##################
@@ -102,7 +104,7 @@ def remove_deleted(G):
 
 
 @info()
-def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS + TOPO
+def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = False, re_use = True, covered_injection_only = False): # APLS + TOPO
     """
     Prepare graphs (identical for APLS and TOPO):  Remove edges and nodes with the {"render": "delete"} attribute.
     Basically only necessary for "B" and "C" (because other graphs nowhere annotate this specific "render" attribute value),
@@ -111,9 +113,9 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = F
     if inverse:
         fusion_only = True
     if fusion_only:
-        _variants = fusion_variants
+        _variants = get_fusion_variants(covered_injection_only)
     else:
-        _variants = variants
+        _variants = base_variants + get_fusion_variants(covered_injection_only)
 
     for place in places: 
         for variant in _variants:
@@ -132,16 +134,16 @@ def obtain_prepared_metric_maps(threshold = 30, fusion_only = False, inverse = F
 
 
 @info()
-def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False, re_use = True): # APLS
+def obtain_shortest_distance_dictionaries(threshold = 30, fusion_only = False, inverse = False, re_use = True, covered_injection_only = False): # APLS
     """
     Obtain shortest distance on a graph and write to disk.
     """
     if inverse:
         fusion_only = True
     if fusion_only:
-        _variants = fusion_variants
+        _variants = get_fusion_variants(covered_injection_only)
     else:
-        _variants = variants
+        _variants = base_variants + get_fusion_variants(covered_injection_only)
 
     for place in places: 
         for variant in _variants:
@@ -159,7 +161,7 @@ def obtain_apls_samples(**props):
 def obtain_topo_samples(**props):
     obtain_metric_samples("topo", **props)
 
-def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants = None, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = True): # APLS
+def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants = None, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = True, covered_injection_only = False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
     assert metric in metrics
@@ -178,9 +180,10 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants
         fusion_only = True
         
     if _variants == None:
-        _variants = variants
         if fusion_only:
-            _variants = set(fusion_variants)
+            _variants = set(get_fusion_variants(covered_injection_only))
+        else:
+            _variants = set(base_variants + get_fusion_variants(covered_injection_only))
     else:
         _variants = set(_variants)
 
@@ -514,22 +517,23 @@ def experiment_zero_graph_distances(sample_size = 10000):
 ##################
 
 
-def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000):
+def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False):
     """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
 
-    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
-    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
-    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
-    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
+    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
+    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
+    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
+    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
                                                         
-    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False)
-    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True )
-    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True)
-    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True)
+    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
+    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
+    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
+    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
 
     # Read in TOPO and APLS samples and compute metric scores.
     table_results = {}
-    for variant in set(variants) - set(["osm"]):
+    selected_variants = set(base_variants + get_fusion_variants(covered_injection_only)) - set(["osm"])
+    for variant in selected_variants:
         table_results[variant] = {}
         for inverse in [False,True]:
             if inverse and variant in base_variants:
@@ -651,16 +655,18 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
         """
 
         data = []
-        for variant, inverse in [
+        fusion_vars = get_fusion_variants(covered_injection_only)
+        variant_list = [
             ("sat", False),
             ("gps", False),
-            ("A", False),
-            ("B", False),
-            ("C", False),
-            ("A", True),
-            ("B", True),
-            ("C", True),
-            ]:
+        ]
+        # Add fusion variants with both inverse states
+        for variant in fusion_vars:
+            variant_list.append((variant, False))
+        for variant in fusion_vars:
+            variant_list.append((variant, True))
+        
+        for variant, inverse in variant_list:
 
             if inverse and variant in base_variants:
                 continue
@@ -703,22 +709,22 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
 ##################
 
 
-def obtain_threshold_data(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, include_inverse = True):
+def obtain_threshold_data(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, include_inverse = True, covered_injection_only = False):
     """Construct fusion maps on different thresholds and compute samples."""
     elements = values if values != None else range(lowest, highest + step, step)
     for i in elements:
         print("OMG MADE IT TO THE NEXT LEVEL: ", i)
         for metric in metrics:
             for inverse in [False, True] if include_inverse else [False]:
-                obtain_fusion_maps(threshold=i, inverse=inverse)
-                obtain_prepared_metric_maps(threshold=i, fusion_only=True, inverse=inverse)
-                obtain_shortest_distance_dictionaries(threshold=i, fusion_only=True, inverse=inverse)
+                obtain_fusion_maps(threshold=i, inverse=inverse, covered_injection_only=covered_injection_only)
+                obtain_prepared_metric_maps(threshold=i, fusion_only=True, inverse=inverse, covered_injection_only=covered_injection_only)
+                obtain_shortest_distance_dictionaries(threshold=i, fusion_only=True, inverse=inverse, covered_injection_only=covered_injection_only)
                 for prime in [False, True]:
                     count = prime_sample_count if prime else sample_count
-                    obtain_metric_samples(metric, threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse)
+                    obtain_metric_samples(metric, threshold=i, sample_count=count, extend=True, fusion_only=True, prime=prime, inverse=inverse, covered_injection_only=covered_injection_only)
 
         
-def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, inverse = False):
+def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, inverse = False, covered_injection_only = False):
     """
     Measure TOPO/TOPO* and APLS/APLS* on Berlin and Chicago for different map fusion threshold values.
 
@@ -729,7 +735,8 @@ def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, val
     # Read in TOPO and APLS samples and compute metric scores.
     rows = []
     for place in places:
-        for variant in set(fusion_variants):
+        selected_fusion_variants = set(get_fusion_variants(covered_injection_only))
+        for variant in selected_fusion_variants:
             for prime in [False, True]:
                 for threshold in elements:
                     print(f"{place}-{variant}-{inverse}-{prime}-{threshold}")
@@ -773,8 +780,16 @@ def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, val
                         })
 
     # Convert into dataframe.
-    variant_mapping = {"A": "$I_{GPS}$", "B": "$ID_{GPS}$", "C": "$IDR_{GPS}$"} if inverse else {"A": "$I_{SAT}$", "B": "$ID_{SAT}$", "C": "$IDR_{SAT}$"}
-    hue_order       = ["$I_{GPS}$", "$ID_{GPS}$", "$IDR_{GPS}$"] if inverse else ["$I_{SAT}$", "$ID_{SAT}$", "$IDR_{SAT}$"]
+    if covered_injection_only:
+        if inverse:
+            variant_mapping = {"A2": "$I_{GPS}^{cov}$", "B2": "$ID_{GPS}^{cov}$", "C2": "$IDR_{GPS}^{cov}$"}
+            hue_order = ["$I_{GPS}^{cov}$", "$ID_{GPS}^{cov}$", "$IDR_{GPS}^{cov}$"]
+        else:
+            variant_mapping = {"A2": "$I_{SAT}^{cov}$", "B2": "$ID_{SAT}^{cov}$", "C2": "$IDR_{SAT}^{cov}$"}
+            hue_order = ["$I_{SAT}^{cov}$", "$ID_{SAT}^{cov}$", "$IDR_{SAT}^{cov}$"]
+    else:
+        variant_mapping = {"A": "$I_{GPS}$", "B": "$ID_{GPS}$", "C": "$IDR_{GPS}$"} if inverse else {"A": "$I_{SAT}$", "B": "$ID_{SAT}$", "C": "$IDR_{SAT}$"}
+        hue_order       = ["$I_{GPS}$", "$ID_{GPS}$", "$IDR_{GPS}$"] if inverse else ["$I_{SAT}$", "$ID_{SAT}$", "$IDR_{SAT}$"]
 
     df = pd.DataFrame(rows)
     df['column'] = df[['metric', 'prime']].apply(lambda row: f"{f"{row.metric}*".upper()}" if row.prime else f"{row.metric}".upper(), axis=1)
