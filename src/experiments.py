@@ -823,9 +823,8 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     df = pd.DataFrame(rows)
 
     if not include_inverse:
+        # Exclude inverse from plot.
         df = df[(df["inverse"] == False)]
-    else:
-        df['inverse'] = df['inverse'].map({False: "$IDR_{SAT}$", True: "$IDR_{GPS}$"})
 
     df['place'] = df['place'].apply(lambda row: row.title())
     df['action'] = df['action'].apply(lambda row: row.title())
@@ -863,34 +862,36 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
                 nodes = len(G.nodes)
                 edges = len(G.edges)
                 length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / 1000
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "nodes" , "value": nodes  })
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "edges" , "value": edges  })
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "item": "length", "value": length })
+                name = "$IDR_{SAT}$" if not inverse else "$IDR_{GPS}$"
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "nodes" , "value": nodes })
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "edges" , "value": edges })
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "length", "value": length})
+    
+    # Add SAT and GPS graph complexity values as constant data points
+    for place in places:
+        for variant in base_variants:
+            G = read_graph(experiment_location(place, variant)["prepared_graph"])
+            nodes = len(G.nodes)
+            edges = len(G.edges)
+            length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / 1000
+            name = variant.upper()
+            for threshold in range(lowest, highest + step, step):
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "nodes" , "value": nodes  })
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "edges" , "value": edges  })
+                rows.append({ "place": place, "threshold": threshold, "name": name, "item": "length", "value": length })
 
     # Convert into dataframe.
     df = pd.DataFrame(rows)
-    if not include_inverse:
-        df = df[(df["inverse"] == False)]
-    else:
-        df['inverse'] = df['inverse'].map({False: "$IDR_{SAT}$", True: "$IDR_{GPS}$"})
-
     df['place'] = df['place'].apply(lambda row: row.title())
     df['item'] = df['item'].map({"nodes": "Nodes", "edges": "Edges", "length": "Graph Length (km)"})
     subset = df
-
-
-    # Add dotted lines on nodes, edges, and length of GPS and SAT.
-    gps = read_graph
 
     # Construct a FacetGrid lineplot on every (place, variant) combination
     plt.figure(figsize=(30, 30))
 
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
-    if include_inverse:
-        g = sns.FacetGrid(subset, row = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True, col = "inverse")
-    else:
-        g = sns.FacetGrid(subset, col = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True)
+    g = sns.FacetGrid(subset, row = "place", hue = "item", hue_order = ["Nodes", "Edges", "Graph Length (km)"], margin_titles=True, col = "name")
     g.set_titles(col_template="{col_name}", row_template="{row_name}")
     g.map(sns.lineplot, "threshold", "value")
     g.set_axis_labels("Threshold (m)", "Amount")
