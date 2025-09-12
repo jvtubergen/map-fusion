@@ -708,12 +708,20 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
 ### Experiments 2
 ##################
 
+def obtain_fusion_maps_range(lowest = 1, highest = 50, step = 1, values = None, include_inverse = True, covered_injection_only = False):
+    """Construct fusion maps on different thresholds."""
+    elements = values if values != None else range(lowest, highest + step, step)
+    for i in elements:
+        print("Threshold: ", i)
+        for metric in metrics:
+            for inverse in [False, True] if include_inverse else [False]:
+                obtain_fusion_maps(threshold=i, inverse=inverse, covered_injection_only=covered_injection_only)
 
 def obtain_threshold_data(lowest = 1, highest = 50, step = 1, values = None, sample_count = 5000, prime_sample_count = 1000, include_inverse = True, covered_injection_only = False):
     """Construct fusion maps on different thresholds and compute samples."""
     elements = values if values != None else range(lowest, highest + step, step)
     for i in elements:
-        print("OMG MADE IT TO THE NEXT LEVEL: ", i)
+        print("Threshold", i)
         for metric in metrics:
             for inverse in [False, True] if include_inverse else [False]:
                 obtain_fusion_maps(threshold=i, inverse=inverse, covered_injection_only=covered_injection_only)
@@ -1152,7 +1160,7 @@ def plot_IDR_maps(threshold = 30):
             G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
             plot_graph_presentation(G, location=location)
 
-def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False):
+def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False, covered_injection_only = False):
     """
     Plot IDR maps in presentation style alongside actions (insertion, deletion, reconnection).
     """
@@ -1162,7 +1170,8 @@ def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False):
             filename = f"Experiments Qualitative - {place.title()} {variant_name} with actions.png"
             location = f"images/{filename}"
             print(location)
-            G = read_graph(data_location(place, "C", threshold=threshold, inverse=inverse)["graph_file"])
+            fusion_name = "C" if not covered_injection_only else "C2"
+            G = read_graph(data_location(place, fusion_name, threshold=threshold, inverse=inverse)["graph_file"])
             plot_graph_presentation(G, location=location, with_actions=True, for_zoomed=for_zoomed)
 
 def plot_IDR_maps_with_actions_at_extremes(place = "berlin", low_threshold = 5, high_threshold = 50):

@@ -42,3 +42,9 @@ from workflow import *
 # plot_IDR_maps_with_actions(for_zoomed=True)
 # plot_IDR_maps_with_actions_at_extremes(place="berlin", low_threshold=1)
 # plot_IDR_maps_with_actions_at_extremes(place="chicago", low_threshold=1)
+
+
+
+# Experiment 4: Selective edge injection
+# obtain_fusion_maps_range(covered_injection_only=True)
+# plot_IDR_maps_with_actions(threshold = 30, for_zoomed=True, covered_injection_only=True)

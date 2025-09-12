@@ -39,7 +39,7 @@ def edges_covered_by_nid(G, nid, threshold, edge_tree=None):
 
 
 # Merges graph A into graph C.
-# * Injects uncovered edges of graph A into graph C. 
+# * Injects uncovered edges of patch map A into base map C. 
 # * Graph A has got its edges annotated with coverage threshold in relation to graph C.
 # * Extension 1: Removal of duplicates.
 # * Extension 2: Reconnecting C edges to injected A edges.
@@ -72,6 +72,10 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         relabel_mapping[nidH] = nid
         nid += 1
     A = nx.relabel_nodes(A, relabel_mapping)
+
+    # Render nodes and edges of C as original.
+    annotate_nodes(C, {"render": "original", "origin": "C"})
+    annotate_edges(C, {"render": "original", "origin": "C"})
 
     # Step 1: Inject edges of A into C.
     logger("Step 1: Inject edges of A into C.")
@@ -115,10 +119,18 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
             above_filtered = []
             logger("No patch edges cover base edges - empty injection set")
             
-        B = A.edge_subgraph(above_filtered)
         above = above_filtered  # Update above list for subsequent logic
-    else:
-        B = A.edge_subgraph(above)
+    
+    if len(above) == 0:
+        # No injection occurs, so no deletion, and no reconnection: fusion maps are base map.
+        graphs = {
+            "a": C.copy(),
+            "b": C.copy(),
+            "c": C.copy(),
+        }
+        return graphs
+
+    B = A.edge_subgraph(above)
 
     # Extract nids which are connected to an edge above and below threshold.
     nodes_above = set([nid for el in above for nid in el[0:2]]) 
@@ -138,23 +150,12 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
             B.nodes[nid]["render"] = "injected"
 
     # Render edges of B as injected.
-    annotate_edges(B, {"render": "injected"})
+    annotate_edges(B, {"render": "injected", "origin": "B"})
+    annotate_nodes(B, {"render": "injected", "origin": "B"})
     
-    # Render nodes and edges of C as original.
-    annotate_nodes(C, {"render": "original"})
-    annotate_edges(C, {"render": "original"})
 
     # Construct rtree on nodes in C.
     nodetree = graphnodes_to_rtree(C)
-    
-    ## Annotate origin attribute on B and C (Necessary in case we want to apply extensions).
-    # Annotate "origin" of nodes and edges of C.
-    annotate_edges(C, {"origin": "C"})
-    annotate_nodes(C, {"origin": "C"})
-
-    # Annotate "origin" of injected nodes and edges of B.
-    annotate_edges(B, {"origin": "B"})
-    annotate_nodes(B, {"origin": "B"})
 
     filter_eids_by_attribute(C, filter_func=lambda attrs: attrs["render"] != "deleted")
 
