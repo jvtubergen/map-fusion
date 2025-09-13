@@ -53,3 +53,4 @@ from workflow import *
 # plot_IDR_maps_with_actions(threshold=1 , for_zoomed=True, covered_injection_only=True)
 # plot_IDR_maps_with_actions(threshold=30, for_zoomed=True, covered_injection_only=True)
 # plot_IDR_maps_with_actions(threshold=50, for_zoomed=True, covered_injection_only=True)
+# experiment_two_threshold_impact_on_metadata(covered_injection_only=True)

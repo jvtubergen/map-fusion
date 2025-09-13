@@ -822,8 +822,13 @@ def experiment_two_threshold_performance(lowest = 1, highest = 50, step = 1, val
     plt.show()
 
 
-def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step = 1, include_inverse = True):
+def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step = 1, include_inverse = True, covered_injection_only = False):
     """Show injection, deletion, reconnection behavior on Berlin and Chicago for different map fusion threshold values."""
+
+    # Get appropriate fusion variants based on covered_injection_only parameter
+    fusion_vars = get_fusion_variants(covered_injection_only)
+    a_variant = fusion_vars[0]  # A or A2
+    c_variant = fusion_vars[2]  # C or C2
 
     # Read metadata from graphs.
     rows = []
@@ -831,16 +836,20 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
         for threshold in range(lowest, highest + step, step):
             logger(f"Computing fusion metadata on {place}-{threshold}.")
             for inverse in [False, True] if include_inverse else [False]:
-                a = read_graph(data_location(place, "A", threshold = threshold, inverse = inverse)["graph_file"])
-                c = read_graph(data_location(place, "C", threshold = threshold, inverse = inverse)["graph_file"])
+                a = read_graph(data_location(place, a_variant, threshold = threshold, inverse = inverse)["graph_file"])
+                c = read_graph(data_location(place, c_variant, threshold = threshold, inverse = inverse)["graph_file"])
 
                 injection     = len(filter_eids_by_attribute(c, filter_attributes={"render": "injected"}))
                 deletion      = len(filter_eids_by_attribute(c, filter_attributes={"render": "deleted"}))
                 reconnection = len(filter_eids_by_attribute(c, filter_attributes={"render": "connection"})) - len(filter_eids_by_attribute(a, filter_attributes={"render": "connection"})) # Note: Injection of step 1 also creates connection edges, ignore those from this metadata.
 
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "injection", "value": injection })
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "deletion", "value": deletion })
-                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "action": "reconnection", "value": reconnection })
+                if covered_injection_only:
+                    name = "$I^*DR_{SAT}$" if not inverse else "$I^*DR_{GPS}$"
+                else:
+                    name = "$IDR_{SAT}$" if not inverse else "$IDR_{GPS}$"
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "name": name, "action": "injection", "value": injection })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "name": name, "action": "deletion", "value": deletion })
+                rows.append({ "place": place, "threshold": threshold, "inverse": inverse, "name": name, "action": "reconnection", "value": reconnection })
 
     # Convert into dataframe.
     df = pd.DataFrame(rows)
@@ -859,7 +868,7 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     sns.set_theme(style="ticks")
     sns.set_style("whitegrid")
     if include_inverse:
-        g = sns.FacetGrid(subset, row = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True, col = "inverse")
+        g = sns.FacetGrid(subset, row = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True, col = "name")
     else:
         g = sns.FacetGrid(subset, col = "place", hue = "action", hue_order = ["Injection", "Deletion", "Reconnection"], margin_titles=True)
     g.set_titles(col_template="{col_name}", row_template="{row_name}")
