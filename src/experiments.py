@@ -522,22 +522,22 @@ def experiment_zero_graph_distances(sample_size = 10000):
 ##################
 
 
-def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False):
+def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False, metric_threshold = None):
     """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
 
     # Precompute shortest path dictionaries first
     obtain_shortest_distance_dictionaries(threshold=threshold, covered_injection_only=covered_injection_only)
     obtain_shortest_distance_dictionaries(threshold=threshold, inverse=True, covered_injection_only=covered_injection_only)
 
-    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
-    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
-    obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
-    obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
+    obtain_apls_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
+    obtain_apls_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
+    obtain_apls_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
+    obtain_apls_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
                                                         
-    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
-    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
-    obtain_topo_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
-    obtain_topo_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
+    obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
+    obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)
+    obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
+    obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
 
     # Read in TOPO and APLS samples and compute metric scores.
     table_results = {}
