@@ -881,8 +881,12 @@ def experiment_two_threshold_impact_on_metadata(lowest = 1, highest = 50, step =
     plt.show()
 
 
-def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include_inverse = True):
+def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include_inverse = True, covered_injection_only = False):
     """Number of nodes, edges, total length."""
+
+    # Get appropriate fusion variants based on covered_injection_only parameter
+    fusion_vars = get_fusion_variants(covered_injection_only)
+    c_variant = fusion_vars[2]  # C or C2
 
     # Obtain base
     rows = []
@@ -890,11 +894,14 @@ def experiment_two_basic_information(lowest = 1, highest = 50, step = 1, include
         for threshold in range(lowest, highest + step, step):
             for inverse in [False, True] if include_inverse else [False]:
                 logger(f"Computing basic information on {place}-{threshold}-{inverse}.")
-                G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
+                G = read_graph(experiment_location(place, c_variant, threshold=threshold, inverse=inverse)["prepared_graph"])
                 nodes = len(G.nodes)
                 edges = len(G.edges)
                 length = sum([attrs["length"] for _, attrs in iterate_edges(G)]) / 1000
-                name = "$IDR_{SAT}$" if not inverse else "$IDR_{GPS}$"
+                if covered_injection_only:
+                    name = "$I^*DR_{SAT}$" if not inverse else "$I^*DR_{GPS}$"
+                else:
+                    name = "$IDR_{SAT}$" if not inverse else "$IDR_{GPS}$"
                 rows.append({ "place": place, "threshold": threshold, "name": name, "item": "nodes" , "value": nodes })
                 rows.append({ "place": place, "threshold": threshold, "name": name, "item": "edges" , "value": edges })
                 rows.append({ "place": place, "threshold": threshold, "name": name, "item": "length", "value": length})
