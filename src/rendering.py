@@ -187,7 +187,7 @@ def render_duplicates_highlighted(G):
     ox.plot_graph(G, bgcolor="#ffffff", node_color=nc, edge_color=ec, save=True)
 
 
-def plot_graph_presentation(G, location = None, with_actions = False, for_zoomed = False):
+def plot_graph_presentation(G, location = None, with_actions = False, for_zoomed = False, save = False):
     """
     Render a graph that meets the styling for presentation.
     
@@ -211,7 +211,7 @@ def plot_graph_presentation(G, location = None, with_actions = False, for_zoomed
 
     if location != None:
         props.update({
-            "save": True,
+            "save": save,
             "filepath": location
         })
     

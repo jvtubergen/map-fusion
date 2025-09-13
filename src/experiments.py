@@ -1160,19 +1160,21 @@ def plot_IDR_maps(threshold = 30):
             G = read_graph(experiment_location(place, "C", threshold=threshold, inverse=inverse)["prepared_graph"])
             plot_graph_presentation(G, location=location)
 
-def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False, covered_injection_only = False):
+def plot_IDR_maps_with_actions(threshold = 30, for_zoomed = False, covered_injection_only = False, save = False):
     """
     Plot IDR maps in presentation style alongside actions (insertion, deletion, reconnection).
     """
     for place in places:
         for inverse in [False, True]:
-            variant_name = "IDR_SAT" if not inverse else "IDR_GPS"
+            variant_name = "IDR" if not covered_injection_only else "I*DR"
+            variant_name += "_SAT" if not inverse else "_GPS"
+            variant_name += f"-{threshold}"
             filename = f"Experiments Qualitative - {place.title()} {variant_name} with actions.png"
             location = f"images/{filename}"
             print(location)
             fusion_name = "C" if not covered_injection_only else "C2"
             G = read_graph(data_location(place, fusion_name, threshold=threshold, inverse=inverse)["graph_file"])
-            plot_graph_presentation(G, location=location, with_actions=True, for_zoomed=for_zoomed)
+            plot_graph_presentation(G, location=location, with_actions=True, for_zoomed=for_zoomed, save=save)
 
 def plot_IDR_maps_with_actions_at_extremes(place = "berlin", low_threshold = 5, high_threshold = 50):
     """

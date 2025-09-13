@@ -47,4 +47,9 @@ from workflow import *
 
 # Experiment 4: Selective edge injection
 # obtain_fusion_maps_range(covered_injection_only=True)
-# plot_IDR_maps_with_actions(threshold = 30, for_zoomed=True, covered_injection_only=True)
+# plot_IDR_maps_with_actions(threshold=1 , for_zoomed=False, covered_injection_only=True, save=True)
+# plot_IDR_maps_with_actions(threshold=30, for_zoomed=False, covered_injection_only=True, save=True)
+# plot_IDR_maps_with_actions(threshold=50, for_zoomed=False, covered_injection_only=True, save=True)
+# plot_IDR_maps_with_actions(threshold=1 , for_zoomed=True, covered_injection_only=True)
+# plot_IDR_maps_with_actions(threshold=30, for_zoomed=True, covered_injection_only=True)
+# plot_IDR_maps_with_actions(threshold=50, for_zoomed=True, covered_injection_only=True)
