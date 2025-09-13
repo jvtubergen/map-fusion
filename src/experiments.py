@@ -239,11 +239,16 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants
             target_graph = maps[place]["osm"]
             source_graph = maps[place][variant]
 
+            # Apply subgraphing for prime samples to focus on areas near target graph
+            if prime:
+                logger(f"Applying subgraphing with distance {threshold}m for prime samples.")
+                source_graph = extract_subgraph_by_graph(source_graph, target_graph, threshold)
+
             if metric == "apls":
                 target_paths = shortest_paths[place]["osm"]
                 source_paths = shortest_paths[place][variant]
 
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=prime)["metrics_samples"]
 
             print(f"* {location}")
             if extend and path_exists(location):
@@ -519,6 +524,10 @@ def experiment_zero_graph_distances(sample_size = 10000):
 
 def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False):
     """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
+
+    # Precompute shortest path dictionaries first
+    obtain_shortest_distance_dictionaries(threshold=threshold, covered_injection_only=covered_injection_only)
+    obtain_shortest_distance_dictionaries(threshold=threshold, inverse=True, covered_injection_only=covered_injection_only)
 
     obtain_apls_samples(threshold=threshold, sample_count=sample_count      , extend=True, prime=False, covered_injection_only=covered_injection_only)
     obtain_apls_samples(threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , covered_injection_only=covered_injection_only)

@@ -46,16 +46,21 @@ from workflow import *
 
 
 # Experiment 4: Selective edge injection
+
 # obtain_fusion_maps_range(covered_injection_only=True)
+
 # plot_IDR_maps_with_actions(threshold=1 , for_zoomed=False, covered_injection_only=True, save=True)
 # plot_IDR_maps_with_actions(threshold=30, for_zoomed=False, covered_injection_only=True, save=True)
 # plot_IDR_maps_with_actions(threshold=50, for_zoomed=False, covered_injection_only=True, save=True)
 # plot_IDR_maps_with_actions(threshold=1 , for_zoomed=True, covered_injection_only=True)
 # plot_IDR_maps_with_actions(threshold=30, for_zoomed=True, covered_injection_only=True)
 # plot_IDR_maps_with_actions(threshold=50, for_zoomed=True, covered_injection_only=True)
+
 # experiment_two_threshold_impact_on_metadata(covered_injection_only=True)
 
 # for i in range(1, 51):
 #     for inverse in [False, True]:
 #         obtain_prepared_metric_maps(threshold = i, fusion_only = True, inverse = inverse, re_use = True, covered_injection_only = True)
 # experiment_two_basic_information(covered_injection_only=True)
+
+# experiments_one_base_table("berlin", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True)

@@ -113,7 +113,7 @@ def data_location(place, variant, threshold = None, inverse = False):
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
-def experiment_location(place, variant, threshold = None, inverse = False, metric = None, metric_threshold = None, metric_interval = None, plot_name = None):
+def experiment_location(place, variant, threshold = None, inverse = False, metric = None, metric_threshold = None, metric_interval = None, plot_name = None, prime_samples = False):
 
     filename = f"{variant}-{place}"
     if (variant in fusion_variants or variant in fusion_variants_covered) and threshold != None:
@@ -134,11 +134,13 @@ def experiment_location(place, variant, threshold = None, inverse = False, metri
     if variant in fusion_variants or variant in fusion_variants_covered:
         assert threshold != None # Expect a threshold is given if its a fuse variant.
 
+    metrics_samples_dir = "metrics_samples_prime" if prime_samples else "metrics_samples"
+    
     return  {
         "prepared_graph"     : get_data_file(f"experiments/prepared_graph/{filename}.graph"),
         "apls_shortest_paths": get_data_file(f"experiments/apls_shortest_paths/{filename}.pkl"),
         "metrics"            : get_data_file(f"experiments/metrics/{filename}.pkl"),
-        "metrics_samples"    : get_data_file(f"experiments/metrics_samples/{filename}.pkl"),
+        "metrics_samples"    : get_data_file(f"experiments/{metrics_samples_dir}/{filename}.pkl"),
         # "plots"              : get_data_file(f"experiments/plots/{filename}.svg"),
         # "distance_samples"   : get_data_file(f"experiments/distance_samples/{filename}.pkl"),
         # "threshold_maps"     : get_data_file(f"experiments/threshold_maps/{filename}.pkl"),

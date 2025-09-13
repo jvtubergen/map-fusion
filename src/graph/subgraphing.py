@@ -10,6 +10,19 @@ def extract_subgraph(G, ps, lam):
     subG = G.edge_subgraph(edges)
     return subG
 
+# Extract subgraph from G that is in bounding box distance to any edge of H.
+def extract_subgraph_by_graph(G, H, lam):
+    G_edgetree  = graphedges_to_rtree(G) # Place graph edges by coordinates in accelerated data structure (R-Tree).
+    H_edgebboxs = graphedges_to_bboxs(H) 
+
+    subG_edges = set()
+    for eid, bbox in H_edgebboxs.items():  
+        bbox = pad_bounding_box(bbox, lam)
+        G_edges = set(G_edgetree.intersection((bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1])))
+        subG_edges = subG_edges.union(G_edges)
+    
+    subG = G.edge_subgraph(subG_edges)
+    return subG
 
 # Cut out ROI subgraph. (Drop any edge with an endpoint beyond the ROI.)
 def cut_out_ROI(G, p1, p2):
