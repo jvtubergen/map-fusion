@@ -13,6 +13,7 @@ https://pdfs.semanticscholar.org/51b0/51eba4f58afc34021ae23641fc8e168fdf07.pdf
 import os
 import sys
 import time
+import random
 import numpy as np
 import networkx as nx
 import scipy.spatial
@@ -675,12 +676,13 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
 
     origin_nodes = G_gt_.nodes()
 
-    # TODO: Pick at arbitrary position on graph.
     prime_samples = 0
+    counter = 0
     while (prime_samples < n_measurement_nodes if prime else len(samples) < n_measurement_nodes):
+        counter += 1
         if random.random() < 0.01:
             if prime:
-                print(f"Number of primal samples generated: {prime_samples}/{n_measurement_nodes}. (Total attempts: {len(samples)})")
+                print(f"Number of primal samples generated: {prime_samples}/{n_measurement_nodes}. (Total attempts: {counter})")
             else:
                 print(f"Number of samples generated: {len(samples)}/{n_measurement_nodes}.")
 
@@ -688,6 +690,15 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         n_props = G_gt_.nodes[origin_node]
         x0, y0 = n_props[x_coord], n_props[y_coord]
         origin_point = [x0, y0]
+
+        if prime:
+            # Early validation: check if proposal nodes exist near this seed
+            node_names_p_early, idxs_refine_p_early, dists_m_refine_p_early = topo_utils._query_kd_ball(
+                kdtree_p, kd_idx_dic_p, origin_point, hole_size)
+            
+            if len(node_names_p_early) == 0:
+                # No nearby proposal nodes - skip this seed 
+                continue
 
         # get subgraph
         node_names, node_dists = topo_utils._nodes_near_origin(

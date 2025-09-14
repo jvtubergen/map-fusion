@@ -240,7 +240,7 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants
             source_graph = maps[place][variant]
 
             # Apply subgraphing for prime samples to focus on areas near target graph
-            if prime:
+            if prime and metric == "apls":
                 logger(f"Applying subgraphing with distance {threshold}m for prime samples.")
                 source_graph = extract_subgraph_by_graph(source_graph, target_graph, threshold)
 
