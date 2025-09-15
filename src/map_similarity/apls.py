@@ -94,11 +94,13 @@ def random_position_on_graph(G, random_edge_picker=None):
     }
 
 
-def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=None):
+def get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=None, G_start=None, G_end=None):
     """Obtain a random position on G and its nearest position on H."""
     # Start and end position in G.
-    G_start = random_position_on_graph(G, random_edge_picker=random_edge_picker)
-    G_end   = random_position_on_graph(G, random_edge_picker=random_edge_picker)
+    if G_start is None:
+        G_start = random_position_on_graph(G, random_edge_picker=random_edge_picker)
+    if G_end is None:
+        G_end   = random_position_on_graph(G, random_edge_picker=random_edge_picker)
 
     a, b = sorted([G_start["eid"][0], G_end["eid"][0]])
     if b not in G_paths[a]:
@@ -173,14 +175,37 @@ def apls_sampling(G, H, G_paths, H_paths, n=1000, max_distance=5, prime=False):
 
     samples = []
     primal_count = 0
+    total_attempts = 0
     while (primal_count < n if prime else len(samples) < n):
+        total_attempts += 1
         if random.random() < 0.001:
             if prime:
-                print(f"Number of samples generated: {primal_count}/{n}. (Total attemps: {len(samples)})")
+                print(f"Number of samples generated: {primal_count}/{n}. (Total attemps: {total_attempts})")
             else:
                 print(f"Number of samples generated: {len(samples)}/{n}.")
 
-        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker)
+        G_start_precomputed = None
+        G_end_precomputed = None
+        
+        if prime:
+            # Cheap prime sample test: check if sample seed points are within distance
+            G_start_precomputed = random_position_on_graph(G, random_edge_picker=_random_edge_picker)
+            G_end_precomputed   = random_position_on_graph(G, random_edge_picker=_random_edge_picker)
+            
+            # Get nearest positions on H for both points
+            H_start = gen_position_by_nearest_point(H, G_start_precomputed["position"], H_edge_rtree)
+            H_end   = gen_position_by_nearest_point(H, G_end_precomputed["position"], H_edge_rtree)
+            
+            # Early validation: check if both points are within max_distance (primal condition)
+            start_dist = float(norm(H_start["position"] - G_start_precomputed["position"]))
+            end_dist = float(norm(H_end["position"] - G_end_precomputed["position"]))
+            is_primal = start_dist < max_distance and end_dist < max_distance
+            
+            if not is_primal:
+                # Skip non-primal samples when seeking prime samples
+                continue
+
+        sample = get_sample(G, H, G_paths, H_paths, H_edge_rtree, max_distance, random_edge_picker=_random_edge_picker, G_start=G_start_precomputed, G_end=G_end_precomputed)
         
         if sample != None:
             samples.append(sample)
