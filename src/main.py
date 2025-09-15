@@ -63,5 +63,11 @@ from workflow import *
 #         obtain_prepared_metric_maps(threshold = i, fusion_only = True, inverse = inverse, re_use = True, covered_injection_only = True)
 # experiment_two_basic_information(covered_injection_only=True)
 
-# experiments_one_base_table("berlin", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True)
+# experiments_one_base_table("berlin", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 5)
+# experiments_one_base_table("chicago", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 5)
 # experiments_one_base_table("berlin", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 10)
+# experiments_one_base_table("chicago", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 10)
+
+# obtain_threshold_data(sample_count=2000, prime_sample_count=400, covered_injection_only=True)
+# experiment_two_threshold_performance(sample_count=2000, prime_sample_count=400, inverse=False)
+# experiment_two_threshold_performance(sample_count=2000, prime_sample_count=400, inverse=True)

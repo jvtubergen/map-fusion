@@ -161,27 +161,22 @@ def obtain_apls_samples(**props):
 def obtain_topo_samples(**props):
     obtain_metric_samples("topo", **props)
 
-def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants = None, inverse = False, sample_count = 500, metric_threshold = None, metric_interval = None, prime = False, extend = True, covered_injection_only = False): # APLS
+def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants = None, inverse = False, sample_count = 500, metric_threshold = None, prime = False, extend = True, covered_injection_only = False): # APLS
     """Pregenerate samples, so its easier to experiment with taking different sample countes etcetera."""
 
     assert metric in metrics
 
     if metric_threshold == None:
-        if metric == "apls":
-            metric_threshold = 5
-        else:
-            metric_threshold = 5.5
+        metric_threshold = 5
 
-    if metric_interval == None:
-        if metric == "topo":
-            metric_interval = 5
+    metric_interval = metric_threshold
 
     if inverse:
         fusion_only = True
         
     if _variants == None:
         if fusion_only:
-            _variants = set(get_fusion_variants(covered_injection_only))
+            _variants = set(get_fusion_variants(covered_injection_only)) - set(["osm"])
         else:
             _variants = set(base_variants + get_fusion_variants(covered_injection_only))
     else:
@@ -196,7 +191,7 @@ def obtain_metric_samples(metric, threshold = 30, fusion_only = False, _variants
             if do_we_have_to_compute:
                 continue
 
-            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric=metric, metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=prime)["metrics_samples"]
             if not extend or not path_exists(location):
                 do_we_have_to_compute = True
                 continue
@@ -522,7 +517,7 @@ def experiment_zero_graph_distances(sample_size = 10000):
 ##################
 
 
-def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False, metric_threshold = None):
+def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = False, metric_threshold = None, metric_interval = None):
     """Table list SAT, GPS,  A, B, C, A^-1, B^-1, C^-1."""
 
     # Precompute shortest path dictionaries first
@@ -539,6 +534,9 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
     obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=sample_count      , extend=True, prime=False, inverse=True, covered_injection_only=covered_injection_only)
     obtain_topo_samples(metric_threshold=metric_threshold, threshold=threshold, sample_count=prime_sample_count, extend=True, prime=True , inverse=True, covered_injection_only=covered_injection_only)
 
+    if metric_interval == None:
+        metric_interval = metric_threshold
+
     # Read in TOPO and APLS samples and compute metric scores.
     table_results = {}
     selected_variants = set(base_variants + get_fusion_variants(covered_injection_only)) - set(["osm"])
@@ -551,8 +549,6 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
             print(f"{place}-{variant}-{inverse}")
             
             # Asymmetric APLS results.
-            metric_threshold = 5
-            metric_interval = None
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             assert len(samples) >= sample_count
@@ -566,8 +562,6 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
             apls_prime = asymmetric_apls_from_samples(prime_samples[:prime_sample_count], prime=True)
 
             # Asymmetric TOPO results.
-            metric_threshold = 5.5
-            metric_interval = 5
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             assert len(samples) >= sample_count
