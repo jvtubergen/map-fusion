@@ -691,12 +691,17 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         x0, y0 = n_props[x_coord], n_props[y_coord]
         origin_point = [x0, y0]
 
+        # Pre-compute proposal node query for reuse
+        node_names_p_precomputed = None
+        idxs_refine_p_precomputed = None  
+        dists_m_refine_p_precomputed = None
+        
         if prime:
             # Early validation: check if proposal nodes exist near this seed
-            node_names_p_early, idxs_refine_p_early, dists_m_refine_p_early = topo_utils._query_kd_ball(
+            node_names_p_precomputed, idxs_refine_p_precomputed, dists_m_refine_p_precomputed = topo_utils._query_kd_ball(
                 kdtree_p, kd_idx_dic_p, origin_point, hole_size)
             
-            if len(node_names_p_early) == 0:
+            if len(node_names_p_precomputed) == 0:
                 # No nearby proposal nodes - skip this seed 
                 continue
 
@@ -735,9 +740,12 @@ def topo_sampling(G_gt_, G_p_, subgraph_radius=150, interval=30, hole_size=5,
         # Proposal
 
         # determine nearast node to ground_truth origin_point
-        # query kd tree for origin node
-        node_names_p, idxs_refine_p, dists_m_refine_p = topo_utils._query_kd_ball(
-            kdtree_p, kd_idx_dic_p, origin_point, hole_size)
+        # query kd tree for origin node (reuse precomputed results if available)
+        if node_names_p_precomputed is not None:
+            node_names_p, idxs_refine_p, dists_m_refine_p = node_names_p_precomputed, idxs_refine_p_precomputed, dists_m_refine_p_precomputed
+        else:
+            node_names_p, idxs_refine_p, dists_m_refine_p = topo_utils._query_kd_ball(
+                kdtree_p, kd_idx_dic_p, origin_point, hole_size)
 
         if len(node_names_p) == 0:
             # all nodes are false positives in this case
