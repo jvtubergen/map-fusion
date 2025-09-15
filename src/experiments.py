@@ -556,9 +556,14 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             assert len(samples) >= sample_count
-            assert len(prime_apls_samples(samples)) >= prime_sample_count
+            
+            # Load prime samples from the correct location
+            prime_location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=True)["metrics_samples"]
+            prime_samples = read_pickle(prime_location)
+            assert len(prime_samples) >= prime_sample_count
+            
             apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
-            apls_prime = asymmetric_apls_from_samples(prime_apls_samples(samples)[:prime_sample_count], prime=True)
+            apls_prime = asymmetric_apls_from_samples(prime_samples[:prime_sample_count], prime=True)
 
             # Asymmetric TOPO results.
             metric_threshold = 5.5
@@ -566,9 +571,14 @@ def experiments_one_base_table(place, threshold = 30, sample_count = 10000, prim
             location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
             samples = read_pickle(location)
             assert len(samples) >= sample_count
-            assert len(prime_topo_samples(samples)) >= prime_sample_count
+            
+            # Load prime samples from the correct location
+            prime_location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=True)["metrics_samples"]
+            prime_samples = read_pickle(prime_location)
+            assert len(prime_samples) >= prime_sample_count
+            
             topo_results       = asymmetric_topo_from_samples(samples[:sample_count], False)
-            topo_prime_results = asymmetric_topo_from_samples(prime_topo_samples(samples)[:prime_sample_count], True)
+            topo_prime_results = asymmetric_topo_from_samples(prime_samples[:prime_sample_count], True)
 
             table_results[variant][inverse] = {
                 "apls": apls,
