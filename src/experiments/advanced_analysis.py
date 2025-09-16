@@ -16,7 +16,7 @@ from .visualization import (
 )
 
 
-def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=False):
+def experiment_unimodal_fusion_analysis(threshold=30):
     """
     Perform map fusion with unimodal maps as base and ground truth as patch, and vice versa.
     Count injected edges and report total edge count and edge length for each fusion scenario.
@@ -44,7 +44,7 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         sanity_check_graph(osm_vs_gps)
         graphs_gps_base = map_fusion(C=gps, A=osm_vs_gps, prune_threshold=threshold, 
                                    remove_duplicates=True, reconnect_after=True, 
-                                   covered_injection_only=covered_injection_only)
+                                   covered_injection_only=True)
         fusion_gps_base = graphs_gps_base["c"]
         
         # Count metrics for GPS base scenario
@@ -70,7 +70,7 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         sanity_check_graph(gps_vs_osm)
         graphs_osm_base = map_fusion(C=osm, A=gps_vs_osm, prune_threshold=threshold,
                                    remove_duplicates=True, reconnect_after=True,
-                                   covered_injection_only=covered_injection_only)
+                                   covered_injection_only=True)
         fusion_osm_base = graphs_osm_base["c"]
         
         # Count metrics for OSM base scenario
@@ -96,7 +96,7 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         sanity_check_graph(osm_vs_sat)
         graphs_sat_base = map_fusion(C=sat, A=osm_vs_sat, prune_threshold=threshold,
                                    remove_duplicates=True, reconnect_after=True,
-                                   covered_injection_only=covered_injection_only)
+                                   covered_injection_only=True)
         fusion_sat_base = graphs_sat_base["c"]
         
         # Count metrics for SAT base scenario
@@ -122,7 +122,7 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         sanity_check_graph(sat_vs_osm)
         graphs_osm_sat_base = map_fusion(C=osm, A=sat_vs_osm, prune_threshold=threshold,
                                        remove_duplicates=True, reconnect_after=True,
-                                       covered_injection_only=covered_injection_only)
+                                       covered_injection_only=True)
         fusion_osm_sat_base = graphs_osm_sat_base["c"]
         
         # Count metrics for OSM base + SAT patch scenario
