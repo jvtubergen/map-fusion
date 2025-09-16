@@ -154,10 +154,10 @@ def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
     # Set scenario labels and caption based on table type
     if table_type == "unimodal":
         scenario_labels = {
-            "gps_base_osm_patch": ("GPS", "OSM"),
-            "osm_base_gps_patch": ("OSM", "GPS"),
             "sat_base_osm_patch": ("SAT", "OSM"),
-            "osm_base_sat_patch": ("OSM", "SAT")
+            "osm_base_sat_patch": ("OSM", "SAT"),
+            "gps_base_osm_patch": ("GPS", "OSM"),
+            "osm_base_gps_patch": ("OSM", "GPS")
         }
         caption = f"Unimodal fusion analysis results against ground truth at a threshold {threshold}m."
         table_label = "table:unimodal-maps-road-continuation-quality"
