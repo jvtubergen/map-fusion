@@ -16,13 +16,25 @@ from .visualization import (
 )
 
 
-def experiment_unimodal_fusion_analysis(threshold=30):
+def experiment_fusion_analysis(threshold=30, selective_injection=False):
     """
-    Perform map fusion with unimodal maps as base and ground truth as patch, and vice versa.
-    Count injected edges and report total edge count and edge length for each fusion scenario.
-    Returns dictionary with data results and generates typst table string.
+    Perform map fusion analysis with configurable mode.
+    
+    Args:
+        threshold: Distance threshold for fusion operations
+        selective_injection: If True, analyzes selective injection (I*DR) fused maps.
+                           If False, analyzes unimodal maps against ground truth.
+    
+    Returns:
+        tuple: (results dict, typst table string)
     """
-    logger("Starting unimodal fusion analysis experiment.")
+    if selective_injection:
+        logger("Starting selective injection fusion analysis experiment.")
+        # First ensure we have the I*DR fused maps available
+        obtain_fusion_maps(threshold=threshold, covered_injection_only=True)
+        obtain_fusion_maps(threshold=threshold, inverse=True, covered_injection_only=True)
+    else:
+        logger("Starting unimodal fusion analysis experiment.")
     
     results = {}
     
@@ -30,125 +42,252 @@ def experiment_unimodal_fusion_analysis(threshold=30):
         logger(f"Analyzing {place}...")
         results[place] = {}
         
-        # Load base maps
-        osm = read_osm_graph(place)
-        gps = read_gps_graph(place)
-        sat = read_sat_graph(place)
+        if selective_injection:
+            # Load ground truth and fused maps
+            osm = read_osm_graph(place)
+            
+            # Load I*DR fused maps (A2, B2, C2) and clean them up
+            idr_sat = read_graph(data_location(place, "C2", threshold=threshold)["graph_file"])  # I*DR_SAT
+            idr_gps = read_graph(data_location(place, "C2", threshold=threshold, inverse=True)["graph_file"])  # I*DR_GPS
+            
+            # Remove deleted edges and clear coverage annotations from fused maps
+            idr_sat = remove_deleted(idr_sat)
+            idr_gps = remove_deleted(idr_gps)
+            
+            # Clear edge coverage annotations (threshold attributes) from previous fusion operations
+            for eid, attrs in iterate_edges(idr_sat):
+                if "threshold" in attrs:
+                    del attrs["threshold"]
+            for eid, attrs in iterate_edges(idr_gps):
+                if "threshold" in attrs:
+                    del attrs["threshold"]
+        else:
+            # Load base maps
+            osm = read_osm_graph(place)
+            gps = read_gps_graph(place)
+            sat = read_sat_graph(place)
         
         print(f"\n=== {place.upper()} ===")
         
-        # Scenario 1: GPS as base, OSM as patch
-        logger("GPS as base, OSM as patch")
-        osm_vs_gps = edge_graph_coverage(osm, gps, max_threshold=threshold)
-        sanity_check_graph(gps)
-        sanity_check_graph(osm_vs_gps)
-        graphs_gps_base = map_fusion(C=gps, A=osm_vs_gps, prune_threshold=threshold, 
-                                   remove_duplicates=True, reconnect_after=True, 
-                                   covered_injection_only=True)
-        fusion_gps_base = graphs_gps_base["c"]
-        
-        # Count metrics for GPS base scenario
-        injected_count_gps = len(filter_eids_by_attribute(fusion_gps_base, filter_attributes={"render": "injected"}))
-        total_edges_gps = len(fusion_gps_base.edges)
-        total_length_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_gps_base)]) / 1000
-        
-        results[place]["gps_base_osm_patch"] = {
-            "injected_edges": injected_count_gps,
-            "total_edges": total_edges_gps,
-            "total_length_km": total_length_gps
-        }
-        
-        print(f"GPS base + OSM patch:")
-        print(f"  Injected edges: {injected_count_gps}")
-        print(f"  Total edges: {total_edges_gps}")
-        print(f"  Total length: {total_length_gps:.2f} km")
-        
-        # Scenario 2: OSM as base, GPS as patch  
-        logger("OSM as base, GPS as patch")
-        gps_vs_osm = edge_graph_coverage(gps, osm, max_threshold=threshold)
-        sanity_check_graph(osm)
-        sanity_check_graph(gps_vs_osm)
-        graphs_osm_base = map_fusion(C=osm, A=gps_vs_osm, prune_threshold=threshold,
-                                   remove_duplicates=True, reconnect_after=True,
-                                   covered_injection_only=True)
-        fusion_osm_base = graphs_osm_base["c"]
-        
-        # Count metrics for OSM base scenario
-        injected_count_osm = len(filter_eids_by_attribute(fusion_osm_base, filter_attributes={"render": "injected"}))
-        total_edges_osm = len(fusion_osm_base.edges)
-        total_length_osm = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_base)]) / 1000
-        
-        results[place]["osm_base_gps_patch"] = {
-            "injected_edges": injected_count_osm,
-            "total_edges": total_edges_osm,
-            "total_length_km": total_length_osm
-        }
-        
-        print(f"OSM base + GPS patch:")
-        print(f"  Injected edges: {injected_count_osm}")
-        print(f"  Total edges: {total_edges_osm}")
-        print(f"  Total length: {total_length_osm:.2f} km")
-        
-        # Scenario 3: SAT as base, OSM as patch
-        logger("SAT as base, OSM as patch")
-        osm_vs_sat = edge_graph_coverage(osm, sat, max_threshold=threshold)
-        sanity_check_graph(sat)
-        sanity_check_graph(osm_vs_sat)
-        graphs_sat_base = map_fusion(C=sat, A=osm_vs_sat, prune_threshold=threshold,
-                                   remove_duplicates=True, reconnect_after=True,
-                                   covered_injection_only=True)
-        fusion_sat_base = graphs_sat_base["c"]
-        
-        # Count metrics for SAT base scenario
-        injected_count_sat = len(filter_eids_by_attribute(fusion_sat_base, filter_attributes={"render": "injected"}))
-        total_edges_sat = len(fusion_sat_base.edges)
-        total_length_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_sat_base)]) / 1000
-        
-        results[place]["sat_base_osm_patch"] = {
-            "injected_edges": injected_count_sat,
-            "total_edges": total_edges_sat,
-            "total_length_km": total_length_sat
-        }
-        
-        print(f"SAT base + OSM patch:")
-        print(f"  Injected edges: {injected_count_sat}")
-        print(f"  Total edges: {total_edges_sat}")
-        print(f"  Total length: {total_length_sat:.2f} km")
-        
-        # Scenario 4: OSM as base, SAT as patch
-        logger("OSM as base, SAT as patch")
-        sat_vs_osm = edge_graph_coverage(sat, osm, max_threshold=threshold)
-        sanity_check_graph(osm)
-        sanity_check_graph(sat_vs_osm)
-        graphs_osm_sat_base = map_fusion(C=osm, A=sat_vs_osm, prune_threshold=threshold,
+        if selective_injection:
+            # Scenario 1: I*DR_SAT as base, OSM as patch
+            logger("I*DR_SAT as base, OSM as patch")
+            osm_vs_idr_sat = edge_graph_coverage(osm, idr_sat, max_threshold=threshold)
+            sanity_check_graph(idr_sat)
+            sanity_check_graph(osm_vs_idr_sat)
+            graphs_idr_sat_base = map_fusion(C=idr_sat, A=osm_vs_idr_sat, prune_threshold=threshold,
+                                           remove_duplicates=True, reconnect_after=True,
+                                           covered_injection_only=True)
+            fusion_idr_sat_base = graphs_idr_sat_base["c"]
+            
+            # Count metrics for I*DR_SAT base scenario
+            injected_count_idr_sat = len(filter_eids_by_attribute(fusion_idr_sat_base, filter_attributes={"render": "injected"}))
+            total_edges_idr_sat = len(fusion_idr_sat_base.edges)
+            total_length_idr_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_idr_sat_base)]) / 1000
+            
+            results[place]["idr_sat_base_osm_patch"] = {
+                "injected_edges": injected_count_idr_sat,
+                "total_edges": total_edges_idr_sat,
+                "total_length_km": total_length_idr_sat
+            }
+            
+            print(f"I*DR_SAT base + OSM patch:")
+            print(f"  Injected edges: {injected_count_idr_sat}")
+            print(f"  Total edges: {total_edges_idr_sat}")
+            print(f"  Total length: {total_length_idr_sat:.2f} km")
+            
+            # Scenario 2: OSM as base, I*DR_SAT as patch
+            logger("OSM as base, I*DR_SAT as patch")
+            idr_sat_vs_osm = edge_graph_coverage(idr_sat, osm, max_threshold=threshold)
+            sanity_check_graph(osm)
+            sanity_check_graph(idr_sat_vs_osm)
+            graphs_osm_idr_sat_base = map_fusion(C=osm, A=idr_sat_vs_osm, prune_threshold=threshold,
+                                               remove_duplicates=True, reconnect_after=True,
+                                               covered_injection_only=True)
+            fusion_osm_idr_sat_base = graphs_osm_idr_sat_base["c"]
+            
+            # Count metrics for OSM base + I*DR_SAT patch scenario
+            injected_count_osm_idr_sat = len(filter_eids_by_attribute(fusion_osm_idr_sat_base, filter_attributes={"render": "injected"}))
+            total_edges_osm_idr_sat = len(fusion_osm_idr_sat_base.edges)
+            total_length_osm_idr_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_idr_sat_base)]) / 1000
+            
+            results[place]["osm_base_idr_sat_patch"] = {
+                "injected_edges": injected_count_osm_idr_sat,
+                "total_edges": total_edges_osm_idr_sat,
+                "total_length_km": total_length_osm_idr_sat
+            }
+            
+            print(f"OSM base + I*DR_SAT patch:")
+            print(f"  Injected edges: {injected_count_osm_idr_sat}")
+            print(f"  Total edges: {total_edges_osm_idr_sat}")
+            print(f"  Total length: {total_length_osm_idr_sat:.2f} km")
+            
+            # Scenario 3: I*DR_GPS as base, OSM as patch
+            logger("I*DR_GPS as base, OSM as patch")
+            osm_vs_idr_gps = edge_graph_coverage(osm, idr_gps, max_threshold=threshold)
+            sanity_check_graph(idr_gps)
+            sanity_check_graph(osm_vs_idr_gps)
+            graphs_idr_gps_base = map_fusion(C=idr_gps, A=osm_vs_idr_gps, prune_threshold=threshold,
+                                           remove_duplicates=True, reconnect_after=True,
+                                           covered_injection_only=True)
+            fusion_idr_gps_base = graphs_idr_gps_base["c"]
+            
+            # Count metrics for I*DR_GPS base scenario
+            injected_count_idr_gps = len(filter_eids_by_attribute(fusion_idr_gps_base, filter_attributes={"render": "injected"}))
+            total_edges_idr_gps = len(fusion_idr_gps_base.edges)
+            total_length_idr_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_idr_gps_base)]) / 1000
+            
+            results[place]["idr_gps_base_osm_patch"] = {
+                "injected_edges": injected_count_idr_gps,
+                "total_edges": total_edges_idr_gps,
+                "total_length_km": total_length_idr_gps
+            }
+            
+            print(f"I*DR_GPS base + OSM patch:")
+            print(f"  Injected edges: {injected_count_idr_gps}")
+            print(f"  Total edges: {total_edges_idr_gps}")
+            print(f"  Total length: {total_length_idr_gps:.2f} km")
+            
+            # Scenario 4: OSM as base, I*DR_GPS as patch
+            logger("OSM as base, I*DR_GPS as patch")
+            idr_gps_vs_osm = edge_graph_coverage(idr_gps, osm, max_threshold=threshold)
+            sanity_check_graph(osm)
+            sanity_check_graph(idr_gps_vs_osm)
+            graphs_osm_idr_gps_base = map_fusion(C=osm, A=idr_gps_vs_osm, prune_threshold=threshold,
+                                               remove_duplicates=True, reconnect_after=True,
+                                               covered_injection_only=True)
+            fusion_osm_idr_gps_base = graphs_osm_idr_gps_base["c"]
+            
+            # Count metrics for OSM base + I*DR_GPS patch scenario
+            injected_count_osm_idr_gps = len(filter_eids_by_attribute(fusion_osm_idr_gps_base, filter_attributes={"render": "injected"}))
+            total_edges_osm_idr_gps = len(fusion_osm_idr_gps_base.edges)
+            total_length_osm_idr_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_idr_gps_base)]) / 1000
+            
+            results[place]["osm_base_idr_gps_patch"] = {
+                "injected_edges": injected_count_osm_idr_gps,
+                "total_edges": total_edges_osm_idr_gps,
+                "total_length_km": total_length_osm_idr_gps
+            }
+            
+            print(f"OSM base + I*DR_GPS patch:")
+            print(f"  Injected edges: {injected_count_osm_idr_gps}")
+            print(f"  Total edges: {total_edges_osm_idr_gps}")
+            print(f"  Total length: {total_length_osm_idr_gps:.2f} km")
+        else:
+            # Scenario 1: GPS as base, OSM as patch
+            logger("GPS as base, OSM as patch")
+            osm_vs_gps = edge_graph_coverage(osm, gps, max_threshold=threshold)
+            sanity_check_graph(gps)
+            sanity_check_graph(osm_vs_gps)
+            graphs_gps_base = map_fusion(C=gps, A=osm_vs_gps, prune_threshold=threshold, 
+                                       remove_duplicates=True, reconnect_after=True, 
+                                       covered_injection_only=True)
+            fusion_gps_base = graphs_gps_base["c"]
+            
+            # Count metrics for GPS base scenario
+            injected_count_gps = len(filter_eids_by_attribute(fusion_gps_base, filter_attributes={"render": "injected"}))
+            total_edges_gps = len(fusion_gps_base.edges)
+            total_length_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_gps_base)]) / 1000
+            
+            results[place]["gps_base_osm_patch"] = {
+                "injected_edges": injected_count_gps,
+                "total_edges": total_edges_gps,
+                "total_length_km": total_length_gps
+            }
+            
+            print(f"GPS base + OSM patch:")
+            print(f"  Injected edges: {injected_count_gps}")
+            print(f"  Total edges: {total_edges_gps}")
+            print(f"  Total length: {total_length_gps:.2f} km")
+            
+            # Scenario 2: OSM as base, GPS as patch  
+            logger("OSM as base, GPS as patch")
+            gps_vs_osm = edge_graph_coverage(gps, osm, max_threshold=threshold)
+            sanity_check_graph(osm)
+            sanity_check_graph(gps_vs_osm)
+            graphs_osm_base = map_fusion(C=osm, A=gps_vs_osm, prune_threshold=threshold,
                                        remove_duplicates=True, reconnect_after=True,
                                        covered_injection_only=True)
-        fusion_osm_sat_base = graphs_osm_sat_base["c"]
-        
-        # Count metrics for OSM base + SAT patch scenario
-        injected_count_osm_sat = len(filter_eids_by_attribute(fusion_osm_sat_base, filter_attributes={"render": "injected"}))
-        total_edges_osm_sat = len(fusion_osm_sat_base.edges)
-        total_length_osm_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_sat_base)]) / 1000
-        
-        results[place]["osm_base_sat_patch"] = {
-            "injected_edges": injected_count_osm_sat,
-            "total_edges": total_edges_osm_sat,
-            "total_length_km": total_length_osm_sat
-        }
-        
-        print(f"OSM base + SAT patch:")
-        print(f"  Injected edges: {injected_count_osm_sat}")
-        print(f"  Total edges: {total_edges_osm_sat}")
-        print(f"  Total length: {total_length_osm_sat:.2f} km")
+            fusion_osm_base = graphs_osm_base["c"]
+            
+            # Count metrics for OSM base scenario
+            injected_count_osm = len(filter_eids_by_attribute(fusion_osm_base, filter_attributes={"render": "injected"}))
+            total_edges_osm = len(fusion_osm_base.edges)
+            total_length_osm = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_base)]) / 1000
+            
+            results[place]["osm_base_gps_patch"] = {
+                "injected_edges": injected_count_osm,
+                "total_edges": total_edges_osm,
+                "total_length_km": total_length_osm
+            }
+            
+            print(f"OSM base + GPS patch:")
+            print(f"  Injected edges: {injected_count_osm}")
+            print(f"  Total edges: {total_edges_osm}")
+            print(f"  Total length: {total_length_osm:.2f} km")
+            
+            # Scenario 3: SAT as base, OSM as patch
+            logger("SAT as base, OSM as patch")
+            osm_vs_sat = edge_graph_coverage(osm, sat, max_threshold=threshold)
+            sanity_check_graph(sat)
+            sanity_check_graph(osm_vs_sat)
+            graphs_sat_base = map_fusion(C=sat, A=osm_vs_sat, prune_threshold=threshold,
+                                       remove_duplicates=True, reconnect_after=True,
+                                       covered_injection_only=True)
+            fusion_sat_base = graphs_sat_base["c"]
+            
+            # Count metrics for SAT base scenario
+            injected_count_sat = len(filter_eids_by_attribute(fusion_sat_base, filter_attributes={"render": "injected"}))
+            total_edges_sat = len(fusion_sat_base.edges)
+            total_length_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_sat_base)]) / 1000
+            
+            results[place]["sat_base_osm_patch"] = {
+                "injected_edges": injected_count_sat,
+                "total_edges": total_edges_sat,
+                "total_length_km": total_length_sat
+            }
+            
+            print(f"SAT base + OSM patch:")
+            print(f"  Injected edges: {injected_count_sat}")
+            print(f"  Total edges: {total_edges_sat}")
+            print(f"  Total length: {total_length_sat:.2f} km")
+            
+            # Scenario 4: OSM as base, SAT as patch
+            logger("OSM as base, SAT as patch")
+            sat_vs_osm = edge_graph_coverage(sat, osm, max_threshold=threshold)
+            sanity_check_graph(osm)
+            sanity_check_graph(sat_vs_osm)
+            graphs_osm_sat_base = map_fusion(C=osm, A=sat_vs_osm, prune_threshold=threshold,
+                                           remove_duplicates=True, reconnect_after=True,
+                                           covered_injection_only=True)
+            fusion_osm_sat_base = graphs_osm_sat_base["c"]
+            
+            # Count metrics for OSM base + SAT patch scenario
+            injected_count_osm_sat = len(filter_eids_by_attribute(fusion_osm_sat_base, filter_attributes={"render": "injected"}))
+            total_edges_osm_sat = len(fusion_osm_sat_base.edges)
+            total_length_osm_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_sat_base)]) / 1000
+            
+            results[place]["osm_base_sat_patch"] = {
+                "injected_edges": injected_count_osm_sat,
+                "total_edges": total_edges_osm_sat,
+                "total_length_km": total_length_osm_sat
+            }
+            
+            print(f"OSM base + SAT patch:")
+            print(f"  Injected edges: {injected_count_osm_sat}")
+            print(f"  Total edges: {total_edges_osm_sat}")
+            print(f"  Total length: {total_length_osm_sat:.2f} km")
     
     # Generate typst table string
-    typst_table = generate_fusion_typst_table(results, threshold, table_type="unimodal")
+    table_type = "selective_injection" if selective_injection else "unimodal"
+    typst_table = generate_fusion_typst_table(results, threshold, table_type=table_type)
     print("\n" + "="*50)
     print("TYPST TABLE:")
     print("="*50)
     print(typst_table)
     
-    logger("Unimodal fusion analysis experiment completed.")
+    analysis_type = "Selective injection" if selective_injection else "Unimodal"
+    logger(f"{analysis_type} fusion analysis experiment completed.")
     return results, typst_table
 
 
@@ -231,159 +370,28 @@ def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
     return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
 
 
+# Backward compatibility wrapper functions
+def experiment_unimodal_fusion_analysis(threshold=30):
+    """
+    Backward compatibility wrapper for unimodal fusion analysis.
+    
+    Perform map fusion with unimodal maps as base and ground truth as patch, and vice versa.
+    Count injected edges and report total edge count and edge length for each fusion scenario.
+    Returns dictionary with data results and generates typst table string.
+    """
+    return experiment_fusion_analysis(threshold=threshold, selective_injection=False)
+
+
 def experiment_selective_injection_fusion_analysis(threshold=30):
     """
+    Backward compatibility wrapper for selective injection fusion analysis.
+    
     Analyze selective injection (I*DR) fused maps against ground truth (OSM).
     Uses existing fused maps (A2, B2, C2) and applies them as base with OSM as patch, and vice versa.
     Count injected edges and report total edge count and edge length for each fusion scenario.
     Returns dictionary with data results and generates typst table string.
     """
-    logger("Starting selective injection fusion analysis experiment.")
-    
-    # First ensure we have the I*DR fused maps available
-    obtain_fusion_maps(threshold=threshold, covered_injection_only=True)
-    obtain_fusion_maps(threshold=threshold, inverse=True, covered_injection_only=True)
-    
-    results = {}
-    
-    for place in places:
-        logger(f"Analyzing {place}...")
-        results[place] = {}
-        
-        # Load ground truth and fused maps
-        osm = read_osm_graph(place)
-        
-        # Load I*DR fused maps (A2, B2, C2) and clean them up
-        idr_sat = read_graph(data_location(place, "C2", threshold=threshold)["graph_file"])  # I*DR_SAT
-        idr_gps = read_graph(data_location(place, "C2", threshold=threshold, inverse=True)["graph_file"])  # I*DR_GPS
-        
-        # Remove deleted edges and clear coverage annotations from fused maps
-        idr_sat = remove_deleted(idr_sat)
-        idr_gps = remove_deleted(idr_gps)
-        
-        # Clear edge coverage annotations (threshold attributes) from previous fusion operations
-        for eid, attrs in iterate_edges(idr_sat):
-            if "threshold" in attrs:
-                del attrs["threshold"]
-        for eid, attrs in iterate_edges(idr_gps):
-            if "threshold" in attrs:
-                del attrs["threshold"]
-        
-        print(f"\n=== {place.upper()} ===")
-        
-        # Scenario 1: I*DR_SAT as base, OSM as patch
-        logger("I*DR_SAT as base, OSM as patch")
-        osm_vs_idr_sat = edge_graph_coverage(osm, idr_sat, max_threshold=threshold)
-        sanity_check_graph(idr_sat)
-        sanity_check_graph(osm_vs_idr_sat)
-        graphs_idr_sat_base = map_fusion(C=idr_sat, A=osm_vs_idr_sat, prune_threshold=threshold,
-                                       remove_duplicates=True, reconnect_after=True,
-                                       covered_injection_only=True)
-        fusion_idr_sat_base = graphs_idr_sat_base["c"]
-        
-        # Count metrics for I*DR_SAT base scenario
-        injected_count_idr_sat = len(filter_eids_by_attribute(fusion_idr_sat_base, filter_attributes={"render": "injected"}))
-        total_edges_idr_sat = len(fusion_idr_sat_base.edges)
-        total_length_idr_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_idr_sat_base)]) / 1000
-        
-        results[place]["idr_sat_base_osm_patch"] = {
-            "injected_edges": injected_count_idr_sat,
-            "total_edges": total_edges_idr_sat,
-            "total_length_km": total_length_idr_sat
-        }
-        
-        print(f"I*DR_SAT base + OSM patch:")
-        print(f"  Injected edges: {injected_count_idr_sat}")
-        print(f"  Total edges: {total_edges_idr_sat}")
-        print(f"  Total length: {total_length_idr_sat:.2f} km")
-        
-        # Scenario 2: OSM as base, I*DR_SAT as patch
-        logger("OSM as base, I*DR_SAT as patch")
-        idr_sat_vs_osm = edge_graph_coverage(idr_sat, osm, max_threshold=threshold)
-        sanity_check_graph(osm)
-        sanity_check_graph(idr_sat_vs_osm)
-        graphs_osm_idr_sat_base = map_fusion(C=osm, A=idr_sat_vs_osm, prune_threshold=threshold,
-                                           remove_duplicates=True, reconnect_after=True,
-                                           covered_injection_only=True)
-        fusion_osm_idr_sat_base = graphs_osm_idr_sat_base["c"]
-        
-        # Count metrics for OSM base + I*DR_SAT patch scenario
-        injected_count_osm_idr_sat = len(filter_eids_by_attribute(fusion_osm_idr_sat_base, filter_attributes={"render": "injected"}))
-        total_edges_osm_idr_sat = len(fusion_osm_idr_sat_base.edges)
-        total_length_osm_idr_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_idr_sat_base)]) / 1000
-        
-        results[place]["osm_base_idr_sat_patch"] = {
-            "injected_edges": injected_count_osm_idr_sat,
-            "total_edges": total_edges_osm_idr_sat,
-            "total_length_km": total_length_osm_idr_sat
-        }
-        
-        print(f"OSM base + I*DR_SAT patch:")
-        print(f"  Injected edges: {injected_count_osm_idr_sat}")
-        print(f"  Total edges: {total_edges_osm_idr_sat}")
-        print(f"  Total length: {total_length_osm_idr_sat:.2f} km")
-        
-        # Scenario 3: I*DR_GPS as base, OSM as patch
-        logger("I*DR_GPS as base, OSM as patch")
-        osm_vs_idr_gps = edge_graph_coverage(osm, idr_gps, max_threshold=threshold)
-        sanity_check_graph(idr_gps)
-        sanity_check_graph(osm_vs_idr_gps)
-        graphs_idr_gps_base = map_fusion(C=idr_gps, A=osm_vs_idr_gps, prune_threshold=threshold,
-                                       remove_duplicates=True, reconnect_after=True,
-                                       covered_injection_only=True)
-        fusion_idr_gps_base = graphs_idr_gps_base["c"]
-        
-        # Count metrics for I*DR_GPS base scenario
-        injected_count_idr_gps = len(filter_eids_by_attribute(fusion_idr_gps_base, filter_attributes={"render": "injected"}))
-        total_edges_idr_gps = len(fusion_idr_gps_base.edges)
-        total_length_idr_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_idr_gps_base)]) / 1000
-        
-        results[place]["idr_gps_base_osm_patch"] = {
-            "injected_edges": injected_count_idr_gps,
-            "total_edges": total_edges_idr_gps,
-            "total_length_km": total_length_idr_gps
-        }
-        
-        print(f"I*DR_GPS base + OSM patch:")
-        print(f"  Injected edges: {injected_count_idr_gps}")
-        print(f"  Total edges: {total_edges_idr_gps}")
-        print(f"  Total length: {total_length_idr_gps:.2f} km")
-        
-        # Scenario 4: OSM as base, I*DR_GPS as patch
-        logger("OSM as base, I*DR_GPS as patch")
-        idr_gps_vs_osm = edge_graph_coverage(idr_gps, osm, max_threshold=threshold)
-        sanity_check_graph(osm)
-        sanity_check_graph(idr_gps_vs_osm)
-        graphs_osm_idr_gps_base = map_fusion(C=osm, A=idr_gps_vs_osm, prune_threshold=threshold,
-                                           remove_duplicates=True, reconnect_after=True,
-                                           covered_injection_only=True)
-        fusion_osm_idr_gps_base = graphs_osm_idr_gps_base["c"]
-        
-        # Count metrics for OSM base + I*DR_GPS patch scenario
-        injected_count_osm_idr_gps = len(filter_eids_by_attribute(fusion_osm_idr_gps_base, filter_attributes={"render": "injected"}))
-        total_edges_osm_idr_gps = len(fusion_osm_idr_gps_base.edges)
-        total_length_osm_idr_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_idr_gps_base)]) / 1000
-        
-        results[place]["osm_base_idr_gps_patch"] = {
-            "injected_edges": injected_count_osm_idr_gps,
-            "total_edges": total_edges_osm_idr_gps,
-            "total_length_km": total_length_osm_idr_gps
-        }
-        
-        print(f"OSM base + I*DR_GPS patch:")
-        print(f"  Injected edges: {injected_count_osm_idr_gps}")
-        print(f"  Total edges: {total_edges_osm_idr_gps}")
-        print(f"  Total length: {total_length_osm_idr_gps:.2f} km")
-    
-    # Generate typst table string
-    typst_table = generate_fusion_typst_table(results, threshold, table_type="selective_injection")
-    print("\n" + "="*50)
-    print("TYPST TABLE:")
-    print("="*50)
-    print(typst_table)
-    
-    logger("Selective injection fusion analysis experiment completed.")
-    return results, typst_table
+    return experiment_fusion_analysis(threshold=threshold, selective_injection=True)
 
 
 def get_performance_data_for_place(place, threshold=30, covered_injection_only=True, metric_threshold=None, metric_interval=None, sample_count=10000, prime_sample_count=2000):
