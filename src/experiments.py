@@ -1442,11 +1442,21 @@ def experiment_selective_injection_fusion_analysis(threshold=30):
         # Load ground truth and fused maps
         osm = read_osm_graph(place)
         
-        # Load I*DR fused maps (A2, B2, C2)
-        i_sat = read_graph(data_location(place, "A2", threshold=threshold)["graph_file"])  # I*_SAT
+        # Load I*DR fused maps (A2, B2, C2) and clean them up
         idr_sat = read_graph(data_location(place, "C2", threshold=threshold)["graph_file"])  # I*DR_SAT
-        i_gps = read_graph(data_location(place, "A2", threshold=threshold, inverse=True)["graph_file"])  # I*_GPS  
         idr_gps = read_graph(data_location(place, "C2", threshold=threshold, inverse=True)["graph_file"])  # I*DR_GPS
+        
+        # Remove deleted edges and clear coverage annotations from fused maps
+        idr_sat = remove_deleted(idr_sat)
+        idr_gps = remove_deleted(idr_gps)
+        
+        # Clear edge coverage annotations (threshold attributes) from previous fusion operations
+        for eid, attrs in iterate_edges(idr_sat):
+            if "threshold" in attrs:
+                del attrs["threshold"]
+        for eid, attrs in iterate_edges(idr_gps):
+            if "threshold" in attrs:
+                del attrs["threshold"]
         
         print(f"\n=== {place.upper()} ===")
         

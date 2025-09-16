@@ -4,6 +4,7 @@ from graph.utilities import *
 from graph.coverage import *
 from graph.sanitizing import sanity_check_graph_curvature
 from graph.edge_cutting import graph_cut_edge_intervals
+from graph.sanitizing import sanity_check_graph
 
 
 # Reset coverage threshold information on a graph.
@@ -72,6 +73,8 @@ def map_fusion(C=None, A=None, prune_threshold=20, remove_duplicates=False, reco
         relabel_mapping[nidH] = nid
         nid += 1
     A = nx.relabel_nodes(A, relabel_mapping)
+    # Relabeling may have caused edge curve direction to have flipped, causing sanity check error down the road, so ensure correct direction.
+    A = graph_annotate_edges(A)
 
     # Render nodes and edges of C as original.
     annotate_nodes(C, {"render": "original", "origin": "C"})
