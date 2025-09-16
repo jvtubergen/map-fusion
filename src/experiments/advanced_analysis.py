@@ -793,6 +793,25 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     """
     logger("Starting continuation performance correlation heatmap experiment.")
     
+    # Check for cached results first
+    cache_file = f"data/experiments/continuation_performance_correlation_cache_t{threshold}.pkl"
+    try:
+        cached_data = read_pickle(cache_file)
+        if cached_data.get("threshold") == threshold:
+            logger(f"Loading cached correlation data from {cache_file}")
+            combined_df = cached_data["combined_df"]
+            heatmap_matrix = cached_data["heatmap_matrix"]
+            
+            # Create visualization with cached data
+            plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
+            
+            logger("Continuation performance correlation heatmap experiment completed (from cache).")
+            return combined_df, heatmap_matrix
+        else:
+            logger(f"Cache threshold mismatch, recomputing...")
+    except (FileNotFoundError, KeyError, Exception) as e:
+        logger(f"Cache not found or corrupted ({e}), computing from scratch...")
+    
     # Ensure we have the necessary data prepared
     obtain_prepared_metric_maps(threshold=threshold, covered_injection_only=True)
     obtain_prepared_metric_maps(threshold=threshold, inverse=True, covered_injection_only=True)
@@ -879,6 +898,18 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     
     # Create 2×4 correlation matrix (road continuation quality vs map performance)
     heatmap_matrix = correlation_matrix.loc[road_continuation_cols, performance_cols]
+    
+    # Store computed data to cache before visualization
+    cache_data = {
+        "combined_df": combined_df,
+        "heatmap_matrix": heatmap_matrix,
+        "threshold": threshold
+    }
+    try:
+        write_pickle(cache_file, cache_data)
+        logger(f"Cached correlation data to {cache_file}")
+    except Exception as e:
+        logger(f"Warning: Failed to cache data ({e}), continuing with visualization...")
     
     # Create visualization
     plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
