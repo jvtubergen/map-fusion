@@ -67,14 +67,11 @@ from .visualization import (
 from .advanced_analysis import (
     experiment_unimodal_fusion_analysis,
     experiment_selective_injection_fusion_analysis,
-    experiment_road_continuation_correlation_analysis,
-    experiment_continuation_performance_correlation_analysis,
     experiment_continuation_performance_correlation_heatmap,
     get_performance_data_for_place,
     generate_unimodal_fusion_typst_table,
     generate_selective_injection_fusion_typst_table,
     generate_correlation_typst_table,
-    plot_continuation_performance_correlation_heatmaps,
     plot_continuation_performance_heatmap,
 )
 
@@ -116,11 +113,9 @@ __all__ = [
     
     # Advanced analysis
     "experiment_unimodal_fusion_analysis", "experiment_selective_injection_fusion_analysis",
-    "experiment_road_continuation_correlation_analysis", "experiment_continuation_performance_correlation_analysis",
     "experiment_continuation_performance_correlation_heatmap", "get_performance_data_for_place", 
     "generate_unimodal_fusion_typst_table", "generate_selective_injection_fusion_typst_table",
-    "generate_correlation_typst_table", "plot_continuation_performance_correlation_heatmaps",
-    "plot_continuation_performance_heatmap",
+    "generate_correlation_typst_table", "plot_continuation_performance_heatmap",
     
     # Utilities
     "get_experiment_metadata", "validate_experiment_parameters", "format_variant_name",
