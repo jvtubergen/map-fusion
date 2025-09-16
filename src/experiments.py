@@ -1700,12 +1700,15 @@ def get_performance_data_for_place(place, threshold=30, covered_injection_only=T
 
 def experiment_road_continuation_correlation_analysis(threshold=30):
     """
-    Build correlation matrices connecting road continuation quality metrics with map performance changes.
-    Creates separate correlation matrices per place, road continuation type, metric (TOPO/APLS), and prime status.
+    Build comprehensive covariance matrices connecting road continuation quality metrics with map performance changes.
+    Creates single 6×6 covariance matrices per place showing all pairwise relationships between:
+    - road_cont_discontinuation: edges injected when I*DR as base, OSM as patch vs ground truth
+    - road_cont_continuation: edges injected when OSM as base, I*DR as patch vs ground truth  
+    - topo_change, topo_prime_change, apls_change, apls_prime_change
     
-    Road continuation quality is either:
-    - Percentage of incorrectly road discontinuation: edges injected / total edges against ground truth (patch map)
-    - Percentage of incorrectly road continuation conflicts: edges injected / total edges against base map
+    Road continuation quality measurements:
+    - Discontinuation: I*DR map as base, OSM (ground truth) as patch - captures missing roads
+    - Continuation: OSM (ground truth) as base, I*DR map as patch - captures extra roads
     """
     logger("Starting road continuation correlation analysis experiment.")
     
@@ -1717,15 +1720,18 @@ def experiment_road_continuation_correlation_analysis(threshold=30):
     selective_results, _ = experiment_selective_injection_fusion_analysis(threshold=threshold)
     unimodal_results, _ = experiment_unimodal_fusion_analysis(threshold=threshold)
     
-    # Collect all correlation data organized by the four parameters
-    all_correlation_matrices = {}
-    correlation_data = []
+    # Collect comprehensive correlation data for each place
+    comprehensive_matrices = {}
+    comprehensive_data = {}
     
     for place in places:
-        logger(f"Processing correlation data for {place}...")
+        logger(f"Processing comprehensive correlation data for {place}...")
         
         # Get performance table data for this place
         performance_data = get_performance_data_for_place(place, threshold=threshold, covered_injection_only=True)
+        
+        # Initialize data collection for this place
+        place_data = []
         
         # Process I*DR vs unimodal base comparisons
         fused_variants = {
@@ -1736,7 +1742,7 @@ def experiment_road_continuation_correlation_analysis(threshold=30):
         for fused_name, (variant, inverse, base_variant) in fused_variants.items():
             
             # Get road continuation quality metrics
-            # Type 1: Incorrectly road discontinuation (against patch map/ground truth OSM)
+            # Type 1: Incorrectly road discontinuation (I*DR as base, OSM as patch vs ground truth)
             if fused_name == "I*DR_SAT":
                 discontinuation_data = selective_results[place]["idr_sat_base_osm_patch"]
             else:  # I*DR_GPS
@@ -1744,7 +1750,7 @@ def experiment_road_continuation_correlation_analysis(threshold=30):
             
             discontinuation_ratio = discontinuation_data["injected_edges"] / discontinuation_data["total_edges"]
             
-            # Type 2: Incorrectly road continuation conflicts (against base map)
+            # Type 2: Incorrectly road continuation conflicts (OSM as base, I*DR as patch vs ground truth)
             if fused_name == "I*DR_SAT":
                 continuation_data = selective_results[place]["osm_base_idr_sat_patch"]
             else:  # I*DR_GPS  
@@ -1757,51 +1763,44 @@ def experiment_road_continuation_correlation_analysis(threshold=30):
             base_perf = performance_data[base_variant][False]
             
             # Calculate performance changes for both regular and prime metrics
-            perf_changes = {
-                "topo_change": fused_perf["topo"]["f1"] - base_perf["topo"]["f1"],
-                "apls_change": fused_perf["apls"] - base_perf["apls"],
-                "topo_prime_change": fused_perf["topo_prime"]["f1"] - base_perf["topo_prime"]["f1"],
-                "apls_prime_change": fused_perf["apls_prime"] - base_perf["apls_prime"]
-            }
+            topo_change = fused_perf["topo"]["f1"] - base_perf["topo"]["f1"]
+            apls_change = fused_perf["apls"] - base_perf["apls"]
+            topo_prime_change = fused_perf["topo_prime"]["f1"] - base_perf["topo_prime"]["f1"]
+            apls_prime_change = fused_perf["apls_prime"] - base_perf["apls_prime"]
             
-            # Add data points for both continuation types
-            for cont_type, road_cont_ratio in [("discontinuation", discontinuation_ratio), 
-                                              ("continuation", continuation_ratio)]:
-                correlation_data.append({
-                    "place": place,
-                    "continuation_type": cont_type,
-                    "fused_variant": fused_name,
-                    "base_variant": base_variant,
-                    "road_cont_quality": road_cont_ratio,
-                    **perf_changes
-                })
+            # Collect all metrics for this data point
+            place_data.append({
+                "road_cont_discontinuation": discontinuation_ratio,
+                "road_cont_continuation": continuation_ratio,
+                "topo_change": topo_change,
+                "topo_prime_change": topo_prime_change,
+                "apls_change": apls_change,
+                "apls_prime_change": apls_prime_change,
+                "fused_variant": fused_name,
+                "base_variant": base_variant
+            })
+        
+        # Convert to DataFrame and create comprehensive covariance matrix
+        place_df = pd.DataFrame(place_data)
+        
+        # Select the 6 correlation columns
+        corr_columns = [
+            "road_cont_discontinuation", "road_cont_continuation",
+            "topo_change", "topo_prime_change", "apls_change", "apls_prime_change"
+        ]
+        
+        # Create comprehensive 6×6 covariance matrix
+        comprehensive_cov_matrix = place_df[corr_columns].cov()
+        
+        # Store results
+        comprehensive_matrices[place] = comprehensive_cov_matrix
+        comprehensive_data[place] = place_df
     
-    # Convert to DataFrame
-    df = pd.DataFrame(correlation_data)
-    
-    # Create correlation matrices for each combination of parameters
-    for place in places:
-        all_correlation_matrices[place] = {}
-        for cont_type in ["discontinuation", "continuation"]:
-            all_correlation_matrices[place][cont_type] = {}
-            for metric_type in ["topo", "apls"]:
-                all_correlation_matrices[place][cont_type][metric_type] = {}
-                for prime in [False, True]:
-                    # Filter data for this specific combination
-                    subset = df[df["place"] == place][df["continuation_type"] == cont_type]
-                    
-                    # Select the appropriate performance metric column
-                    perf_col = f"{metric_type}_{'prime_' if prime else ''}change"
-                    
-                    # Create correlation matrix with road continuation quality and performance change
-                    corr_data = subset[["road_cont_quality", perf_col]].corr()
-                    all_correlation_matrices[place][cont_type][metric_type][prime] = corr_data
-    
-    # Create seaborn correlation matrix plots
-    plot_correlation_matrices(all_correlation_matrices, threshold)
+    # Create visualization
+    plot_comprehensive_covariance_matrices(comprehensive_matrices, threshold)
     
     logger("Road continuation correlation analysis experiment completed.")
-    return df, all_correlation_matrices
+    return comprehensive_data, comprehensive_matrices
 
 
 def plot_correlation_matrices(all_correlation_matrices, threshold):
@@ -1920,6 +1919,94 @@ def plot_correlation_matrices(all_correlation_matrices, threshold):
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)  # Make room for suptitle
+    plt.show()
+
+
+def plot_comprehensive_covariance_matrices(comprehensive_matrices, threshold):
+    """
+    Plot comprehensive 6×6 covariance matrices using seaborn heatmaps.
+    Creates one heatmap per place showing all pairwise relationships between:
+    - road_cont_discontinuation, road_cont_continuation
+    - topo_change, topo_prime_change, apls_change, apls_prime_change
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    
+    # Set up the plot grid: 1 row × 2 columns = 2 subplots (Berlin, Chicago)
+    fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+    fig.suptitle(f'Comprehensive Road Continuation Quality vs Performance Covariance Matrices (threshold={threshold}m)', fontsize=16)
+    
+    places = ["berlin", "chicago"]
+    
+    # Custom labels for better readability
+    metric_labels = [
+        "Road Cont.\nDiscontinuation",
+        "Road Cont.\nContinuation", 
+        "Δ TOPO",
+        "Δ TOPO*",
+        "Δ APLS", 
+        "Δ APLS*"
+    ]
+    
+    # Find global min/max for consistent color scaling across both places
+    all_cov_values = []
+    for place in places:
+        if place in comprehensive_matrices:
+            cov_matrix = comprehensive_matrices[place]
+            # Get all values except diagonal (since diagonal is always high)
+            mask = ~np.eye(cov_matrix.shape[0], dtype=bool)
+            all_cov_values.extend(cov_matrix.values[mask])
+    
+    if all_cov_values:
+        vmin = np.min(all_cov_values)
+        vmax = np.max(all_cov_values)
+        # Make symmetric around 0 for better color interpretation
+        abs_max = max(abs(vmin), abs(vmax))
+        vmin, vmax = -abs_max, abs_max
+    else:
+        vmin, vmax = -1, 1
+    
+    # Plot each comprehensive covariance matrix
+    for idx, place in enumerate(places):
+        ax = axes[idx]
+        
+        if place in comprehensive_matrices:
+            cov_matrix = comprehensive_matrices[place]
+            
+            # Create heatmap
+            sns.heatmap(cov_matrix, 
+                      annot=True, 
+                      fmt='.4f', 
+                      cmap='RdBu_r',
+                      center=0,
+                      vmin=vmin, 
+                      vmax=vmax,
+                      ax=ax,
+                      cbar=idx == 1,  # Only show colorbar on rightmost plot
+                      square=True,
+                      xticklabels=metric_labels,
+                      yticklabels=metric_labels)
+            
+            # Customize labels and title
+            ax.set_title(place.title(), pad=20, fontsize=14)
+            ax.set_xlabel('Metrics', fontsize=12)
+            ax.set_ylabel('Metrics', fontsize=12)
+            
+            # Rotate labels for better readability
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+            ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+            
+        else:
+            # No data available
+            ax.text(0.5, 0.5, f'No Data Available\nfor {place.title()}', 
+                   ha='center', va='center', transform=ax.transAxes, fontsize=14)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(place.title(), pad=20, fontsize=14)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.90)  # Make room for suptitle
     plt.show()
 
 
