@@ -338,23 +338,23 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     logger("Starting continuation performance correlation heatmap experiment.")
     
     # Check for cached results first
-    # cache_file = f"data/experiments/continuation_performance_correlation_cache_t{threshold}.pkl"
-    # try:
-    #     cached_data = read_pickle(cache_file)
-    #     if cached_data.get("threshold") == threshold:
-    #         logger(f"Loading cached correlation data from {cache_file}")
-    #         combined_df = cached_data["combined_df"]
-    #         heatmap_matrix = cached_data["heatmap_matrix"]
+    cache_file = f"data/experiments/continuation_performance_correlation_cache_t{threshold}.pkl"
+    try:
+        cached_data = read_pickle(cache_file)
+        if cached_data.get("threshold") == threshold:
+            logger(f"Loading cached correlation data from {cache_file}")
+            combined_df = cached_data["combined_df"]
+            heatmap_matrix = cached_data["heatmap_matrix"]
             
-    #         # Create visualization with cached data
-    #         plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
+            # Create visualization with cached data
+            plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
             
-    #         logger("Continuation performance correlation heatmap experiment completed (from cache).")
-    #         return combined_df, heatmap_matrix
-    #     else:
-    #         logger(f"Cache threshold mismatch, recomputing...")
-    # except (FileNotFoundError, KeyError, Exception) as e:
-    #     logger(f"Cache not found or corrupted ({e}), computing from scratch...")
+            logger("Continuation performance correlation heatmap experiment completed (from cache).")
+            return combined_df, heatmap_matrix
+        else:
+            logger(f"Cache threshold mismatch, recomputing...")
+    except (FileNotFoundError, KeyError, Exception) as e:
+        logger(f"Cache not found or corrupted ({e}), computing from scratch...")
     
     # Ensure we have the necessary data prepared
     obtain_prepared_metric_maps(threshold=threshold, covered_injection_only=True)
@@ -502,15 +502,15 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
     
     # Better labels for the variables
     row_labels = [
-        "Δ Correct\nContinuation",
-        "Δ Correct\nDiscontinuation"
+        "Difference in \nCorrect Continuation",
+        "Difference in \nCorrect Discontinuation"
     ]
     
     col_labels = [
-        "Δ TOPO\n(Normal)",
-        "Δ TOPO\n(Prime)", 
-        "Δ APLS\n(Normal)",
-        "Δ APLS\n(Prime)"
+        "Difference in TOPO",
+        "Difference in TOPO*", 
+        "Difference in APLS",
+        "Difference in APLS*"
     ]
     
     # Calculate average values for each metric
