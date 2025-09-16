@@ -66,8 +66,6 @@ from .visualization import (
 
 from .advanced_analysis import (
     experiment_fusion_analysis,
-    experiment_unimodal_fusion_analysis,
-    experiment_selective_injection_fusion_analysis,
     experiment_continuation_performance_correlation_heatmap,
     get_performance_data_for_place,
     generate_fusion_typst_table,
@@ -111,7 +109,7 @@ __all__ = [
     "render_map", "plot_correlation_matrices", "plot_comprehensive_covariance_matrices",
     
     # Advanced analysis
-    "experiment_fusion_analysis", "experiment_unimodal_fusion_analysis", "experiment_selective_injection_fusion_analysis",
+    "experiment_fusion_analysis",
     "experiment_continuation_performance_correlation_heatmap", "get_performance_data_for_place", 
     "generate_fusion_typst_table", "plot_continuation_performance_heatmap",
     

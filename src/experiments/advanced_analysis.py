@@ -221,28 +221,6 @@ def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
     return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
 
 
-# Backward compatibility wrapper functions
-def experiment_unimodal_fusion_analysis(threshold=30):
-    """
-    Backward compatibility wrapper for unimodal fusion analysis.
-    
-    Perform map fusion with unimodal maps as base and ground truth as patch, and vice versa.
-    Count injected edges and report total edge count and edge length for each fusion scenario.
-    Returns dictionary with data results and generates typst table string.
-    """
-    return experiment_fusion_analysis(threshold=threshold, selective_injection=False)
-
-
-def experiment_selective_injection_fusion_analysis(threshold=30):
-    """
-    Backward compatibility wrapper for selective injection fusion analysis.
-    
-    Analyze selective injection (I*DR) fused maps against ground truth (OSM).
-    Uses existing fused maps (A2, B2, C2) and applies them as base with OSM as patch, and vice versa.
-    Count injected edges and report total edge count and edge length for each fusion scenario.
-    Returns dictionary with data results and generates typst table string.
-    """
-    return experiment_fusion_analysis(threshold=threshold, selective_injection=True)
 
 
 def get_performance_data_for_place(place, threshold=30, covered_injection_only=True, metric_threshold=None, metric_interval=None, sample_count=10000, prime_sample_count=2000):
@@ -332,7 +310,7 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
        - Base quality: 1.0 - (injected_edges / total_edges) from fusion(base=unimodal, patch=OSM)
        - Fused quality: 1.0 - (injected_edges / total_edges) from fusion(base=I*DR_fused, patch=OSM)
        - Change: Fused quality - Base quality
-       - Positive values indicate fewer missing roads in fused map
+       - Positive values indicate fewer false discontinuations in fused map
     
     Map Performance Differences:
     - TOPO F1 Change: Difference in topological similarity F1-score (fused - base)
@@ -342,8 +320,8 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     
     Implementation Details:
     - Uses cached results when available (threshold-specific caching)
-    - Calls experiment_unimodal_fusion_analysis() for base continuation quality data
-    - Calls experiment_selective_injection_fusion_analysis() for fused continuation quality data
+    - Calls experiment_fusion_analysis(selective_injection=False) for base continuation quality data
+    - Calls experiment_fusion_analysis(selective_injection=True) for fused continuation quality data
     - Calls get_performance_data_for_place() for similarity metric performance data
     - For GPS: compares I*DR_GPS (C2 inverse) vs base GPS for both continuation and performance
     - For SAT: compares I*DR_SAT (C2 normal) vs base SAT for both continuation and performance
@@ -360,31 +338,31 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     logger("Starting continuation performance correlation heatmap experiment.")
     
     # Check for cached results first
-    cache_file = f"data/experiments/continuation_performance_correlation_cache_t{threshold}.pkl"
-    try:
-        cached_data = read_pickle(cache_file)
-        if cached_data.get("threshold") == threshold:
-            logger(f"Loading cached correlation data from {cache_file}")
-            combined_df = cached_data["combined_df"]
-            heatmap_matrix = cached_data["heatmap_matrix"]
+    # cache_file = f"data/experiments/continuation_performance_correlation_cache_t{threshold}.pkl"
+    # try:
+    #     cached_data = read_pickle(cache_file)
+    #     if cached_data.get("threshold") == threshold:
+    #         logger(f"Loading cached correlation data from {cache_file}")
+    #         combined_df = cached_data["combined_df"]
+    #         heatmap_matrix = cached_data["heatmap_matrix"]
             
-            # Create visualization with cached data
-            plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
+    #         # Create visualization with cached data
+    #         plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
             
-            logger("Continuation performance correlation heatmap experiment completed (from cache).")
-            return combined_df, heatmap_matrix
-        else:
-            logger(f"Cache threshold mismatch, recomputing...")
-    except (FileNotFoundError, KeyError, Exception) as e:
-        logger(f"Cache not found or corrupted ({e}), computing from scratch...")
+    #         logger("Continuation performance correlation heatmap experiment completed (from cache).")
+    #         return combined_df, heatmap_matrix
+    #     else:
+    #         logger(f"Cache threshold mismatch, recomputing...")
+    # except (FileNotFoundError, KeyError, Exception) as e:
+    #     logger(f"Cache not found or corrupted ({e}), computing from scratch...")
     
     # Ensure we have the necessary data prepared
     obtain_prepared_metric_maps(threshold=threshold, covered_injection_only=True)
     obtain_prepared_metric_maps(threshold=threshold, inverse=True, covered_injection_only=True)
     
     # Get fusion analysis data for road continuation metrics
-    unimodal_results, _ = experiment_unimodal_fusion_analysis(threshold=threshold)
-    selective_results, _ = experiment_selective_injection_fusion_analysis(threshold=threshold)
+    unimodal_results, _ = experiment_fusion_analysis(threshold=threshold, selective_injection=False)
+    selective_results, _ = experiment_fusion_analysis(threshold=threshold, selective_injection=True)
     
     # Collect all data points from all combinations
     all_data = []
@@ -430,6 +408,7 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
             
             # Calculate road continuation quality changes (fused - base)
             # Base continuation quality
+            # BUG: base_continuation_data["injected_edges"] at 
             base_incorrect_continuation_ratio = base_continuation_data["injected_edges"] / base_continuation_data["total_edges"]
             base_correct_continuation = 1.0 - base_incorrect_continuation_ratio
             

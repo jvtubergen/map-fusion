@@ -68,11 +68,7 @@ from workflow import *
 # experiments_one_base_table("berlin", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 10)
 # experiments_one_base_table("chicago", threshold = 30, sample_count = 10000, prime_sample_count = 2000, covered_injection_only = True, metric_threshold = 10)
 
-# obtain_threshold_data(sample_count=2000, prime_sample_count=400, covered_injection_only=True)
-# experiment_two_threshold_performance(sample_count=2000, prime_sample_count=400, inverse=False)
-# experiment_two_threshold_performance(sample_count=2000, prime_sample_count=400, inverse=True)
+# experiment_fusion_analysis(threshold=30, selective_injection=False) 
+# experiment_fusion_analysis(threshold=30, selective_injection=True)  
 
-# experiment_unimodal_fusion_analysis(covered_injection_only=True)
-# experiment_selective_injection_fusion_analysis()
-
-# experiment_continuation_performance_covariance_analysis()
+# experiment_continuation_performance_correlation_heatmap()
