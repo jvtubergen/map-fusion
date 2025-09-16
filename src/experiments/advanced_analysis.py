@@ -169,8 +169,8 @@ def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
             "sat_base_osm_patch": ("SAT", "OSM"),
             "osm_base_sat_patch": ("OSM", "SAT")
         }
-        caption = f"Unimodal fusion analysis results (threshold = {threshold}m)."
-        table_label = "table:unimodal-fusion-analysis"
+        caption = f"Unimodal fusion analysis results against ground truth at a threshold {threshold}m."
+        table_label = "table:unimodal-maps-road-continuation-quality"
     else:  # selective_injection
         scenario_labels = {
             "idr_sat_base_osm_patch": ("I*DR_{SAT}", "OSM"),
@@ -179,7 +179,7 @@ def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
             "osm_base_idr_gps_patch": ("OSM", "I*DR_{GPS}")
         }
         caption = f"Selective injection (I*DR) fusion analysis results (threshold = {threshold}m)."
-        table_label = "table:selective-injection-fusion-analysis"
+        table_label = "table:fused-maps-road-continuation-quality"
     
     typst_header = f"""#show table.cell.where(y: 0): strong
 #set table(
