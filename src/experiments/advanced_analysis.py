@@ -599,6 +599,8 @@ def experiment_continuation_performance_correlation_analysis(threshold=30):
     """
     Create four 6×6 correlation matrices representing Berlin/Chicago × GPS/SAT combinations.
     Each matrix shows relationships between road continuation quality and map performance.
+    It uses the difference in map performance between the base map (a unimodal map) and the fused map (with that unimodal map as base map), similarly for road continuation.
+    This provides for every combination (in choice of map performance metric and road continuation quality) a data point to correlate (namely whether performance/quality improved/decreased) and is applicable to four combinations (in choice of place and base map).
     
     Each 6×6 correlation matrix includes:
     * Road continuation quality (2 measures):
@@ -759,6 +761,191 @@ def plot_continuation_performance_correlation_heatmaps(correlation_matrices, thr
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
+    plt.show()
+
+
+def experiment_continuation_performance_correlation_heatmap(threshold=30):
+    """
+    Create a single 2×4 correlation heatmap showing relationships between:
+    - Rows (2): Road continuation quality measures (correct continuation, correct discontinuation)  
+    - Columns (4): Map performance measures (TOPO, TOPO prime, APLS, APLS prime)
+    
+    Uses all data points from Berlin+Chicago × GPS+SAT combinations to compute correlations.
+    Road continuation quality is measured as relative change between fused and unimodal maps.
+    Map performance is measured as relative change between fused and unimodal maps.
+    
+    Road Continuation Quality Metrics Computation:
+    - Correct Continuation: Measures how well roads are correctly continued by computing
+      the complement of incorrect continuation. Incorrect continuation occurs when OSM 
+      (ground truth) is used as base and unimodal map (GPS/SAT) is used as patch, measuring
+      roads the unimodal map adds that weren't in ground truth (continuation conflicts).
+      Formula: 100% - (injected_edges / total_edges) from fusion(base=OSM, patch=unimodal)
+      
+    - Correct Discontinuation: Measures how well roads are correctly discontinued by computing
+      the complement of incorrect discontinuation. Incorrect discontinuation occurs when 
+      unimodal map (GPS/SAT) is used as base and OSM (ground truth) is used as patch, measuring
+      roads the ground truth adds that weren't in the unimodal map (discontinuation issues).
+      Formula: 100% - (injected_edges / total_edges) from fusion(base=unimodal, patch=OSM)
+    
+    Both metrics use unimodal fusion analysis results where maps are fused with threshold
+    distance matching and selective injection to identify structural differences. Higher
+    percentages indicate better road continuation/discontinuation quality.
+    """
+    logger("Starting continuation performance correlation heatmap experiment.")
+    
+    # Ensure we have the necessary data prepared
+    obtain_prepared_metric_maps(threshold=threshold, covered_injection_only=True)
+    obtain_prepared_metric_maps(threshold=threshold, inverse=True, covered_injection_only=True)
+    
+    # Get fusion analysis data for road continuation metrics
+    unimodal_results, _ = experiment_unimodal_fusion_analysis(threshold=threshold)
+    
+    # Collect all data points from all combinations
+    all_data = []
+    
+    places = ["berlin", "chicago"]
+    base_maps = ["gps", "sat"]
+    
+    for place in places:
+        logger(f"Processing correlation data for {place}...")
+        
+        # Get performance data for this place
+        performance_data = get_performance_data_for_place(place, threshold=threshold, covered_injection_only=True)
+        
+        for base_map in base_maps:
+            logger(f"Processing {place} × {base_map} combination...")
+            
+            # Get the correct fusion variant and performance data
+            if base_map == "gps":
+                # For GPS base: use unimodal GPS vs OSM data and I*DR_GPS (C2 inverse) vs base GPS performance
+                continuation_data = unimodal_results[place]["osm_base_gps_patch"]
+                discontinuation_data = unimodal_results[place]["gps_base_osm_patch"]
+                
+                # Performance comparison: I*DR_GPS (C2 inverse) vs base GPS
+                fused_perf = performance_data["C2"][True]  # I*DR_GPS
+                base_perf = performance_data["gps"][False]
+                
+            else:  # base_map == "sat"
+                # For SAT base: use unimodal SAT vs OSM data and I*DR_SAT (C2 not inverse) vs base SAT performance  
+                continuation_data = unimodal_results[place]["osm_base_sat_patch"]
+                discontinuation_data = unimodal_results[place]["sat_base_osm_patch"]
+                
+                # Performance comparison: I*DR_SAT (C2 not inverse) vs base SAT
+                fused_perf = performance_data["C2"][False]  # I*DR_SAT
+                base_perf = performance_data["sat"][False]
+            
+            # Calculate road continuation quality metrics (correct percentages)
+            # Correct continuation = 100% - incorrect continuation percentage
+            incorrect_continuation_ratio = continuation_data["injected_edges"] / continuation_data["total_edges"]
+            correct_continuation = 1.0 - incorrect_continuation_ratio  # As proportion (0-1)
+            
+            # Correct discontinuation = 100% - incorrect discontinuation percentage  
+            incorrect_discontinuation_ratio = discontinuation_data["injected_edges"] / discontinuation_data["total_edges"]
+            correct_discontinuation = 1.0 - incorrect_discontinuation_ratio  # As proportion (0-1)
+            
+            # Calculate performance changes (relative changes)
+            topo_change = fused_perf["topo"]["f1"] - base_perf["topo"]["f1"]
+            topo_prime_change = fused_perf["topo_prime"]["f1"] - base_perf["topo_prime"]["f1"]
+            apls_change = fused_perf["apls"] - base_perf["apls"]
+            apls_prime_change = fused_perf["apls_prime"] - base_perf["apls_prime"]
+            
+            # Collect all metrics for this data point
+            all_data.append({
+                "correct_continuation": correct_continuation,
+                "correct_discontinuation": correct_discontinuation,
+                "topo_change": topo_change,
+                "topo_prime_change": topo_prime_change,
+                "apls_change": apls_change,
+                "apls_prime_change": apls_prime_change,
+                "place": place,
+                "base_map": base_map
+            })
+    
+    # Convert to DataFrame
+    combined_df = pd.DataFrame(all_data)
+    
+    # Select correlation columns: 2 road continuation + 4 performance measures
+    corr_columns = [
+        "correct_continuation", "correct_discontinuation",
+        "topo_change", "topo_prime_change", "apls_change", "apls_prime_change"
+    ]
+    
+    # Create correlation matrix
+    correlation_matrix = combined_df[corr_columns].corr()
+    
+    # Extract the 2×4 submatrix we want (road continuation vs performance)
+    road_continuation_cols = ["correct_continuation", "correct_discontinuation"]  
+    performance_cols = ["topo_change", "topo_prime_change", "apls_change", "apls_prime_change"]
+    
+    # Create 2×4 correlation matrix (road continuation quality vs map performance)
+    heatmap_matrix = correlation_matrix.loc[road_continuation_cols, performance_cols]
+    
+    # Create visualization
+    plot_continuation_performance_heatmap(heatmap_matrix, threshold, combined_df)
+    
+    logger("Continuation performance correlation heatmap experiment completed.")
+    return combined_df, heatmap_matrix
+
+
+def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df):
+    """
+    Create a single 2×4 heatmap visualization for the correlation matrix.
+    Shows relationships between road continuation quality (rows) and map performance (columns).
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    
+    # Set up the plot: single heatmap
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+    fig.suptitle(f'Road Continuation Quality vs Performance Correlations (threshold={threshold}m)', fontsize=14)
+    
+    # Better labels for the variables
+    row_labels = [
+        "Correct\nContinuation",
+        "Correct\nDiscontinuation"
+    ]
+    
+    col_labels = [
+        "TOPO\n(Normal)",
+        "TOPO\n(Prime)", 
+        "APLS\n(Normal)",
+        "APLS\n(Prime)"
+    ]
+    
+    # For correlation matrices, values are always between -1 and 1
+    vmin, vmax = -1, 1
+    
+    # Create heatmap
+    sns.heatmap(
+        correlation_matrix, 
+        ax=ax,
+        xticklabels=col_labels,
+        yticklabels=row_labels,
+        annot=True,
+        fmt='.3f',
+        cmap='RdBu_r',
+        center=0,
+        vmin=vmin,
+        vmax=vmax,
+        square=False,
+        cbar_kws={'label': 'Correlation Coefficient'}
+    )
+    
+    # Add subplot details
+    n_data_points = len(data_df)
+    places = sorted(data_df['place'].unique())
+    base_maps = sorted(data_df['base_map'].unique())
+    
+    ax.set_xlabel("Map Performance Changes", fontsize=12)
+    ax.set_ylabel("Road Continuation Quality", fontsize=12)
+    
+    # Add caption with data details
+    caption = f"n={n_data_points} data points from {places} × {base_maps}"
+    plt.figtext(0.5, 0.02, caption, ha='center', fontsize=10, style='italic')
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9, bottom=0.15)
     plt.show()
 
 
