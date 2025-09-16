@@ -492,30 +492,52 @@ def get_performance_data_for_place(place, threshold=30, covered_injection_only=T
 
 def experiment_continuation_performance_correlation_heatmap(threshold=30):
     """
-    Create a single 2×4 correlation heatmap showing relationships between:
-    - Rows (2): Road continuation quality measures (correct continuation, correct discontinuation)  
-    - Columns (4): Map performance measures (TOPO, TOPO prime, APLS, APLS prime)
+    Analyze correlations between road continuation quality and map performance metrics.
     
-    Uses all data points from Berlin+Chicago × GPS+SAT combinations to compute correlations.
-    Road continuation quality is measured as relative change between fused and unimodal maps.
-    Map performance is measured as relative change between fused and unimodal maps.
+    Generates a 2×4 correlation heatmap that shows the statistical relationship between:
+    - Y-axis (2 metrics): Road continuation quality changes (correct continuation change, correct discontinuation change)
+    - X-axis (4 metrics): Map performance differences (TOPO F1, TOPO* F1, APLS, APLS*)
     
-    Road Continuation Quality Metrics Computation:
-    - Correct Continuation: Measures how well roads are correctly continued by computing
-      the complement of incorrect continuation. Incorrect continuation occurs when OSM 
-      (ground truth) is used as base and unimodal map (GPS/SAT) is used as patch, measuring
-      roads the unimodal map adds that weren't in ground truth (continuation conflicts).
-      Formula: 100% - (injected_edges / total_edges) from fusion(base=OSM, patch=unimodal)
-      
-    - Correct Discontinuation: Measures how well roads are correctly discontinued by computing
-      the complement of incorrect discontinuation. Incorrect discontinuation occurs when 
-      unimodal map (GPS/SAT) is used as base and OSM (ground truth) is used as patch, measuring
-      roads the ground truth adds that weren't in the unimodal map (discontinuation issues).
-      Formula: 100% - (injected_edges / total_edges) from fusion(base=unimodal, patch=OSM)
+    Data Sources:
+    - Locations: Berlin and Chicago datasets
+    - Base maps: GPS and SAT-derived maps (2 per location = 4 total data points)
+    - Comparison: I*DR fused maps vs their corresponding base unimodal maps
     
-    Both metrics use unimodal fusion analysis results where maps are fused with threshold
-    distance matching and selective injection to identify structural differences. Higher
-    percentages indicate better road continuation/discontinuation quality.
+    Road Continuation Quality Change Metrics:
+    1. Correct Continuation Change: Improvement in continuation quality from base unimodal map to I*DR fused map.
+       - Base quality: 1.0 - (injected_edges / total_edges) from fusion(base=OSM, patch=unimodal)
+       - Fused quality: 1.0 - (injected_edges / total_edges) from fusion(base=OSM, patch=I*DR_fused)
+       - Change: Fused quality - Base quality
+       - Positive values indicate fewer false continuations in fused map
+       
+    2. Correct Discontinuation Change: Improvement in discontinuation quality from base unimodal map to I*DR fused map.
+       - Base quality: 1.0 - (injected_edges / total_edges) from fusion(base=unimodal, patch=OSM)
+       - Fused quality: 1.0 - (injected_edges / total_edges) from fusion(base=I*DR_fused, patch=OSM)
+       - Change: Fused quality - Base quality
+       - Positive values indicate fewer missing roads in fused map
+    
+    Map Performance Differences:
+    - TOPO F1 Change: Difference in topological similarity F1-score (fused - base)
+    - TOPO* F1 Change: Difference in prime topological similarity F1-score (fused - base)
+    - APLS Change: Difference in Average Path Length Similarity score (fused - base)
+    - APLS* Change: Difference in prime APLS score (fused - base)
+    
+    Implementation Details:
+    - Uses cached results when available (threshold-specific caching)
+    - Calls experiment_unimodal_fusion_analysis() for base continuation quality data
+    - Calls experiment_selective_injection_fusion_analysis() for fused continuation quality data
+    - Calls get_performance_data_for_place() for similarity metric performance data
+    - For GPS: compares I*DR_GPS (C2 inverse) vs base GPS for both continuation and performance
+    - For SAT: compares I*DR_SAT (C2 normal) vs base SAT for both continuation and performance
+    - Visualizes results using plot_continuation_performance_heatmap()
+    
+    Args:
+        threshold (int): Distance threshold in meters for map fusion operations (default: 30)
+        
+    Returns:
+        tuple: (combined_df, heatmap_matrix)
+            - combined_df: DataFrame with all data points and computed change metrics
+            - heatmap_matrix: 2×4 correlation matrix showing correlations between road continuation quality changes and performance changes
     """
     logger("Starting continuation performance correlation heatmap experiment.")
     
@@ -544,6 +566,7 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     
     # Get fusion analysis data for road continuation metrics
     unimodal_results, _ = experiment_unimodal_fusion_analysis(threshold=threshold)
+    selective_results, _ = experiment_selective_injection_fusion_analysis(threshold=threshold)
     
     # Collect all data points from all combinations
     all_data = []
@@ -563,8 +586,12 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
             # Get the correct fusion variant and performance data
             if base_map == "gps":
                 # For GPS base: use unimodal GPS vs OSM data and I*DR_GPS (C2 inverse) vs base GPS performance
-                continuation_data = unimodal_results[place]["osm_base_gps_patch"]
-                discontinuation_data = unimodal_results[place]["gps_base_osm_patch"]
+                base_continuation_data = unimodal_results[place]["osm_base_gps_patch"]
+                base_discontinuation_data = unimodal_results[place]["gps_base_osm_patch"]
+                
+                # For I*DR_GPS: use selective injection results
+                fused_continuation_data = selective_results[place]["osm_base_idr_gps_patch"]
+                fused_discontinuation_data = selective_results[place]["idr_gps_base_osm_patch"]
                 
                 # Performance comparison: I*DR_GPS (C2 inverse) vs base GPS
                 fused_perf = performance_data["C2"][True]  # I*DR_GPS
@@ -572,21 +599,39 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
                 
             else:  # base_map == "sat"
                 # For SAT base: use unimodal SAT vs OSM data and I*DR_SAT (C2 not inverse) vs base SAT performance  
-                continuation_data = unimodal_results[place]["osm_base_sat_patch"]
-                discontinuation_data = unimodal_results[place]["sat_base_osm_patch"]
+                base_continuation_data = unimodal_results[place]["osm_base_sat_patch"]
+                base_discontinuation_data = unimodal_results[place]["sat_base_osm_patch"]
+                
+                # For I*DR_SAT: use selective injection results
+                fused_continuation_data = selective_results[place]["osm_base_idr_sat_patch"]
+                fused_discontinuation_data = selective_results[place]["idr_sat_base_osm_patch"]
                 
                 # Performance comparison: I*DR_SAT (C2 not inverse) vs base SAT
                 fused_perf = performance_data["C2"][False]  # I*DR_SAT
                 base_perf = performance_data["sat"][False]
             
-            # Calculate road continuation quality metrics (correct percentages)
-            # Correct continuation = 100% - incorrect continuation percentage
-            incorrect_continuation_ratio = continuation_data["injected_edges"] / continuation_data["total_edges"]
-            correct_continuation = 1.0 - incorrect_continuation_ratio  # As proportion (0-1)
+            # Calculate road continuation quality changes (fused - base)
+            # Base continuation quality
+            base_incorrect_continuation_ratio = base_continuation_data["injected_edges"] / base_continuation_data["total_edges"]
+            base_correct_continuation = 1.0 - base_incorrect_continuation_ratio
             
-            # Correct discontinuation = 100% - incorrect discontinuation percentage  
-            incorrect_discontinuation_ratio = discontinuation_data["injected_edges"] / discontinuation_data["total_edges"]
-            correct_discontinuation = 1.0 - incorrect_discontinuation_ratio  # As proportion (0-1)
+            # Fused continuation quality
+            fused_incorrect_continuation_ratio = fused_continuation_data["injected_edges"] / fused_continuation_data["total_edges"]
+            fused_correct_continuation = 1.0 - fused_incorrect_continuation_ratio
+            
+            # Continuation quality change
+            correct_continuation_change = fused_correct_continuation - base_correct_continuation
+            
+            # Base discontinuation quality
+            base_incorrect_discontinuation_ratio = base_discontinuation_data["injected_edges"] / base_discontinuation_data["total_edges"]
+            base_correct_discontinuation = 1.0 - base_incorrect_discontinuation_ratio
+            
+            # Fused discontinuation quality
+            fused_incorrect_discontinuation_ratio = fused_discontinuation_data["injected_edges"] / fused_discontinuation_data["total_edges"]
+            fused_correct_discontinuation = 1.0 - fused_incorrect_discontinuation_ratio
+            
+            # Discontinuation quality change
+            correct_discontinuation_change = fused_correct_discontinuation - base_correct_discontinuation
             
             # Calculate performance changes (relative changes)
             topo_change = fused_perf["topo"]["f1"] - base_perf["topo"]["f1"]
@@ -596,8 +641,8 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
             
             # Collect all metrics for this data point
             all_data.append({
-                "correct_continuation": correct_continuation,
-                "correct_discontinuation": correct_discontinuation,
+                "correct_continuation_change": correct_continuation_change,
+                "correct_discontinuation_change": correct_discontinuation_change,
                 "topo_change": topo_change,
                 "topo_prime_change": topo_prime_change,
                 "apls_change": apls_change,
@@ -609,17 +654,17 @@ def experiment_continuation_performance_correlation_heatmap(threshold=30):
     # Convert to DataFrame
     combined_df = pd.DataFrame(all_data)
     
-    # Select correlation columns: 2 road continuation + 4 performance measures
+    # Select correlation columns: 2 road continuation changes + 4 performance changes
     corr_columns = [
-        "correct_continuation", "correct_discontinuation",
+        "correct_continuation_change", "correct_discontinuation_change",
         "topo_change", "topo_prime_change", "apls_change", "apls_prime_change"
     ]
     
     # Create correlation matrix
     correlation_matrix = combined_df[corr_columns].corr()
     
-    # Extract the 2×4 submatrix we want (road continuation vs performance)
-    road_continuation_cols = ["correct_continuation", "correct_discontinuation"]  
+    # Extract the 2×4 submatrix we want (road continuation changes vs performance changes)
+    road_continuation_cols = ["correct_continuation_change", "correct_discontinuation_change"]  
     performance_cols = ["topo_change", "topo_prime_change", "apls_change", "apls_prime_change"]
     
     # Create 2×4 correlation matrix (road continuation quality vs map performance)
@@ -656,23 +701,23 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
     
     # Set up the plot: single heatmap
     fig, ax = plt.subplots(1, 1, figsize=(12, 7))
-    fig.suptitle(f'Road Continuation Quality vs Performance Correlations (threshold={threshold}m)', fontsize=14)
+    fig.suptitle(f'Road Continuation Quality Changes vs Performance Changes Correlations (threshold={threshold}m)', fontsize=14)
     
     # Better labels for the variables
     row_labels = [
-        "Correct\nContinuation",
-        "Correct\nDiscontinuation"
+        "Δ Correct\nContinuation",
+        "Δ Correct\nDiscontinuation"
     ]
     
     col_labels = [
-        "TOPO\n(Normal)",
-        "TOPO\n(Prime)", 
-        "APLS\n(Normal)",
-        "APLS\n(Prime)"
+        "Δ TOPO\n(Normal)",
+        "Δ TOPO\n(Prime)", 
+        "Δ APLS\n(Normal)",
+        "Δ APLS\n(Prime)"
     ]
     
     # Calculate average values for each metric
-    road_continuation_cols = ["correct_continuation", "correct_discontinuation"]  
+    road_continuation_cols = ["correct_continuation_change", "correct_discontinuation_change"]  
     performance_cols = ["topo_change", "topo_prime_change", "apls_change", "apls_prime_change"]
     
     # Create matrix of average values
@@ -724,10 +769,10 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
     base_maps = sorted(data_df['base_map'].unique())
     
     ax.set_xlabel("Map Performance Changes", fontsize=12)
-    ax.set_ylabel("Road Continuation Quality", fontsize=12)
+    ax.set_ylabel("Road Continuation Quality Changes", fontsize=12)
     
     # Add caption with data details and explanation
-    caption = f"n={n_data_points} data points from {places} × {base_maps}\nEach cell shows: correlation coefficient (continuation avg, performance avg)"
+    caption = f"n={n_data_points} data points from {places} × {base_maps}\nEach cell shows: correlation coefficient (continuation change avg, performance change avg)"
     plt.figtext(0.5, 0.02, caption, ha='center', fontsize=10, style='italic')
     
     plt.tight_layout()
