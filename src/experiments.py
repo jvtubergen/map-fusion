@@ -1228,11 +1228,15 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
     """
     Perform map fusion with unimodal maps as base and ground truth as patch, and vice versa.
     Count injected edges and report total edge count and edge length for each fusion scenario.
+    Returns dictionary with data results and generates typst table string.
     """
     logger("Starting unimodal fusion analysis experiment.")
     
+    results = {}
+    
     for place in places:
         logger(f"Analyzing {place}...")
+        results[place] = {}
         
         # Load base maps
         osm = read_osm_graph(place)
@@ -1256,6 +1260,12 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         total_edges_gps = len(fusion_gps_base.edges)
         total_length_gps = sum([attrs["length"] for _, attrs in iterate_edges(fusion_gps_base)]) / 1000
         
+        results[place]["gps_base_osm_patch"] = {
+            "injected_edges": injected_count_gps,
+            "total_edges": total_edges_gps,
+            "total_length_km": total_length_gps
+        }
+        
         print(f"GPS base + OSM patch:")
         print(f"  Injected edges: {injected_count_gps}")
         print(f"  Total edges: {total_edges_gps}")
@@ -1275,6 +1285,12 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         injected_count_osm = len(filter_eids_by_attribute(fusion_osm_base, filter_attributes={"render": "injected"}))
         total_edges_osm = len(fusion_osm_base.edges)
         total_length_osm = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_base)]) / 1000
+        
+        results[place]["osm_base_gps_patch"] = {
+            "injected_edges": injected_count_osm,
+            "total_edges": total_edges_osm,
+            "total_length_km": total_length_osm
+        }
         
         print(f"OSM base + GPS patch:")
         print(f"  Injected edges: {injected_count_osm}")
@@ -1296,6 +1312,12 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         total_edges_sat = len(fusion_sat_base.edges)
         total_length_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_sat_base)]) / 1000
         
+        results[place]["sat_base_osm_patch"] = {
+            "injected_edges": injected_count_sat,
+            "total_edges": total_edges_sat,
+            "total_length_km": total_length_sat
+        }
+        
         print(f"SAT base + OSM patch:")
         print(f"  Injected edges: {injected_count_sat}")
         print(f"  Total edges: {total_edges_sat}")
@@ -1316,9 +1338,77 @@ def experiment_unimodal_fusion_analysis(threshold=30, covered_injection_only=Fal
         total_edges_osm_sat = len(fusion_osm_sat_base.edges)
         total_length_osm_sat = sum([attrs["length"] for _, attrs in iterate_edges(fusion_osm_sat_base)]) / 1000
         
+        results[place]["osm_base_sat_patch"] = {
+            "injected_edges": injected_count_osm_sat,
+            "total_edges": total_edges_osm_sat,
+            "total_length_km": total_length_osm_sat
+        }
+        
         print(f"OSM base + SAT patch:")
         print(f"  Injected edges: {injected_count_osm_sat}")
         print(f"  Total edges: {total_edges_osm_sat}")
         print(f"  Total length: {total_length_osm_sat:.2f} km")
-        
+    
+    # Generate typst table string
+    typst_table = generate_unimodal_fusion_typst_table(results, threshold)
+    print("\n" + "="*50)
+    print("TYPST TABLE:")
+    print("="*50)
+    print(typst_table)
+    
     logger("Unimodal fusion analysis experiment completed.")
+    return results, typst_table
+
+
+def generate_unimodal_fusion_typst_table(results, threshold):
+    """Generate typst table string from unimodal fusion analysis results."""
+    
+    typst_header = f"""#show table.cell.where(y: 0): strong
+#set table(
+  stroke: (x, y) => 
+    if y == 0 {{
+      ( bottom: 0.7pt + black)
+    }},
+  align: (x, y) => (
+    if x == 0 {{ left }}
+    else {{ center }}
+  ),
+  column-gutter: auto
+)
+
+#figure(
+  table(
+    columns: 7,
+    table.header(
+      [Scenario],
+      [Place],
+      [Base],
+      [Patch],
+      [Injected Edges],
+      [Total Edges],
+      [Total Length (km)],
+    ),"""
+
+    typst_rows = []
+    
+    scenario_labels = {
+        "gps_base_osm_patch": ("GPS", "OSM"),
+        "osm_base_gps_patch": ("OSM", "GPS"),
+        "sat_base_osm_patch": ("SAT", "OSM"),
+        "osm_base_sat_patch": ("OSM", "SAT")
+    }
+    
+    scenario_counter = 1
+    for scenario, (base, patch) in scenario_labels.items():
+        for place in sorted(results.keys()):
+            data = results[place][scenario]
+            place_display = place.title()
+            
+            typst_rows.append(f"    [Scenario {scenario_counter}], [{place_display}], [*{base}*], [*{patch}*], [{data['injected_edges']}], [{data['total_edges']}], [{data['total_length_km']:.2f}],")
+        scenario_counter += 1
+    
+    typst_footer = f"""  ),
+  caption: [Unimodal fusion analysis results (threshold = {threshold}m).],
+) <table:unimodal-fusion-analysis>"""
+
+    return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
