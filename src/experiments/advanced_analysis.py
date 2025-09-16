@@ -142,7 +142,7 @@ def experiment_unimodal_fusion_analysis(threshold=30):
         print(f"  Total length: {total_length_osm_sat:.2f} km")
     
     # Generate typst table string
-    typst_table = generate_unimodal_fusion_typst_table(results, threshold)
+    typst_table = generate_fusion_typst_table(results, threshold, table_type="unimodal")
     print("\n" + "="*50)
     print("TYPST TABLE:")
     print("="*50)
@@ -152,8 +152,34 @@ def experiment_unimodal_fusion_analysis(threshold=30):
     return results, typst_table
 
 
-def generate_unimodal_fusion_typst_table(results, threshold):
-    """Generate typst table string from unimodal fusion analysis results."""
+def generate_fusion_typst_table(results, threshold, table_type="unimodal"):
+    """Generate typst table string from fusion analysis results.
+    
+    Args:
+        results: Dictionary containing fusion analysis results
+        threshold: Distance threshold used in fusion
+        table_type: Either "unimodal" or "selective_injection"
+    """
+    
+    # Set scenario labels and caption based on table type
+    if table_type == "unimodal":
+        scenario_labels = {
+            "gps_base_osm_patch": ("GPS", "OSM"),
+            "osm_base_gps_patch": ("OSM", "GPS"),
+            "sat_base_osm_patch": ("SAT", "OSM"),
+            "osm_base_sat_patch": ("OSM", "SAT")
+        }
+        caption = f"Unimodal fusion analysis results (threshold = {threshold}m)."
+        table_label = "table:unimodal-fusion-analysis"
+    else:  # selective_injection
+        scenario_labels = {
+            "idr_sat_base_osm_patch": ("I*DR_{SAT}", "OSM"),
+            "osm_base_idr_sat_patch": ("OSM", "I*DR_{SAT}"),
+            "idr_gps_base_osm_patch": ("I*DR_{GPS}", "OSM"),
+            "osm_base_idr_gps_patch": ("OSM", "I*DR_{GPS}")
+        }
+        caption = f"Selective injection (I*DR) fusion analysis results (threshold = {threshold}m)."
+        table_label = "table:selective-injection-fusion-analysis"
     
     typst_header = f"""#show table.cell.where(y: 0): strong
 #set table(
@@ -185,13 +211,6 @@ def generate_unimodal_fusion_typst_table(results, threshold):
 
     typst_rows = []
     
-    scenario_labels = {
-        "gps_base_osm_patch": ("GPS", "OSM"),
-        "osm_base_gps_patch": ("OSM", "GPS"),
-        "sat_base_osm_patch": ("SAT", "OSM"),
-        "osm_base_sat_patch": ("OSM", "SAT")
-    }
-    
     scenario_counter = 1
     for scenario, (base, patch) in scenario_labels.items():
         for place in sorted(results.keys()):
@@ -206,8 +225,8 @@ def generate_unimodal_fusion_typst_table(results, threshold):
         scenario_counter += 1
     
     typst_footer = f"""  ),
-  caption: [Unimodal fusion analysis results (threshold = {threshold}m).],
-) <table:unimodal-fusion-analysis>"""
+  caption: [{caption}],
+) <{table_label}>"""
 
     return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
 
@@ -357,7 +376,7 @@ def experiment_selective_injection_fusion_analysis(threshold=30):
         print(f"  Total length: {total_length_osm_idr_gps:.2f} km")
     
     # Generate typst table string
-    typst_table = generate_selective_injection_fusion_typst_table(results, threshold)
+    typst_table = generate_fusion_typst_table(results, threshold, table_type="selective_injection")
     print("\n" + "="*50)
     print("TYPST TABLE:")
     print("="*50)
@@ -365,66 +384,6 @@ def experiment_selective_injection_fusion_analysis(threshold=30):
     
     logger("Selective injection fusion analysis experiment completed.")
     return results, typst_table
-
-
-def generate_selective_injection_fusion_typst_table(results, threshold):
-    """Generate typst table string from selective injection fusion analysis results."""
-    
-    typst_header = f"""#show table.cell.where(y: 0): strong
-#set table(
-  stroke: (x, y) => 
-    if y == 0 {{
-      ( bottom: 0.7pt + black)
-    }},
-  align: (x, y) => (
-    if x == 0 {{ left }}
-    else {{ center }}
-  ),
-  column-gutter: auto
-)
-
-#figure(
-  table(
-    columns: 9,
-    table.header(
-      [Scenario],
-      [Place],
-      [Base],
-      [Patch],
-      [Injected Edges],
-      [Total Edges],
-      [Total Length (km)],
-      [Inj./Tot. Edges],
-      [Inj./Tot. Length],
-    ),"""
-
-    typst_rows = []
-    
-    scenario_labels = {
-        "idr_sat_base_osm_patch": ("I*DR_{SAT}", "OSM"),
-        "osm_base_idr_sat_patch": ("OSM", "I*DR_{SAT}"),
-        "idr_gps_base_osm_patch": ("I*DR_{GPS}", "OSM"),
-        "osm_base_idr_gps_patch": ("OSM", "I*DR_{GPS}")
-    }
-    
-    scenario_counter = 1
-    for scenario, (base, patch) in scenario_labels.items():
-        for place in sorted(results.keys()):
-            data = results[place][scenario]
-            place_display = place.title()
-            
-            # Calculate ratios
-            inj_edges_ratio = data['injected_edges'] / data['total_edges'] if data['total_edges'] > 0 else 0
-            inj_length_ratio = data['injected_edges'] / data['total_length_km'] if data['total_length_km'] > 0 else 0
-            
-            typst_rows.append(f"    [Scenario {scenario_counter}], [{place_display}], [*{base}*], [*{patch}*], [{data['injected_edges']}], [{data['total_edges']}], [{data['total_length_km']:.2f}], [{inj_edges_ratio:.4f}], [{inj_length_ratio:.2f}],")
-        scenario_counter += 1
-    
-    typst_footer = f"""  ),
-  caption: [Selective injection (I*DR) fusion analysis results (threshold = {threshold}m).],
-) <table:selective-injection-fusion-analysis>"""
-
-    return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
 
 
 def get_performance_data_for_place(place, threshold=30, covered_injection_only=True, metric_threshold=None, metric_interval=None, sample_count=10000, prime_sample_count=2000):
