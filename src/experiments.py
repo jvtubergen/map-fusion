@@ -1633,3 +1633,357 @@ def generate_selective_injection_fusion_typst_table(results, threshold):
 ) <table:selective-injection-fusion-analysis>"""
 
     return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
+
+
+def get_performance_data_for_place(place, threshold=30, covered_injection_only=True, metric_threshold=None, metric_interval=None, sample_count=10000, prime_sample_count=2000):
+    """Extract performance data for a single place, similar to experiments_one_base_table but returning data."""
+    
+    if metric_threshold == None:
+        metric_threshold = 5
+    if metric_interval == None:
+        metric_interval = metric_threshold
+
+    # Read in TOPO and APLS samples and compute metric scores.
+    table_results = {}
+    selected_variants = set(base_variants + get_fusion_variants(covered_injection_only)) - set(["osm"])
+    for variant in selected_variants:
+        table_results[variant] = {}
+        for inverse in [False,True]:
+            if inverse and variant in base_variants:
+                continue
+            table_results[variant][inverse] = {}
+            print(f"{place}-{variant}-{inverse}")
+            
+            # Asymmetric APLS results.
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            assert len(samples) >= sample_count
+            
+            # Load prime samples from the correct location
+            prime_location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="apls", metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=True)["metrics_samples"]
+            prime_samples = read_pickle(prime_location)
+            assert len(prime_samples) >= prime_sample_count
+            
+            apls       = asymmetric_apls_from_samples(samples[:sample_count], prime=False)
+            apls_prime = asymmetric_apls_from_samples(prime_samples[:prime_sample_count], prime=True)
+
+            # Asymmetric TOPO results.
+            location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval)["metrics_samples"]
+            samples = read_pickle(location)
+            assert len(samples) >= sample_count
+            
+            # Load prime samples from the correct location
+            prime_location = experiment_location(place, variant, threshold=threshold, inverse=inverse, metric="topo", metric_threshold=metric_threshold, metric_interval=metric_interval, prime_samples=True)["metrics_samples"]
+            prime_samples = read_pickle(prime_location)
+            assert len(prime_samples) >= prime_sample_count
+            
+            topo_results       = asymmetric_topo_from_samples(samples[:sample_count], False)
+            topo_prime_results = asymmetric_topo_from_samples(prime_samples[:prime_sample_count], True)
+
+            table_results[variant][inverse] = {
+                "apls": apls,
+                "apls_prime": apls_prime,
+                "topo": {
+                    "recall": topo_results["recall"],
+                    "precision": topo_results["precision"],
+                    "f1": topo_results["f1"],
+                },
+                "topo_prime": {
+                    "recall": topo_prime_results["recall"],
+                    "precision": topo_prime_results["precision"],
+                    "f1": topo_prime_results["f1"],
+                },
+            }
+    
+    return table_results
+
+
+def experiment_road_continuation_correlation_analysis(threshold=30):
+    """
+    Build correlation matrices connecting road continuation quality metrics with map performance changes.
+    Creates separate correlation matrices per place, road continuation type, metric (TOPO/APLS), and prime status.
+    
+    Road continuation quality is either:
+    - Percentage of incorrectly road discontinuation: edges injected / total edges against ground truth (patch map)
+    - Percentage of incorrectly road continuation conflicts: edges injected / total edges against base map
+    """
+    logger("Starting road continuation correlation analysis experiment.")
+    
+    # First ensure we have all the necessary data prepared
+    obtain_prepared_metric_maps(threshold=threshold, covered_injection_only=True)
+    obtain_prepared_metric_maps(threshold=threshold, inverse=True, covered_injection_only=True)
+    
+    # Get road continuation data from both selective injection and unimodal fusion experiments
+    selective_results, _ = experiment_selective_injection_fusion_analysis(threshold=threshold)
+    unimodal_results, _ = experiment_unimodal_fusion_analysis(threshold=threshold)
+    
+    # Collect all correlation data organized by the four parameters
+    all_correlation_matrices = {}
+    correlation_data = []
+    
+    for place in places:
+        logger(f"Processing correlation data for {place}...")
+        
+        # Get performance table data for this place
+        performance_data = get_performance_data_for_place(place, threshold=threshold, covered_injection_only=True)
+        
+        # Process I*DR vs unimodal base comparisons
+        fused_variants = {
+            "I*DR_SAT": ("C2", False, "sat"),  # I*DR_SAT (fusion variant C2, not inverse, base is sat)
+            "I*DR_GPS": ("C2", True, "gps")    # I*DR_GPS (fusion variant C2, inverse, base is gps)
+        }
+        
+        for fused_name, (variant, inverse, base_variant) in fused_variants.items():
+            
+            # Get road continuation quality metrics
+            # Type 1: Incorrectly road discontinuation (against patch map/ground truth OSM)
+            if fused_name == "I*DR_SAT":
+                discontinuation_data = selective_results[place]["idr_sat_base_osm_patch"]
+            else:  # I*DR_GPS
+                discontinuation_data = selective_results[place]["idr_gps_base_osm_patch"]
+            
+            discontinuation_ratio = discontinuation_data["injected_edges"] / discontinuation_data["total_edges"]
+            
+            # Type 2: Incorrectly road continuation conflicts (against base map)
+            if fused_name == "I*DR_SAT":
+                continuation_data = selective_results[place]["osm_base_idr_sat_patch"]
+            else:  # I*DR_GPS  
+                continuation_data = selective_results[place]["osm_base_idr_gps_patch"]
+            
+            continuation_ratio = continuation_data["injected_edges"] / continuation_data["total_edges"]
+            
+            # Get performance metrics for fused and base maps
+            fused_perf = performance_data[variant][inverse]
+            base_perf = performance_data[base_variant][False]
+            
+            # Calculate performance changes for both regular and prime metrics
+            perf_changes = {
+                "topo_change": fused_perf["topo"]["f1"] - base_perf["topo"]["f1"],
+                "apls_change": fused_perf["apls"] - base_perf["apls"],
+                "topo_prime_change": fused_perf["topo_prime"]["f1"] - base_perf["topo_prime"]["f1"],
+                "apls_prime_change": fused_perf["apls_prime"] - base_perf["apls_prime"]
+            }
+            
+            # Add data points for both continuation types
+            for cont_type, road_cont_ratio in [("discontinuation", discontinuation_ratio), 
+                                              ("continuation", continuation_ratio)]:
+                correlation_data.append({
+                    "place": place,
+                    "continuation_type": cont_type,
+                    "fused_variant": fused_name,
+                    "base_variant": base_variant,
+                    "road_cont_quality": road_cont_ratio,
+                    **perf_changes
+                })
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(correlation_data)
+    
+    # Create correlation matrices for each combination of parameters
+    for place in places:
+        all_correlation_matrices[place] = {}
+        for cont_type in ["discontinuation", "continuation"]:
+            all_correlation_matrices[place][cont_type] = {}
+            for metric_type in ["topo", "apls"]:
+                all_correlation_matrices[place][cont_type][metric_type] = {}
+                for prime in [False, True]:
+                    # Filter data for this specific combination
+                    subset = df[df["place"] == place][df["continuation_type"] == cont_type]
+                    
+                    # Select the appropriate performance metric column
+                    perf_col = f"{metric_type}_{'prime_' if prime else ''}change"
+                    
+                    # Create correlation matrix with road continuation quality and performance change
+                    corr_data = subset[["road_cont_quality", perf_col]].corr()
+                    all_correlation_matrices[place][cont_type][metric_type][prime] = corr_data
+    
+    # Create seaborn correlation matrix plots
+    plot_correlation_matrices(all_correlation_matrices, threshold)
+    
+    logger("Road continuation correlation analysis experiment completed.")
+    return df, all_correlation_matrices
+
+
+def plot_correlation_matrices(all_correlation_matrices, threshold):
+    """
+    Plot correlation matrices using seaborn heatmaps.
+    Creates a grid showing correlation matrices for each combination of:
+    (place, continuation_type, metric_type, prime)
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    
+    # Set up the plot grid: 4 rows × 4 columns = 16 subplots
+    # Rows: (Berlin_discontinuation, Berlin_continuation, Chicago_discontinuation, Chicago_continuation)
+    # Cols: (TOPO, TOPO*, APLS, APLS*)
+    
+    fig, axes = plt.subplots(4, 4, figsize=(20, 16))
+    fig.suptitle(f'Road Continuation Quality vs Performance Correlation Matrices (threshold={threshold}m)', fontsize=16)
+    
+    places = ["berlin", "chicago"] 
+    cont_types = ["discontinuation", "continuation"]
+    metrics = ["topo", "apls"]
+    primes = [False, True]
+    
+    # Create row and column labels
+    row_labels = []
+    for place in places:
+        for cont_type in cont_types:
+            place_name = place.title()
+            cont_name = "Discontinuation" if cont_type == "discontinuation" else "Continuation"
+            row_labels.append(f"{place_name}\n{cont_name}")
+    
+    col_labels = []
+    for metric in metrics:
+        for prime in primes:
+            metric_name = metric.upper()
+            if prime:
+                metric_name += "*"
+            col_labels.append(metric_name)
+    
+    # Find global min/max for consistent color scaling
+    all_corr_values = []
+    for place in places:
+        for cont_type in cont_types:
+            for metric in metrics:
+                for prime in primes:
+                    if (place in all_correlation_matrices and 
+                        cont_type in all_correlation_matrices[place] and
+                        metric in all_correlation_matrices[place][cont_type] and
+                        prime in all_correlation_matrices[place][cont_type][metric]):
+                        
+                        corr_matrix = all_correlation_matrices[place][cont_type][metric][prime]
+                        # Get the off-diagonal correlation value
+                        corr_val = corr_matrix.iloc[0, 1]  # road_cont_quality vs performance_change
+                        if not np.isnan(corr_val):
+                            all_corr_values.append(corr_val)
+    
+    if all_corr_values:
+        vmin = min(all_corr_values)
+        vmax = max(all_corr_values)
+        # Make symmetric around 0 for better color interpretation
+        abs_max = max(abs(vmin), abs(vmax))
+        vmin, vmax = -abs_max, abs_max
+    else:
+        vmin, vmax = -1, 1
+    
+    # Plot each correlation matrix
+    row_idx = 0
+    for place in places:
+        for cont_type in cont_types:
+            col_idx = 0
+            for metric in metrics:
+                for prime in primes:
+                    ax = axes[row_idx, col_idx]
+                    
+                    if (place in all_correlation_matrices and 
+                        cont_type in all_correlation_matrices[place] and
+                        metric in all_correlation_matrices[place][cont_type] and
+                        prime in all_correlation_matrices[place][cont_type][metric]):
+                        
+                        corr_matrix = all_correlation_matrices[place][cont_type][metric][prime]
+                        
+                        # Create heatmap
+                        sns.heatmap(corr_matrix, 
+                                  annot=True, 
+                                  fmt='.3f', 
+                                  cmap='RdBu_r',
+                                  center=0,
+                                  vmin=vmin, 
+                                  vmax=vmax,
+                                  ax=ax,
+                                  cbar=col_idx == 3,  # Only show colorbar on rightmost column
+                                  square=True)
+                        
+                        # Customize labels
+                        ax.set_xticklabels(['Road Cont.\nQuality', f'Δ {col_labels[col_idx]}'], rotation=0)
+                        ax.set_yticklabels(['Road Cont.\nQuality', f'Δ {col_labels[col_idx]}'], rotation=0)
+                        
+                    else:
+                        # No data available
+                        ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                    
+                    # Set column titles only on top row
+                    if row_idx == 0:
+                        ax.set_title(col_labels[col_idx], pad=10)
+                    
+                    col_idx += 1
+            
+            # Set row titles only on leftmost column
+            if col_idx == 4:  # After processing all columns
+                axes[row_idx, 0].set_ylabel(row_labels[row_idx], rotation=90, labelpad=20)
+            
+            row_idx += 1
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)  # Make room for suptitle
+    plt.show()
+
+
+def generate_correlation_typst_table(correlations, data_df, threshold):
+    """Generate typst table for road continuation correlation analysis results."""
+    
+    typst_header = f"""#show table.cell.where(y: 0): strong
+#set table(
+  stroke: (x, y) => 
+    if y == 0 {{
+      ( bottom: 0.7pt + black)
+    }},
+  align: (x, y) => (
+    if x == 0 {{ left }}
+    else {{ center }}
+  ),
+  column-gutter: auto
+)
+
+#figure(
+  table(
+    columns: 3,
+    table.header(
+      [Performance Metric],
+      [Correlation with Road Cont. Quality],
+      [Interpretation],
+    ),"""
+    
+    metric_labels = {
+        "rec_change": "Δ Recall",
+        "prec_change": "Δ Precision", 
+        "topo_change": "Δ TOPO",
+        "apls_change": "Δ APLS",
+        "rec_prime_change": "Δ Recall*",
+        "prec_prime_change": "Δ Precision*",
+        "topo_prime_change": "Δ TOPO*", 
+        "apls_prime_change": "Δ APLS*"    }
+    
+    typst_rows = []
+    for metric, corr in correlations.items():
+        if metric in metric_labels:
+            label = metric_labels[metric]
+            
+            # Determine interpretation
+            if abs(corr) >= 0.7:
+                interpretation = "Strong"
+            elif abs(corr) >= 0.3:
+                interpretation = "Moderate" 
+            else:
+                interpretation = "Weak"
+                
+            if corr > 0:
+                interpretation += " positive"
+            else:
+                interpretation += " negative"
+            
+            typst_rows.append(f"    [*{label}*], [{corr:.4f}], [{interpretation}],")
+    
+    # Add summary statistics
+    n_comparisons = len(data_df)
+    places = data_df['place'].unique()
+    
+    typst_footer = f"""  ),
+  caption: [Road continuation quality vs. performance correlation analysis (n={n_comparisons} comparisons, {len(places)} places, threshold={threshold}m). Road continuation quality measured as injected edges / total edges ratio from selective injection fusion analysis.],
+) <table:road-continuation-correlation>"""
+
+    return typst_header + "\n" + "\n".join(typst_rows) + "\n" + typst_footer
