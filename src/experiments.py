@@ -1378,7 +1378,7 @@ def generate_unimodal_fusion_typst_table(results, threshold):
 
 #figure(
   table(
-    columns: 7,
+    columns: 9,
     table.header(
       [Scenario],
       [Place],
@@ -1387,6 +1387,8 @@ def generate_unimodal_fusion_typst_table(results, threshold):
       [Injected Edges],
       [Total Edges],
       [Total Length (km)],
+      [Inj./Tot. Edges],
+      [Inj./Tot. Length],
     ),"""
 
     typst_rows = []
@@ -1404,7 +1406,11 @@ def generate_unimodal_fusion_typst_table(results, threshold):
             data = results[place][scenario]
             place_display = place.title()
             
-            typst_rows.append(f"    [Scenario {scenario_counter}], [{place_display}], [*{base}*], [*{patch}*], [{data['injected_edges']}], [{data['total_edges']}], [{data['total_length_km']:.2f}],")
+            # Calculate ratios
+            inj_edges_ratio = data['injected_edges'] / data['total_edges'] if data['total_edges'] > 0 else 0
+            inj_length_ratio = data['injected_edges'] / data['total_length_km'] if data['total_length_km'] > 0 else 0
+            
+            typst_rows.append(f"    [Scenario {scenario_counter}], [{place_display}], [*{base}*], [*{patch}*], [{data['injected_edges']}], [{data['total_edges']}], [{data['total_length_km']:.2f}], [{inj_edges_ratio:.4f}], [{inj_length_ratio:.2f}],")
         scenario_counter += 1
     
     typst_footer = f"""  ),
