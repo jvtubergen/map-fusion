@@ -922,13 +922,14 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
     """
     Create a single 2×4 heatmap visualization for the correlation matrix.
     Shows relationships between road continuation quality (rows) and map performance (columns).
+    Each cell displays both correlation coefficient and average change value.
     """
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
     
     # Set up the plot: single heatmap
-    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
     fig.suptitle(f'Road Continuation Quality vs Performance Correlations (threshold={threshold}m)', fontsize=14)
     
     # Better labels for the variables
@@ -944,23 +945,51 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
         "APLS\n(Prime)"
     ]
     
+    # Calculate average values for each metric
+    road_continuation_cols = ["correct_continuation", "correct_discontinuation"]  
+    performance_cols = ["topo_change", "topo_prime_change", "apls_change", "apls_prime_change"]
+    
+    # Create matrix of average values
+    avg_matrix = data_df[road_continuation_cols + performance_cols].mean()
+    continuation_avg_matrix = np.zeros((2, 4))
+    performance_avg_matrix = np.zeros((2, 4))
+    
+    for i, road_col in enumerate(road_continuation_cols):
+        for j, perf_col in enumerate(performance_cols):
+            continuation_avg_matrix[i, j] = avg_matrix[road_col]
+            performance_avg_matrix[i, j] = avg_matrix[perf_col]
+    
+    # Create custom annotation matrix combining correlation and average values
+    annot_matrix = []
+    for i in range(correlation_matrix.shape[0]):
+        row = []
+        for j in range(correlation_matrix.shape[1]):
+            corr_val = correlation_matrix.iloc[i, j]
+            cont_avg = continuation_avg_matrix[i, j]
+            perf_avg = performance_avg_matrix[i, j]
+            # Format: correlation on top line, (continuation avg, performance avg) on bottom line
+            annotation = f"{corr_val:.3f}\n({cont_avg:.3f}, {perf_avg:.3f})"
+            row.append(annotation)
+        annot_matrix.append(row)
+    
     # For correlation matrices, values are always between -1 and 1
     vmin, vmax = -1, 1
     
-    # Create heatmap
+    # Create heatmap with custom annotations
     sns.heatmap(
         correlation_matrix, 
         ax=ax,
         xticklabels=col_labels,
         yticklabels=row_labels,
-        annot=True,
-        fmt='.3f',
+        annot=annot_matrix,
+        fmt='',  # Empty format since we're providing custom strings
         cmap='RdBu_r',
         center=0,
         vmin=vmin,
         vmax=vmax,
         square=False,
-        cbar_kws={'label': 'Correlation Coefficient'}
+        cbar_kws={'label': 'Correlation Coefficient'},
+        annot_kws={'fontsize': 10}
     )
     
     # Add subplot details
@@ -971,12 +1000,12 @@ def plot_continuation_performance_heatmap(correlation_matrix, threshold, data_df
     ax.set_xlabel("Map Performance Changes", fontsize=12)
     ax.set_ylabel("Road Continuation Quality", fontsize=12)
     
-    # Add caption with data details
-    caption = f"n={n_data_points} data points from {places} × {base_maps}"
+    # Add caption with data details and explanation
+    caption = f"n={n_data_points} data points from {places} × {base_maps}\nEach cell shows: correlation coefficient (continuation avg, performance avg)"
     plt.figtext(0.5, 0.02, caption, ha='center', fontsize=10, style='italic')
     
     plt.tight_layout()
-    plt.subplots_adjust(top=0.9, bottom=0.15)
+    plt.subplots_adjust(top=0.9, bottom=0.18)
     plt.show()
 
 
