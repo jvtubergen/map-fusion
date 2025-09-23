@@ -1,69 +1,76 @@
-# Geoalg: Geometric algorithm master thesis
+# Map-Fusion: Multi-Modal Road Network Reconstruction
+
+A late-fusion algorithm for improving road network reconstruction by combining GPS trajectory data with satellite imagery. This project resolves road continuation conflicts between GPS-based and satellite-based reconstructions through geometric algorithms.
+
+<p align="center">
+  <img src="documentation/images/overview-pipeline-diagram.png" alt="Pipeline Overview">
+  <br>
+  <em>The full late-fusion map reconstruction pipeline, highlighting the novel map fusion algorithm step contributed by this research project</em>
+</p>
+
+This repo contains both the map fusion algorithm procedure as well as the entire pipeline, including the experiments and the generation of diagrams and visualizations as seen in the thesis
+
+The master thesis document is found here: [Master Thesis Document](documentation/Master%20Thesis%20Jeroen%20van%20Tubergen%20with%20Appendix.pdf).
+
+It contains in-depth information on the motivation and implementation of the map fusion algorithm, as well as about the various components of the entire late-fusion process, described in the chapters of method and experimental setup respectively.
+
+**Note**: The appendix was added after graduation and is not part of the thesis itself. It was after the thesis got completed that I had the insight of selective injection (using a bidirectional edge coverage check) as a fix to address road continuation better, and the results are promising.
+
+## Running code
+
+I ran the code with [hatch](https://hatch.pypa.io/latest/). 
+1. Install hatch
+2. Enter the virtual environment that automatically installs dependencies with `hatch shell`
+3. Run python code, such as `python src/main.py`
 
 
-## Running experiments
-Experiments are stored under `./src/measurements.py`.
-To run experiments:
-```python
-experiment_one_base_table()
-experiment_two_measure_threshold_values()
-experiment_two_render_minimal_and_maximal_thresholds()
-experiment_two_fusion_metadata()
-experiment_three_sample_histogram()
+### Data Requirements
+
+In order to retrieve satellite images you require a Google API key that allows downloading satellite images.
+For the multimodal dataset you need less than 1GB, but the generation of experiment artefacts I had to generate over 50GB of precomputed shortest path data for the APLS metric.
+- Google API key in `~/.cache/gmaps-image/api_key.txt` for satellite data
+- Sufficient storage for Berlin (~500MB) and Chicago (~77MB) datasets
+- Sufficient storage for experiment artifacts (~50GB)
+
+
+## Repository Structure
+
+```
+map-fusion/
+├── src/                # Code implementation
+│   ├── data/             # Data acquisition and preprocessing
+│   ├── graph/            # Graph operations and fusion algorithms
+│   ├── map_similarity/   # APLS and TOPO metric implementations
+│   └── experiments.py    # Experiment definitions and analysis
+├── data/               # Processed datasets and results
+│   ├── graphs/           # Generated graph files (.graphml, .graph)
+│   ├── experiments/      # Cached experiment results
+│   └── pickled/          # Serialized intermediate data
+├── documentation/      # Detailed pipeline documentation
+└── images/               # Visualization outputs and qualitative results
 ```
 
+## Citation
 
+In case you use parts of this work, please cite accordingly:
 
-## Sat2Graph
-Sat2Graph code is integrated into the code under `./src/data/sat2graph.py`.
-It requires to have the place satellite images (with upper-left pixel coordinate with zoom level metadata) and the CNN model global V2.
-Information on exact locations are found under `./src/data/sat2graph.py:sat_locations()`.
+```bibtex
+@mastersthesis{late-mapfusion2025,
+  title={Geometric Late-Fusion of GPS and Satellite-based Road Network Reconstructions},
+  author={Jeroen van Tubergen},
+  school={Utrecht University},
+  year={2025},
+  note={Available at: https://github.com/jvtubergen/map-fusion}
+}
+```
 
+Cite other dependencies if applicable.
+The following request for citation that I am aware of:
+* [Mapconstruction](http://mapconstruction.org)
+* [OSMnx](https://github.com/gboeing/osmnx)
+* [Seaborn](https://doi.org/10.21105/joss.03021)
+* [Matplotlib](https://matplotlib.org)
+* [Roadster](https://github.com/Erfanh1995/Roadster)
+* [Sat2Graph](https://github.com/songtaohe/Sat2Graph)
 
-
-## Data 
-Data preparation steps (data modalities and unimodal inferrence graph results) can be bypassed by using git LFS to download raw (gps + sat) data and inferred (gps + sat) graphs.
-The relevant portion for geoalg (the inferred sat and gps graphs alongside the ground truth osm) are stored under `./data/graphs/(gps|osm|sat)`.
-
-Note the region of interest is decided by the GPS data and is limited to the cities Berlin and Chicago for practical reasons.
-
-Related dependencies are:
-* gps: [roadster]()
-* sat: [gmaps-image]() and [sat2graph-simplified]()
-* osm: [OSMnx]()
-Both for sat and osm packages are already included by preparing virtual environment with [hatch]().
-For GPS relies on Java and has to be dealt with manually.
-
-In case you want to run through this unimodal data inferrence pipeline:
-* The OSM graph data is retrieved by performing API calls to [OpenStreetMaps]() API by using the [OSMnx]() library.
-    1. Function `./src/data/osm:download_data` to download graph data and store it to `./data/graphs/sat/(berlin|chicago)/(vertices.txt|edges.txt)`.
-* The SAT image data is retrieved by first obtaining images with [gmaps-image]() and then inferring them with [sat2graph-simplified]().
-    1. Function `./src/data/sat.py:download_data` calls [gmaps-image]() to obtain satellite image of Berlin and Chicago (500MB and 77MB respectively) and stores the images at `./data/sat/images/(berlin|chicago)` with the upper-left pixel-coordinate and the related zoom level (with scale applied) add as image metadata. Note it requires a Google API key written to `~/.cache/gmaps-image/api_key.txt` to perform API calls.
-    2. Function `./src/data/sat.py:infer` calls [sat2graph-simplified]() to convert the resulting images of step 1 into inferred graphs, storing these at `./data/graphs/sat/(berlin|chicago)/(vertices.txt|edges.txt)`.
-* The GPS data is limited to the cities of Berlin and Chicago in [mapconstruction]() dataset. 
-    1. Function `./src/data/gps.py:download_data` to download and extract [mapconstruction]() dataset into `./data/gps/traces/(berlin|chicago)`. 
-    2. To infer, clone [roadster]() repo, run the Java code on the two cities, and store the inferred graph data to `./data/gps/inferred/(berlin|chicago)/(vertices.txt|edges.txt)`.  For gps (roadster) clone the repo in `./external/roadster` with `gps clone  ./external/roadster`, get the code running, and perform the command `bash ./src/data/gps/infer.sh` to use [javac]() for inferring both on Berlin and Chicago.
-    3. Convert the inferred graph data from UTM to WSG coordinates by running the function `./src/data/gps.py:convert` that reads in the graph data of step 2 and writes it to `./data/graphs/gps/berlin|chicago)/(vertices.txt|edges.txt)`.
-
-
-## Preparation
-
-
-### Uni-modal data inferrence
-Use [roadster]() (see #roadster) to 
-
-## Folder structure
-
-* data: content related to inferrence, experiments, visualizations
-    * gps: data for inferrence pipeline unimodal GPS-based map reconstruction method
-        * traces: raw unimodal data. One folder per city with a text file for every track of traces.
-        * inferred: output of Roadster. 
-    * sat: data for inferrence pipeline unimodal SAT-based map reconstruction method
-    * graphs: inferred graphs
-
-* src: code
-    * data: pre-processing to obtain unimodal input data and the unimodal inferrence pipeline 
-        * sat
-            * 
-        * gps
-        * osm
+For the frechet implementation information is provided in the repo at [partial-curve-matching-rs](https://github.com/jvtubergen/partial-curve-matching-rs) under [Acknowledgements](https://github.com/jvtubergen/partial-curve-matching-rs?tab=readme-ov-file#acknowledgement).
