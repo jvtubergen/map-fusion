@@ -1,5 +1,5 @@
 # Rewrite of https://github.com:CosmiQ/apls with additional new functionality.
-from data_handling import *
+from storage import *
 from utilities import *
 from graph import *
 

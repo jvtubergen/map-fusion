@@ -1,4 +1,4 @@
-from data_handling import *
+from storage import *
 from utilities import *
 from data import *
 from map_similarity import *

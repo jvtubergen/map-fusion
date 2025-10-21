@@ -6,7 +6,7 @@ Currently, most utility functions are embedded within their respective modules, 
 a central location for shared utilities as the codebase evolves.
 """
 
-from data_handling import *
+from storage import *
 from utilities import *
 from data import *
 from map_similarity import *

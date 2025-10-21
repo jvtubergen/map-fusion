@@ -1,6 +1,5 @@
 from external import *
-from data_handling import *
-from caching import *
+from storage import *
 from spatial_reference_systems.utm import utm_to_latlon
 from graph import *
 

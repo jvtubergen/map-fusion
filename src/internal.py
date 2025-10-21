@@ -1,6 +1,5 @@
 # General
-from caching import *
-from data_handling import *
+from storage import *
 from utilities import *
 
 # Modules

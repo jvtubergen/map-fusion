@@ -1,7 +1,6 @@
 from spatial_reference_systems import *
-from data_handling import *
+from storage import *
 from data.gmaps import fine_tune_image_coordinates, download_and_construct_image
-from caching import *
 
 from data.sat2graph.lib import obtain_sat_graph
 
