@@ -25,28 +25,45 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
+  # Core Numerical & Scientific Computing
+  "numpy>=2.2,<3.0",
+  "scipy>=1.16,<2.0",                   # Map similarity metrics and sat2graph processing
+
+  # Geospatial & Coordinate Systems
+  "geopandas>=1.1,<2.0",                # Geospatial data operations
+  "shapely>=2.1,<3.0",                  # Geometry operations (Point, LineString)
+  "utm>=0.8,<1.0",                      # To convert between UTM and latlon coordinates
+  "rtree>=1.4,<2.0",                    # Indexing nodes subgraph extraction by bounding box
+
+  # Graph & Network Operations
+  "networkx>=3.5,<4.0",                 # Graph manipulation
+  "osmnx>=2.0,<3.0",                    # Graph manipulation + OSM data retrieval
+
+  # Data Analysis & Statistics
+  "pandas>=2.3,<3.0",
+  "scikit-learn>=1.7,<2.0",             # Enforce scikit so pandas works
+
+  # Visualization & Plotting
+  "matplotlib>=3.10,<4.0",
+  "seaborn>=0.13,<1.0",
+  "pyQt6>=6.9,<7.0",                    # Necessary for plotting on your new laptop
+
+  # Image Processing & Deep Learning
+  "pillow>=11.3,<12.0",                 # Image extraction
+  "opencv-python>=4.12,<5.0",           # cv2
+  "tf-nightly-cpu",                     # tf
+
+  # Network & I/O
+  "requests>=2.32,<3.0",                # gmaps-image dependency for API requests
+
+  # Research-Specific Algorithms
   "partial-curve-matching @ git+https://github.com/jvtubergen/partial-curve-matching-rs.git",
-  "numpy",
-  "networkx",
-  "osmnx",
-  "matplotlib",
-  "scikit-learn", 
-  "jupyterlab", # jupyterlab
-  "ipykernel",  # jupter lab kernel creation
-  "frechetdist", # doesn't work?
-  "utm", # To convert UTM of mapconstruction.org to lat lon.
-  "rtree", # Indexing nodes subgraph extraction by bounding box.
-  "pillow", # Image extraction 
-  "requests", # gmaps-image dependency for API requests.
-  "pyQt6", # Necessary for plotting on your new laptop.
-  "pandas",
-  "seaborn",
-  "debugpy",
-  "py-spy",
-#  "apls @ git+https://github.com/jvtubergen/apls@attempt"
-#  "gdal", # Geospatial Data Abstraction Layer
-  "opencv-python", # cv2
-  "tf-nightly-cpu" # tf
+]
+
+[project.optional-dependencies]
+dev = [
+  "py-spy>=0.4,<1.0", # Performance profiling tool
+  "debugpy>=1.8,<2.0" # To connect with IDE debugger
 ]
 
 [project.urls]
