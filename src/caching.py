@@ -14,8 +14,8 @@ def get_fusion_variants(covered_injection_only=False):
 # This file provides functions to cache your computation results so they can be re-used.
 
 # Cache folder is used for retrieving the API key from and to store image query responses to.
-config_folder = os.path.expanduser("~/.config/geoalg")
-cache_folder = os.path.expanduser("~/.cache/geoalg")
+config_folder = os.path.expanduser("~/.config/map-fusion")
+cache_folder = os.path.expanduser("~/.cache/map-fusion")
 data_folder = "data"
 
 

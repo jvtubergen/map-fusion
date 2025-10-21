@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "geoalg"
+name = "map-fusion"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -67,12 +67,12 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/jvtubergen/geoalg#readme"
-Issues = "https://github.com/jvtubergen/geoalg/issues"
-Source = "https://github.com/jvtubergen/geoalg"
+Documentation = "https://github.com/jvtubergen/map-fusion#readme"
+Issues = "https://github.com/jvtubergen/map-fusion/issues"
+Source = "https://github.com/jvtubergen/map-fusion"
 
 [tool.hatch.version]
-path = "src/geoalg/__about__.py"
+path = "src/map-fusion/__about__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true # Necessary to directly link to github releases.
@@ -82,19 +82,19 @@ extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/geoalg tests}"
+check = "mypy --install-types --non-interactive {args:src/map-fusion tests}"
 
 [tool.coverage.run]
-source_pkgs = ["geoalg", "tests"]
+source_pkgs = ["map-fusion", "tests"]
 branch = true
 parallel = true
 omit = [
-  "src/geoalg/__about__.py",
+  "src/map-fusion/__about__.py",
 ]
 
 [tool.coverage.paths]
-geoalg = ["src/geoalg"]
-tests = ["tests", "*/geoalg/tests"]
+map-fusion = ["src/map-fusion"]
+tests = ["tests", "*/map-fusion/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
