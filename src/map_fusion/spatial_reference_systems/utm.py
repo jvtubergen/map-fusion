@@ -1,4 +1,6 @@
 import utm
+from typing import Tuple
+from ..types.common import Place
 
 # Latlons for obtaining zone-numbers and zone-letters.
 centrums = {
@@ -29,7 +31,7 @@ zone_letters = {
 }
 
 # Convert a utm coordinate into a latlon.
-def utm_to_latlon(coordinate, place):
+def utm_to_latlon(coordinate: Tuple[float, float], place: Place) -> Tuple[float, float]:
     y, x = coordinate
     zone_number = zone_numbers[place]
     zone_letter = zone_letters[place]

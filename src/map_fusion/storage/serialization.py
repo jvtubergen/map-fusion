@@ -2,10 +2,11 @@ from external import *
 from graph.edge_cutting import *
 from graph.deduplicating import *
 from utilities import *
+from networkx import Graph
 
 ### Write and reading graphs.
 
-def write_graph(location, G):
+def write_graph(location: str, G: Graph) -> None:
     print(f"Writing graph to {location}")
 
     parent_dir = os.path.dirname(location)
@@ -15,7 +16,7 @@ def write_graph(location, G):
     write_pickle(location, graph_to_pickle(G))
 
 
-def read_graph(location):
+def read_graph(location: str) -> Graph:
     return pickle_to_graph(read_pickle(location))
 
 # Convert graph into dictionary so it can be pickled.
@@ -42,7 +43,7 @@ def pickle_to_graph(data):
     return G
 
 # Obtain `folderpath/vertices.csv` and `folderpath/edges.csv` from disk and construct vectorized graph from it.
-def read_graph_csv(folderpath):
+def read_graph_csv(folderpath: str) -> Graph:
 
     edges_file_path    = f"{folderpath}/edges.csv"
     vertices_file_path = f"{folderpath}/vertices.csv"

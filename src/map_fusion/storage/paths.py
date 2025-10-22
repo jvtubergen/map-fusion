@@ -1,4 +1,6 @@
 import os
+from typing import Dict
+from ..types.common import Place
 
 places = ["berlin", "chicago"]
 base_variants = ["osm", "sat", "gps"]
@@ -151,7 +153,7 @@ def experiment_location(place, variant, threshold = None, inverse = False, metri
 def sat_locations(place):
     return data_location(place, "sat")
 
-def gps_locations(place):
+def gps_locations(place: Place) -> Dict[str, str]:
     return data_location(place, "gps")
 
 def osm_locations(place):

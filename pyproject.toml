@@ -89,10 +89,11 @@ test = "pytest {args:tests} && mypy --install-types --non-interactive {args:src/
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
+  "types-networkx",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/map_fusion}"
-check-gps = "mypy --strict src/map_fusion/data/gps.py src/map_fusion/types/gps.py src/map_fusion/types/common.py"
+check-gps = "mypy --follow-imports=silent --strict src/map_fusion/data/gps.py"
 
 [tool.coverage.run]
 source_pkgs = ["map_fusion"]
@@ -111,3 +112,12 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true

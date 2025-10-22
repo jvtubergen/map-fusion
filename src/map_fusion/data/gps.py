@@ -1,13 +1,16 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 import os
 import math
 import numpy as np
-from networkx import Graph
+from networkx import Graph as NxGraph
 
-from storage.paths import gps_locations
-from storage.serialization import read_graph, write_graph, read_graph_csv
-from spatial_reference_systems.utm import utm_to_latlon
-from graph.sanitizing import sanitize_graph, sanity_check_graph
+# Type alias for networkx Graph to satisfy mypy strict mode
+Graph = NxGraph[Any]
+
+from ..storage.paths import gps_locations
+from ..storage.serialization import read_graph, write_graph, read_graph_csv
+from ..spatial_reference_systems.utm import utm_to_latlon
+from ..graph.sanitizing import sanitize_graph, sanity_check_graph
 
 # Import type definitions
 from ..types.gps import GPSTraces, GPSStatistics
@@ -89,7 +92,7 @@ def derive_rois() -> Dict[Place, RegionOfInterest]:
 def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
     """Extract GPS statistics for each city dataset"""
     cities = ['athens', 'berlin', 'chicago']
-    stats = {}
+    stats: Dict[Place, Optional[GPSStatistics]] = {}
     
     for city in cities:
         try:
@@ -98,7 +101,7 @@ def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
             
             total_trips = len(files)
             total_samples = 0
-            total_distance = 0
+            total_distance = 0.0
             total_time_intervals = []
             
             for file in files:
@@ -109,9 +112,9 @@ def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
                         trip_data.append([x, y, t])
                     
                     total_samples += len(trip_data)
-                    
+
                     # Calculate trip distance using UTM coordinates (Euclidean distance)
-                    trip_distance = 0
+                    trip_distance = 0.0
                     for i in range(1, len(trip_data)):
                         x1, y1, t1 = trip_data[i-1]
                         x2, y2, t2 = trip_data[i]
@@ -120,11 +123,11 @@ def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
                     
                     total_distance += trip_distance
             
-            avg_samples_per_trip = total_samples / total_trips if total_trips > 0 else 0
-            avg_distance_per_trip = total_distance / total_trips if total_trips > 0 else 0
-            avg_sample_interval = sum(total_time_intervals) / len(total_time_intervals) if total_time_intervals else 0
-            
-            stats[city] = {
+            avg_samples_per_trip = total_samples / total_trips if total_trips > 0 else 0.0
+            avg_distance_per_trip = total_distance / total_trips if total_trips > 0 else 0.0
+            avg_sample_interval = sum(total_time_intervals) / len(total_time_intervals) if total_time_intervals else 0.0
+
+            city_stats: GPSStatistics = {
                 'num_trips': total_trips,
                 'avg_samples_per_trip': avg_samples_per_trip,
                 'avg_distance_per_trip': avg_distance_per_trip,
@@ -132,6 +135,7 @@ def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
                 'total_distance': total_distance,
                 'avg_sample_interval': avg_sample_interval
             }
+            stats[city] = city_stats
             
         except Exception as e:
             print(f"Error processing {city}: {e}")

@@ -1,6 +1,7 @@
-from utilities import *
-from spatial_reference_systems import *
-from graph.utilities import *
+from ..utilities import *
+from ..spatial_reference_systems import *
+from .utilities import *
+from networkx import Graph
 
 #######################################
 ### Sanity check functionality
@@ -131,7 +132,7 @@ def sanity_check_graph_curvature(G):
 
 EPS=0.0001
 
-def sanitize_graph(G):
+def sanitize_graph(G: Graph) -> Graph:
     """Sanitize Berlin|Chicago OSM|SAT|GPS graph for map fusion and experiments.
     Expects as input a graph that is simplified in WSG coordinates, then constructs and returns a graph with the following properties:
     * Simplified.
@@ -141,8 +142,8 @@ def sanitize_graph(G):
     * Edge curvature annotated.
     * Zero-length edges deleted.
     """
-    from graph.deduplicating import deduplicate_graph
-    from graph.simplifying import simplify_graph
+    from .deduplicating import deduplicate_graph
+    from .simplifying import simplify_graph
     G.graph["simplified"]  = False
     G.graph["coordinates"] = "latlon"
     G = graph_annotate_edges(G)
@@ -153,13 +154,13 @@ def sanitize_graph(G):
     return G
 
 
-def sanity_check_graph(G):
+def sanity_check_graph(G: Graph) -> None:
     """
     Check sanity of graph:
     * simplified
     * in utm coordinates
     * every node has a unique coordinate
-    * every edge has curvature 
+    * every edge has curvature
     * every edge has a length
     """
 
