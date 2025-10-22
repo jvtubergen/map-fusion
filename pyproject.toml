@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "map-fusion"
+name = "map_fusion"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -72,37 +72,38 @@ Issues = "https://github.com/jvtubergen/map-fusion/issues"
 Source = "https://github.com/jvtubergen/map-fusion"
 
 [tool.hatch.version]
-path = "src/map-fusion/__about__.py"
+path = "src/map_fusion/__about__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true # Necessary to directly link to github releases.
 
 [tool.hatch.envs.default]
 extra-dependencies = [
+  "pytest>=8.0.0",
   "mypy>=1.0.0",
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "mypy --install-types --non-interactive {args:src/map-fusion tests}"
+test = "pytest {args:tests} && mypy --install-types --non-interactive {args:src/map_fusion}"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/map-fusion tests}"
+check = "mypy --install-types --non-interactive {args:src/map_fusion}"
+check-gps = "mypy --strict src/map_fusion/data/gps.py src/map_fusion/types/gps.py src/map_fusion/types/common.py"
 
 [tool.coverage.run]
-source_pkgs = ["map-fusion", "tests"]
+source_pkgs = ["map_fusion"]
 branch = true
 parallel = true
 omit = [
-  "src/map-fusion/__about__.py",
+  "src/map_fusion/__about__.py",
 ]
 
 [tool.coverage.paths]
-map-fusion = ["src/map-fusion"]
-tests = ["tests", "*/map-fusion/tests"]
+map_fusion = ["src/map_fusion"]
 
 [tool.coverage.report]
 exclude_lines = [

@@ -1,14 +1,24 @@
-from external import *
-from storage import *
-from spatial_reference_systems.utm import utm_to_latlon
-from graph import *
+from typing import Optional, Dict
+import os
+import math
+import numpy as np
+from networkx import Graph
 
-def read_gps_graph(place):
+from storage.paths import gps_locations
+from storage.serialization import read_graph, write_graph, read_graph_csv
+from spatial_reference_systems.utm import utm_to_latlon
+from graph.sanitizing import sanitize_graph, sanity_check_graph
+
+# Import type definitions
+from ..types.gps import GPSTraces, GPSStatistics
+from ..types.common import RegionOfInterest, Place
+
+def read_gps_graph(place: Place) -> Graph:
     return read_graph(gps_locations(place)["graph_file"])
 
-def obtain_gps_graph(place):
+def obtain_gps_graph(place: Place) -> None:
     """End-to-end logic to infer GPS graph of a place.
-    
+
     This function reads in the inferred GPS graph of Roadster and writes it as a graph file to disk.
     """
     paths = gps_locations(place)
@@ -20,7 +30,7 @@ def obtain_gps_graph(place):
 
 # Extracting raw GPS traces from text.
 # By providing the place we know what UTM variables (for coordinate transformation) to use.
-def extract_trips(place, folder=None):
+def extract_trips(place: Place, folder: Optional[str] = None) -> GPSTraces:
     if folder == None:
         folder = gps_locations(place)["traces_folder"] + "/"
     files = os.listdir(folder)
@@ -35,7 +45,7 @@ def extract_trips(place, folder=None):
     return trips
 
 
-def derive_roi(place):
+def derive_roi(place: Place) -> RegionOfInterest:
     """Derive the region of interest (ROI) at a place by computing the bounding box on the GPS traces."""
     trips = extract_trips(place)
     
@@ -65,7 +75,7 @@ def derive_roi(place):
     }
 
 
-def derive_rois():
+def derive_rois() -> Dict[Place, RegionOfInterest]:
     """Derive ROIs from all cities (athens, berlin, chicago)."""
     cities = ['athens', 'berlin', 'chicago']
     rois = {}
@@ -76,7 +86,7 @@ def derive_rois():
     return rois
 
 
-def extract_gps_statistics():
+def extract_gps_statistics() -> Dict[Place, Optional[GPSStatistics]]:
     """Extract GPS statistics for each city dataset"""
     cities = ['athens', 'berlin', 'chicago']
     stats = {}
