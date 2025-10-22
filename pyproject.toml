@@ -77,6 +77,14 @@ path = "src/map-fusion/__about__.py"
 [tool.hatch.metadata]
 allow-direct-references = true # Necessary to directly link to github releases.
 
+[tool.hatch.envs.default]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "mypy --install-types --non-interactive {args:src/map-fusion tests}"
+
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
