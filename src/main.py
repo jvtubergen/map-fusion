@@ -5,7 +5,7 @@ from workflow import *
 # experiment_zero_graph_distances(sample_size=5000)
 
 
-# Experiment 1: Obtain map similarity table.
+# Experiment 1: Prepare map information for future experiments + Obtain map similarity table.
 # for inverse in [False, True]:
 #     obtain_fusion_maps(inverse=inverse)
 #     obtain_prepared_metric_maps(inverse=True)
@@ -14,7 +14,7 @@ from workflow import *
 # experiments_one_base_table("chicago", threshold=30, sample_count=10000, prime_sample_count=2000)
 
 
-# Experiment 2: 
+# Experiment 2: Obtain threshold-related graphs.
 # obtain_threshold_data(sample_count=50, prime_sample_count=10)
 # obtain_threshold_data(sample_count=500, prime_sample_count=100)
 # obtain_threshold_data(sample_count=2000, prime_sample_count=400)
@@ -28,14 +28,13 @@ from workflow import *
 # experiment_two_threshold_impact_on_metadata()
 
 
-# Experiment 3:
+# Experiment 3: Obtain graphs related to TOPO and APLS sampling options.
 # experiment_three_TOPO_hole_size(sample_count=2000, prime_sample_count=1000)
 # experiment_three_sample_distribution(sample_count=2000)
 # experiment_three_prime_sample_distribution(prime_sample_count=2000)
 
 
-
-# Qualitative:
+# Qualitative: Obtain qualitative data for the map reconstruction effects of the proposed map fusion algorithm.
 # plot_base_maps()
 # plot_IDR_maps()
 # plot_IDR_maps_with_actions()
@@ -44,11 +43,8 @@ from workflow import *
 # plot_IDR_maps_with_actions_at_extremes(place="chicago", low_threshold=1)
 
 
-
-# Experiment 4: Selective edge injection
-
+# Re-run for experiments 1 t/m 3 for map fusion with the selective edge injection approach.
 # obtain_fusion_maps_range(covered_injection_only=True)
-
 # plot_IDR_maps_with_actions(threshold=1 , for_zoomed=False, covered_injection_only=True, save=True)
 # plot_IDR_maps_with_actions(threshold=30, for_zoomed=False, covered_injection_only=True, save=True)
 # plot_IDR_maps_with_actions(threshold=50, for_zoomed=False, covered_injection_only=True, save=True)
