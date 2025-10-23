@@ -69,12 +69,12 @@ jobs:
       - name: Build release artifact (test mode)
         if: github.event_name == 'workflow_dispatch' && inputs.test_mode == 'true'
         run: |
-          bash build_release_data.sh --test --clean
+          hatch run bash build_release_data.sh --test --clean
 
       - name: Build release artifact (full)
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.test_mode == 'false')
         run: |
-          bash build_release_data.sh --clean
+          hatch run bash build_release_data.sh --clean
 
       - name: Verify release artifact
         run: |
