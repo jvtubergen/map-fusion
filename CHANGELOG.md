@@ -117,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 - **Tarball size**: ~5.3 MB compressed (~114 MB uncompressed)
 - **Build time**: ~5 minutes with actual GPS data, ~10 seconds in test mode
-- **Python version**: 3.10+
+- **Python version**: 3.11+
 - **Dependencies**: hatch, requests, utm, map_fusion package
 
 ---
